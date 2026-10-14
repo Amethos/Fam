@@ -10,6 +10,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { pickPictures, hashToken, newToken } = require("./pairing");
+const { deadTokens } = require("./alerts");
 
 initializeApp();
 const db = getFirestore();
@@ -217,11 +218,7 @@ async function notify(uids, title, body, link) {
     webpush: { fcmOptions: { link: link ?? "/" } },
   });
   // Forget tokens for uninstalled apps / expired subscriptions.
-  const dead = [];
-  res.responses.forEach((r, i) => {
-    const code = r.error?.code ?? "";
-    if (code.includes("registration-token-not-registered") || code.includes("invalid-argument")) dead.push(pairs[i]);
-  });
+  const dead = deadTokens(pairs, res.responses);
   await Promise.all(dead.map((p) => db.doc(`users/${p.uid}`).update({ fcmTokens: FieldValue.arrayRemove(p.token) })));
 }
 
