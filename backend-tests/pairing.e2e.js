@@ -96,5 +96,22 @@ assert.ok(!(await getDoc(doc(josh.db, `circles/${circleId}`))).data().parentIds.
 // Only helpers can invite.
 await rejects(mom.call("createInvite", { circleId, forName: "Stranger" }), /Only helpers/);
 
+// A helper can remove Mom's phone; she then needs a new invite to come back.
+const momUid = mom.auth.currentUser.uid;
+await rejects(mom.call("removeMember", { circleId, memberId: momUid }), /Only helpers/);
+await rejects(scammer.call("removeMember", { circleId, memberId: momUid }), /Only helpers/);
+await rejects(josh.call("removeMember", { circleId, memberId: josh.auth.currentUser.uid }), /Only a parent/);
+const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+const pending = await addDoc(collection(mom.db, `circles/${circleId}/helpRequests`),
+  { parentId: momUid, parentName: "Mom", status: "waiting", createdAt: serverTimestamp() });
+assert.equal((await josh.call("removeMember", { circleId, memberId: momUid })).status, "removed");
+const after = (await getDoc(doc(josh.db, `circles/${circleId}`))).data();
+assert.ok(!after.parentIds.includes(momUid));
+assert.equal(after.members[momUid], undefined);
+assert.equal((await getDoc(doc(josh.db, pending.path))).data().status, "cancelled");
+await assert.rejects(getDoc(doc(mom.db, `circles/${circleId}`)), "a removed phone can no longer read the family");
+const relink = await josh.call("createInvite", { circleId, forName: "Mom" });
+assert.equal((await mom.call("peekInvite", { circleId, inviteId: relink.inviteId, token: relink.token })).helperName, "Josh");
+
 console.log("pairing e2e: all checks passed");
 process.exit(0);

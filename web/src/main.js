@@ -96,7 +96,11 @@ function watchCircle(id) {
   if (id === circleId) return;
   clear(circleUnsubs);
   circleId = id;
-  if (!id) return;
+  if (!id) {
+    // Unlinked (or removed from the family): forget what we were showing.
+    Object.assign(state, { circle: null, help: [], scams: [], invites: [] });
+    return;
+  }
   const base = `circles/${id}`;
   const fail = (err) => { state.error = err.message; render(); };
   circleUnsubs.push(
@@ -322,7 +326,9 @@ function memberCards() {
         <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">Linked ${esc(timeAgo(p.linkedAt))}</span></div></div>
         <p class="muted">${isPast(p.controlAllowedAt)
           ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
-          : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p></div>`).join("")
+          : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
+        <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
+          ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
@@ -582,6 +588,11 @@ const actions = {
   "accept-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
     status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
   })),
+  "remove-member": (el) => {
+    const name = el.dataset.name || "this person";
+    if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;
+    run(() => call("removeMember", { circleId, memberId: el.dataset.id }));
+  },
   "done-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
     status: "done", updatedAt: serverTimestamp(),
   })),

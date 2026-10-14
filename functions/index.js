@@ -198,6 +198,39 @@ exports.confirmInvite = onCall(async (request) => {
   });
 });
 
+// Helper removes a parent's phone from the family (lost, replaced or given
+// away). The phone loses access at once and can only come back through a new
+// invite with the picture check. Removing helpers waits until a family can
+// have more than one helper, with approval from another helper.
+exports.removeMember = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const circleId = String(request.data?.circleId ?? "");
+  const memberId = String(request.data?.memberId ?? "");
+  if (!circleId || !memberId) throw new HttpsError("invalid-argument", "Who should be removed?");
+  const circleRef = db.doc(`circles/${circleId}`);
+  const open = await circleRef.collection("helpRequests")
+    .where("parentId", "==", memberId).where("status", "in", ["waiting", "accepted"]).get();
+
+  return db.runTransaction(async (tx) => {
+    const circle = await tx.get(circleRef);
+    if (!circle.exists) throw new HttpsError("not-found", "That family circle doesn't exist.");
+    if (!circle.get("helperIds").includes(uid)) {
+      throw new HttpsError("permission-denied", "Only helpers can remove a phone.");
+    }
+    if (!circle.get("parentIds").includes(memberId)) {
+      throw new HttpsError("failed-precondition", "Only a parent's phone can be removed for now.");
+    }
+    tx.update(circleRef, {
+      parentIds: FieldValue.arrayRemove(memberId),
+      [`members.${memberId}`]: FieldValue.delete(),
+    });
+    tx.update(db.doc(`users/${memberId}`), { circleId: FieldValue.delete(), role: FieldValue.delete() });
+    // Don't leave "Mom needs help" waiting on the dashboard for a removed phone.
+    open.docs.forEach((d) => tx.update(d.ref, { status: "cancelled", updatedAt: FieldValue.serverTimestamp() }));
+    return { status: "removed" };
+  });
+});
+
 // ---- Push notifications ----
 
 async function tokensFor(uids) {

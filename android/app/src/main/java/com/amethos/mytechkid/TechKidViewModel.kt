@@ -145,6 +145,14 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                         error = "This phone is already linked to your family."
                     }
                 }
+                // A helper removed this phone from the family (lost or replaced).
+                newCircle == null && (screen is Screen.Home || screen is Screen.Scam || screen is Screen.Intro) -> {
+                    activeHelp = null
+                    practiceHelp = null
+                    scamChecks = emptyList()
+                    helperNames = emptyList()
+                    screen = Screen.Welcome("This phone isn't connected to your family any more.")
+                }
                 newCircle == null && screen is Screen.Loading -> {
                     val invite = pendingInvite
                     pendingInvite = null

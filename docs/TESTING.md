@@ -57,6 +57,8 @@ Phones with a version from before this feature need one last manual install from
 - Tap **They don't match — stop** on either phone → nothing gets linked.
 - Wait more than an hour before using an invite → it should say it expired.
 - After Mom is linked, send her a new invite → her phone should say it's already linked.
+- On your dashboard, tap **Remove this phone** under Mom → her app goes back to the welcome screen.
+  Send her a new invite to link her again.
 
 ## What's not in this version yet
 
