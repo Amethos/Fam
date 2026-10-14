@@ -10,10 +10,10 @@ const params = new URLSearchParams(location.search);
 const invite = { c: params.get("c"), i: params.get("i"), t: params.get("t") };
 const isAndroid = /Android/i.test(navigator.userAgent);
 
-const LOGO = `<svg width="30" height="30" viewBox="0 0 34 34" fill="none" aria-hidden="true"><circle cx="11" cy="17" r="8" stroke="#1D5BD6" stroke-width="3"/><circle cx="23" cy="17" r="8" stroke="#F08A3C" stroke-width="3"/></svg>`;
+const LOGO = `My Tech Kid<span class="dot">.</span>`;
 
 function render() {
-  const brand = `<div class="brand">${LOGO} My Tech Kid</div>`;
+  const brand = `<div class="brand">${LOGO}</div>`;
   if (!invite.c || !invite.i || !invite.t) {
     root.innerHTML = `${brand}<div class="card"><h1>This link is incomplete</h1><p>Ask the person who sent it to send a new one.</p></div>`;
     return;
@@ -37,7 +37,7 @@ function render() {
       <p>When it finishes, tap the download and choose <strong>Install</strong>. If your phone asks, allow your browser to <strong>install unknown apps</strong>.</p>
       <p>Then come back to the text message and tap the link again.</p>
     </div>
-    <div class="alert orange"><p><strong>Only continue if this came from family you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to install this app.</p></div>`;
+    <div class="alert blue"><p><strong>Only continue if this came from family you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to install this app.</p></div>`;
 }
 
 render();

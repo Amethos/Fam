@@ -18,13 +18,23 @@ import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 
 const root = document.getElementById("app");
 
-const LOGO = `<svg width="30" height="30" viewBox="0 0 34 34" fill="none" aria-hidden="true"><circle cx="11" cy="17" r="8" stroke="#1D5BD6" stroke-width="3"/><circle cx="23" cy="17" r="8" stroke="#F08A3C" stroke-width="3"/></svg>`;
+// Appearance: follows the phone (light by day, dark at night) unless the
+// helper picks one. Remembered on this device only.
+const THEMES = { auto: "Automatic", light: "Light", dark: "Dark" };
+let themeChoice = storage.get("theme") || "auto";
+function applyTheme(choice) {
+  if (choice === "light" || choice === "dark") document.documentElement.dataset.theme = choice;
+  else delete document.documentElement.dataset.theme;
+}
+applyTheme(themeChoice);
+
+const LOGO = `My Tech Kid<span class="dot">.</span>`;
 
 // `VITE_EMULATORS=1 npm run dev` talks to local Firebase emulators instead (for testing).
 const useEmulators = import.meta.env.VITE_EMULATORS === "1";
 
 if (!isConfigured && !useEmulators) {
-  root.innerHTML = `<div class="brand">${LOGO} My Tech Kid</div>
+  root.innerHTML = `<div class="brand">${LOGO}</div>
     <div class="card"><h1>Almost there</h1>
     <p>My Tech Kid isn't connected to Firebase yet. Fill in <code>web/src/config.js</code> — see <code>docs/SETUP.md</code>.</p></div>`;
   throw new Error("My Tech Kid: web/src/config.js is not filled in yet");
@@ -109,8 +119,8 @@ function myName() {
 }
 
 function header() {
-  return `<div class="row"><div class="brand grow">${LOGO} My Tech Kid</div>
-    ${state.user ? `<button class="secondary" data-action="signout">Sign out</button>` : ""}</div>
+  return `<div class="row"><div class="brand grow">${LOGO}</div>
+    ${state.user ? `<button class="secondary small" data-action="signout">Sign out</button>` : ""}</div>
     ${state.error ? `<p class="error" role="alert">${esc(state.error)}</p>` : ""}`;
 }
 
@@ -162,9 +172,9 @@ function helpCards() {
   const uid = state.user.uid;
   return state.help.map((h) => {
     if (h.status === "waiting") {
-      return `<div class="alert red"><h2>${esc(h.parentName)} needs help</h2>
-        <p>Asked ${esc(timeAgo(h.createdAt))}.</p>
-        <button class="danger" data-action="accept-help" data-id="${esc(h.id)}">I'm on it</button></div>`;
+      return `<div class="alert urgent"><div class="row"><h2 class="grow">${esc(h.parentName)} needs help</h2>
+        <span class="muted">${esc(timeAgo(h.createdAt))}</span></div>
+        <button data-action="accept-help" data-id="${esc(h.id)}">I'm on it</button></div>`;
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
@@ -177,9 +187,9 @@ function helpCards() {
 
 function scamCards() {
   return state.scams.filter((s) => !s.verdict).map((s) => `
-    <div class="alert orange"><h2>${esc(s.parentName)} asks: is this a scam?</h2>
+    <div class="card"><p class="eyebrow">Scam check</p><h2>${esc(s.parentName)} asks: is this a scam?</h2>
       <p class="quote">${esc(s.text.slice(0, 160))}${s.text.length > 160 ? "…" : ""}</p>
-      <a class="button" href="#/scam/${esc(s.id)}">Answer</a></div>`).join("");
+      <a class="button secondary" href="#/scam/${esc(s.id)}">Review and answer</a></div>`).join("");
 }
 
 function memberCards() {
@@ -217,7 +227,7 @@ function familyTitle(name) {
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
   return `${header()}
-  <h1>${esc(familyTitle(state.circle?.name))}</h1>
+  <div><p class="muted">Your family</p><h1>${esc(familyTitle(state.circle?.name))}</h1></div>
   ${alertsBanner()}
   ${helpCards()}
   ${scamCards()}
@@ -227,7 +237,14 @@ function viewDashboard() {
   ${answered.length ? `<h2>Recent scam checks</h2>${answered.map((s) => `
     <a class="card" style="text-decoration:none;color:inherit" href="#/scam/${esc(s.id)}">
       <strong>${esc(s.parentName)}: ${esc(VERDICTS[s.verdict])}</strong>
-      <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}`;
+      <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}
+  ${appearance()}`;
+}
+
+function appearance() {
+  return `<div class="appearance"><span class="muted">Appearance</span>
+    <div class="choices" role="group" aria-label="Appearance">${Object.entries(THEMES).map(([key, label]) =>
+      `<button type="button" data-action="theme" data-choice="${key}" aria-pressed="${themeChoice === key}">${label}</button>`).join("")}</div></div>`;
 }
 
 function viewAdd() {
@@ -420,6 +437,12 @@ const actions = {
     }
   },
   confirm: (el) => run(() => call("confirmInvite", { circleId, inviteId: el.dataset.id, match: el.dataset.match === "yes" })),
+  theme: (el) => {
+    themeChoice = el.dataset.choice;
+    storage.set("theme", themeChoice);
+    applyTheme(themeChoice);
+    render();
+  },
   verdict: (el) => { state.verdicts[el.dataset.id] = el.dataset.verdict; render(); },
 };
 
