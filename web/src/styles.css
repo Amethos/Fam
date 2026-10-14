@@ -6,7 +6,7 @@
   --surface-2: #E9EEF5;
   --line: #DCE2EC;
   --fg: #0E1726;
-  --muted: #4A5568;
+  --muted: #3D4757;
   --navy: #0E1726;
   --amber: #F2B33D;
   --amber-text: #8A5A00;
@@ -23,7 +23,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
-    --fg: #EEF2F8; --muted: #9AA8BD; --amber-text: #F2B33D;
+    --fg: #EEF2F8; --muted: #B3BFD0; --amber-text: #F2B33D;
     --red: #E5484D; --red-soft: #3A1D25; --red-ink: #FFD7D5;
     --green: #3FB27F; --green-soft: #173A2E; --green-ink: #C8F0DC; --focus: #8AB4FF;
     color-scheme: dark;
@@ -31,7 +31,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
-  --fg: #EEF2F8; --muted: #9AA8BD; --amber-text: #F2B33D;
+  --fg: #EEF2F8; --muted: #B3BFD0; --amber-text: #F2B33D;
   --red: #E5484D; --red-soft: #3A1D25; --red-ink: #FFD7D5;
   --green: #3FB27F; --green-soft: #173A2E; --green-ink: #C8F0DC; --focus: #8AB4FF;
   color-scheme: dark;
@@ -45,6 +45,7 @@ body {
   color: var(--fg);
   font-family: var(--font);
   font-size: 1.0625rem;
+  font-weight: 500;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -62,7 +63,7 @@ h1, h2 { margin: 0; line-height: 1.1; text-wrap: balance; }
 h1 { font-size: 2.125rem; font-weight: 800; letter-spacing: -0.02em; }
 h2 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; }
 p { margin: 0; }
-.muted { color: var(--muted); }
+.muted { color: var(--muted); font-weight: 500; }
 .eyebrow { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-text); }
 
 .brand { font-weight: 800; font-size: 1.125rem; letter-spacing: -0.01em; }
@@ -112,7 +113,7 @@ button[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--fg); }
 form { display: flex; flex-direction: column; gap: 12px; }
 label { font-weight: 700; font-size: 0.9375rem; }
 input, textarea {
-  font: inherit; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  font: inherit; font-weight: 500; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--bg); color: var(--fg);
 }
 input::placeholder, textarea::placeholder { color: var(--muted); }
