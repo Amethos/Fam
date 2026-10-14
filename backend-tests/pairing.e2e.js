@@ -66,6 +66,33 @@ await dad.call("claimInvite", { circleId, inviteId: second.inviteId, token: seco
 assert.equal((await josh.call("confirmInvite", { circleId, inviteId: second.inviteId, match: false })).status, "cancelled");
 await rejects(dad.call("confirmInvite", { circleId, inviteId: second.inviteId, match: true }), /isn't waiting/);
 
+// Invites run out after an hour, including ones opened but not finished.
+// The emulator's "owner" token lets the test move an invite's clock back.
+async function expire(inviteId) {
+  const url = `http://127.0.0.1:8080/v1/projects/demo-fam/databases/(default)/documents/circles/${circleId}/invites/${inviteId}?updateMask.fieldPaths=expiresAt`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { expiresAt: { timestampValue: new Date(Date.now() - 1000).toISOString() } } }),
+  });
+  assert.ok(res.ok, `couldn't expire invite: ${res.status}`);
+}
+const stale = await josh.call("createInvite", { circleId, forName: "Aunt Sue" });
+await expire(stale.inviteId);
+const sue = client("sue");
+await signInAnonymously(sue.auth);
+await rejects(sue.call("peekInvite", { circleId, inviteId: stale.inviteId, token: stale.token }), /expired/);
+await rejects(sue.call("claimInvite", { circleId, inviteId: stale.inviteId, token: stale.token }), /expired/);
+
+const halfDone = await josh.call("createInvite", { circleId, forName: "Uncle Bob" });
+const bob = client("bob");
+await signInAnonymously(bob.auth);
+await bob.call("claimInvite", { circleId, inviteId: halfDone.inviteId, token: halfDone.token });
+await expire(halfDone.inviteId);
+assert.equal((await bob.call("confirmInvite", { circleId, inviteId: halfDone.inviteId, match: true })).status, "expired");
+await rejects(josh.call("confirmInvite", { circleId, inviteId: halfDone.inviteId, match: true }), /isn't waiting/);
+assert.ok(!(await getDoc(doc(josh.db, `circles/${circleId}`))).data().parentIds.includes(bob.auth.currentUser.uid));
+
 // Only helpers can invite.
 await rejects(mom.call("createInvite", { circleId, forName: "Stranger" }), /Only helpers/);
 

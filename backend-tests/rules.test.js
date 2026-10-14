@@ -83,6 +83,27 @@ test("helpers accept help; the parent can cancel", async () => {
   await assertSucceeds(updateDoc(doc(db("mom"), "circles/c1/helpRequests/h1"), { status: "done", updatedAt: serverTimestamp() }));
 });
 
+test("a finished or cancelled help request can't be reopened", async () => {
+  const accept = (uid) => ({ status: "accepted", helperId: uid, helperName: "Josh", updatedAt: serverTimestamp() });
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "circles/c1/helpRequests/done1"), { parentId: "mom", parentName: "Mom", status: "done" });
+    await setDoc(doc(ctx.firestore(), "circles/c1/helpRequests/gone1"), { parentId: "mom", parentName: "Mom", status: "cancelled" });
+  });
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/done1"), accept("josh")));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/gone1"), accept("josh")));
+  await assertFails(updateDoc(doc(db("mom"), "circles/c1/helpRequests/gone1"), { status: "done", updatedAt: serverTimestamp() }));
+  // Once accepted, it can only be finished, not taken again.
+  await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), accept("josh")));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), accept("josh")));
+  await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), { status: "done", updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), { status: "accepted", updatedAt: serverTimestamp() }));
+});
+
+test("a helper's name on a help request must be a short name", async () => {
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), { status: "accepted", helperId: "josh", helperName: "x".repeat(61) }));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), { status: "accepted", helperId: "josh", helperName: 42 }));
+});
+
 test("only the parent sends scam checks, unanswered", async () => {
   await assertSucceeds(addDoc(collection(db("mom"), "circles/c1/scamChecks"), scam()));
   await assertFails(addDoc(collection(db("mom"), "circles/c1/scamChecks"), scam({ verdict: "safe" })));

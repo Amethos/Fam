@@ -49,13 +49,19 @@ service cloud.firestore {
           && request.resource.data.parentId == request.auth.uid
           && request.resource.data.status == 'waiting'
           && request.resource.data.createdAt == request.time;
+        // A finished or cancelled request stays finished: nobody can reopen it.
+        // Helpers: waiting -> accepted (one helper takes it), then -> done.
         allow update: if (isHelper(cid)
             && changedOnly(['status', 'helperId', 'helperName', 'updatedAt'])
-            && request.resource.data.status in ['accepted', 'done']
-            && request.resource.data.helperId == request.auth.uid)
+            && ((resource.data.status == 'waiting' && request.resource.data.status in ['accepted', 'done'])
+              || (resource.data.status == 'accepted' && request.resource.data.status == 'done'))
+            && request.resource.data.helperId == request.auth.uid
+            && request.resource.data.helperName is string
+            && request.resource.data.helperName.size() <= 60)
           || (isParent(cid)
             && resource.data.parentId == request.auth.uid
             && changedOnly(['status', 'updatedAt'])
+            && resource.data.status in ['waiting', 'accepted']
             && request.resource.data.status in ['cancelled', 'done']);
       }
 
