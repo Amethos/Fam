@@ -479,7 +479,11 @@ private fun UpdatePanel(vm: TechKidViewModel) {
                     Body("Getting it now…", AmberInk)
                 }
             } else {
-                Body("Tap Update, then tap Update again on the next screen.", AmberInk)
+                Body(
+                    if (vm.needsInstallSwitch) "Tap Update, turn on the switch for My Tech Kid, then tap Back."
+                    else "Tap Update, then tap Update again on the next screen.",
+                    AmberInk,
+                )
                 BigButton("Update", color = AmberDeep) { vm.startUpdate() }
             }
         }

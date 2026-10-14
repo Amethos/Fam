@@ -36,7 +36,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        vm.checkForUpdate()
+        vm.appResumed()
+    }
+
+    override fun onPause() {
+        vm.appPaused()
+        super.onPause()
     }
 
     private fun askForNotificationsIfNeeded() {

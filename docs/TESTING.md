@@ -44,10 +44,12 @@ phone, before Mom tries it on her own.
 When a new version is published, Mom's home screen shows **A new My Tech Kid is ready** with an **Update** button
 (it checks each time she opens the app).
 
-1. Mom taps **Update**, waits a few seconds, then taps **Update** again on Android's screen.
-2. **The very first time only**, Samsung says it can't install from this source: tap **Settings**, switch on
-   **Allow from this source**, then tap Back. Best done while you're on the phone with her.
-3. When it says the app is updated, tap **Open**.
+1. Mom taps **Update** and waits a few seconds. It's fine if she leaves the app while it downloads: the
+   next time she opens My Tech Kid, Android's update screen appears.
+2. **The very first time only**, the phone opens a page with one switch for My Tech Kid
+   (**Allow from this source** / **Install unknown apps**): switch it on, then tap Back. Android's update
+   screen then opens by itself. Best done while you're on the phone with her.
+3. She taps **Update** on Android's screen. When it says the app is updated, tap **Open**.
 
 Phones with a version from before this feature need one last manual install from the download link.
 
