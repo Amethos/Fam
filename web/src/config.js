@@ -10,7 +10,7 @@ export const firebaseConfig = {
 };
 
 // Project settings > Cloud Messaging > Web Push certificates > Key pair.
-export const vapidKey = "YOUR-WEB-PUSH-KEY";
+export const vapidKey = "BIEU3FOADQM2oVC-sGPWunn8D03t8FwtD_2YdmbsSoS18hBzdRop_RWkP68M8JI43LOQ9nHi1BWAg4XPAC22nJM";
 
 // Must match applicationId in android/app/build.gradle.kts.
 export const androidPackage = "com.amethos.mytechkid";
