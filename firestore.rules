@@ -49,14 +49,80 @@ service cloud.firestore {
           && request.resource.data.parentId == request.auth.uid
           && request.resource.data.status == 'waiting'
           && request.resource.data.createdAt == request.time;
+        // A finished or cancelled request stays finished: nobody can reopen it.
+        // Helpers: waiting -> accepted (one helper takes it), then -> done.
         allow update: if (isHelper(cid)
             && changedOnly(['status', 'helperId', 'helperName', 'updatedAt'])
-            && request.resource.data.status in ['accepted', 'done']
-            && request.resource.data.helperId == request.auth.uid)
+            && ((resource.data.status == 'waiting' && request.resource.data.status in ['accepted', 'done'])
+              || (resource.data.status == 'accepted' && request.resource.data.status == 'done'))
+            && request.resource.data.helperId == request.auth.uid
+            && request.resource.data.helperName is string
+            && request.resource.data.helperName.size() <= 60)
           || (isParent(cid)
             && resource.data.parentId == request.auth.uid
             && changedOnly(['status', 'updatedAt'])
+            && resource.data.status in ['waiting', 'accepted']
             && request.resource.data.status in ['cancelled', 'done']);
+      }
+
+      // Screen sharing (stage 2). Never unattended: only the parent's own
+      // phone can start a share, a helper can join only within 10 minutes,
+      // and either side can end it. Ended shares stay as the family's
+      // history of who connected, when and for how long.
+      match /screenShares/{shid} {
+        function share() { return resource.data; }
+        function onShare() {
+          return signedIn() && (request.auth.uid == share().parentId || request.auth.uid == share().get('helperId', null));
+        }
+        allow read: if isMember(cid);
+        allow create: if isParent(cid)
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt'])
+          && request.resource.data.parentId == request.auth.uid
+          && request.resource.data.parentName is string
+          && request.resource.data.parentName.size() <= 60
+          && request.resource.data.status == 'waiting'
+          && request.resource.data.createdAt == request.time;
+        allow update: if
+          // One helper joins a waiting share, while it's fresh.
+          (isHelper(cid)
+            && share().status == 'waiting'
+            && request.time < share().createdAt + duration.value(10, 'm')
+            && changedOnly(['status', 'helperId', 'helperName', 'startedAt'])
+            && request.resource.data.status == 'live'
+            && request.resource.data.helperId == request.auth.uid
+            && request.resource.data.helperName is string
+            && request.resource.data.helperName.size() <= 60
+            && request.resource.data.startedAt == request.time)
+          // The parent or the joined helper ends it, any time.
+          || (isMember(cid) && onShare()
+            && share().status in ['waiting', 'live']
+            && changedOnly(['status', 'endedBy', 'endedAt'])
+            && request.resource.data.status == 'ended'
+            && request.resource.data.endedBy == request.auth.uid
+            && request.resource.data.endedAt == request.time);
+
+        // Connection setup messages (WebRTC offer/answer/candidates), only
+        // between the two people on a live share. The video itself never
+        // passes through here.
+        match /signals/{sigid} {
+          function parentShare() {
+            return get(/databases/$(database)/documents/circles/$(cid)/screenShares/$(shid)).data;
+          }
+          function onThisShare() {
+            let s = parentShare();
+            return signedIn() && isMember(cid)
+              && (request.auth.uid == s.parentId || request.auth.uid == s.get('helperId', null));
+          }
+          allow read: if onThisShare();
+          allow create: if onThisShare()
+            && parentShare().status == 'live'
+            && request.resource.data.keys().hasOnly(['from', 'type', 'payload', 'createdAt'])
+            && request.resource.data.from == request.auth.uid
+            && request.resource.data.type in ['offer', 'answer', 'candidate']
+            && request.resource.data.payload is string
+            && request.resource.data.payload.size() <= 20000
+            && request.resource.data.createdAt == request.time;
+        }
       }
 
       match /scamChecks/{sid} {

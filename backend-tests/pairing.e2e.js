@@ -66,8 +66,52 @@ await dad.call("claimInvite", { circleId, inviteId: second.inviteId, token: seco
 assert.equal((await josh.call("confirmInvite", { circleId, inviteId: second.inviteId, match: false })).status, "cancelled");
 await rejects(dad.call("confirmInvite", { circleId, inviteId: second.inviteId, match: true }), /isn't waiting/);
 
+// Invites run out after an hour, including ones opened but not finished.
+// The emulator's "owner" token lets the test move an invite's clock back.
+async function expire(inviteId) {
+  const url = `http://127.0.0.1:8080/v1/projects/demo-fam/databases/(default)/documents/circles/${circleId}/invites/${inviteId}?updateMask.fieldPaths=expiresAt`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { expiresAt: { timestampValue: new Date(Date.now() - 1000).toISOString() } } }),
+  });
+  assert.ok(res.ok, `couldn't expire invite: ${res.status}`);
+}
+const stale = await josh.call("createInvite", { circleId, forName: "Aunt Sue" });
+await expire(stale.inviteId);
+const sue = client("sue");
+await signInAnonymously(sue.auth);
+await rejects(sue.call("peekInvite", { circleId, inviteId: stale.inviteId, token: stale.token }), /expired/);
+await rejects(sue.call("claimInvite", { circleId, inviteId: stale.inviteId, token: stale.token }), /expired/);
+
+const halfDone = await josh.call("createInvite", { circleId, forName: "Uncle Bob" });
+const bob = client("bob");
+await signInAnonymously(bob.auth);
+await bob.call("claimInvite", { circleId, inviteId: halfDone.inviteId, token: halfDone.token });
+await expire(halfDone.inviteId);
+assert.equal((await bob.call("confirmInvite", { circleId, inviteId: halfDone.inviteId, match: true })).status, "expired");
+await rejects(josh.call("confirmInvite", { circleId, inviteId: halfDone.inviteId, match: true }), /isn't waiting/);
+assert.ok(!(await getDoc(doc(josh.db, `circles/${circleId}`))).data().parentIds.includes(bob.auth.currentUser.uid));
+
 // Only helpers can invite.
 await rejects(mom.call("createInvite", { circleId, forName: "Stranger" }), /Only helpers/);
+
+// A helper can remove Mom's phone; she then needs a new invite to come back.
+const momUid = mom.auth.currentUser.uid;
+await rejects(mom.call("removeMember", { circleId, memberId: momUid }), /Only helpers/);
+await rejects(scammer.call("removeMember", { circleId, memberId: momUid }), /Only helpers/);
+await rejects(josh.call("removeMember", { circleId, memberId: josh.auth.currentUser.uid }), /Only a parent/);
+const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+const pending = await addDoc(collection(mom.db, `circles/${circleId}/helpRequests`),
+  { parentId: momUid, parentName: "Mom", status: "waiting", createdAt: serverTimestamp() });
+assert.equal((await josh.call("removeMember", { circleId, memberId: momUid })).status, "removed");
+const after = (await getDoc(doc(josh.db, `circles/${circleId}`))).data();
+assert.ok(!after.parentIds.includes(momUid));
+assert.equal(after.members[momUid], undefined);
+assert.equal((await getDoc(doc(josh.db, pending.path))).data().status, "cancelled");
+await assert.rejects(getDoc(doc(mom.db, `circles/${circleId}`)), "a removed phone can no longer read the family");
+const relink = await josh.call("createInvite", { circleId, forName: "Mom" });
+assert.equal((await mom.call("peekInvite", { circleId, inviteId: relink.inviteId, token: relink.token })).helperName, "Josh");
 
 console.log("pairing e2e: all checks passed");
 process.exit(0);

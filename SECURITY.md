@@ -29,6 +29,7 @@ features. Every change is checked against this page.
 | Invite tokens leaking to other sites | `Referrer-Policy: no-referrer` | `firebase.json` |
 | Known-vulnerable libraries | `npm audit` fails the build on high-severity issues in shipped code; Dependabot proposes updates monthly | `.github/` |
 | Fake update replacing Mom's app | Updates come only from our own site over HTTPS; the app checks the file is a newer My Tech Kid, and Android refuses any update not signed with the same key | `Updater.kt` |
+| Lost, replaced or given-away phone | A helper taps **Remove this phone**; it loses access at once and can only rejoin through a new invite and picture check | `removeMember` |
 | Parent's data in phone backups | `allowBackup="false"` | Android manifest |
 
 Every change to rules or pairing is covered by tests that run on every build:
@@ -64,7 +65,8 @@ These are requirements, not nice-to-haves:
 - Firebase Authentication settings: **email enumeration protection** on and a
   **password policy** (8+ characters).
 - An outside security review of the remote-control code.
-- A way for a parent's family to remove a device or helper.
+- A way to remove a helper, once a family can have more than one (removing
+  a parent's phone is built: `removeMember`).
 
 ## Reporting a problem
 
