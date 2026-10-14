@@ -139,7 +139,7 @@ function viewNoCircle() {
   <h1>Hi ${esc(myName())}! Let's set up your family</h1>
   <p class="muted">Your family circle holds the people you help (like Mom and Dad) and anyone who helps with you.</p>
   <form data-form="circle" class="card">
-    <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="The Smith family" required></div>
+    <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="Smith Family" required></div>
     <button type="submit" ${state.busy ? "disabled" : ""}>Create family circle</button>
   </form>`;
 }
@@ -193,7 +193,7 @@ function memberCards() {
           : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
-  return `<h2>${esc(c.name)}</h2>${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+  return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
 }
 
 function pendingInvites() {
@@ -202,10 +202,20 @@ function pendingInvites() {
     .map((i) => `<a class="button secondary" href="#/invite/${esc(i.id)}">Finish adding ${esc(i.forName)}</a>`).join("");
 }
 
+// "Scherz" -> "Scherz Family"; "the scherz family" -> "Scherz Family".
+function familyTitle(name) {
+  const words = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words[0]?.toLowerCase() === "the") words.shift();
+  if (words.at(-1)?.toLowerCase() === "family") words.pop();
+  if (!words.length) return "Your Family";
+  words[0] = words[0][0].toUpperCase() + words[0].slice(1);
+  return [...words, "Family"].join(" ");
+}
+
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
   return `${header()}
-  <h1>Your family</h1>
+  <h1>${esc(familyTitle(state.circle?.name))}</h1>
   ${alertsBanner()}
   ${helpCards()}
   ${scamCards()}
