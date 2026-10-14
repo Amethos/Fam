@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - name: No known vulnerabilities in shipped code
+        run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - uses: actions/setup-java@v4
         with:
@@ -41,6 +43,8 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - name: No known vulnerabilities in shipped code
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:

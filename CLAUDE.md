@@ -22,6 +22,13 @@ The product succeeds by being simple. Check every change against these:
 6. Not doing: chat/messaging, feeds or tips, ads, a settings screen for the
    parent, "just in case" features.
 
+## Security comes first
+
+This app will be able to see and control a parent's phone. Read `SECURITY.md`
+before changing pairing, rules, or anything in stages 2-3, and keep its rules
+(never unattended, always visible, 24-hour wait, end-to-end encrypted). Every
+rules or pairing change needs a test in `backend-tests/`.
+
 ## Decisions so far
 
 - **One app, two roles** (helper / getting help). For the beta the roles are

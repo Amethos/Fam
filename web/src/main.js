@@ -4,7 +4,7 @@
 import "./styles.css";
 import { initializeApp } from "firebase/app";
 import {
-  getAuth, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   updateProfile, signOut, sendPasswordResetEmail,
 } from "firebase/auth";
 import {
@@ -33,7 +33,9 @@ if (!isConfigured && !useEmulators) {
 const fbApp = initializeApp(useEmulators
   ? { apiKey: "demo", projectId: "demo-fam", authDomain: "demo-fam.firebaseapp.com" }
   : firebaseConfig);
-const auth = getAuth(fbApp);
+// Email + password only. initializeAuth (instead of getAuth) skips loading
+// Google's sign-in pop-up code, so the page runs only our own scripts.
+const auth = initializeAuth(fbApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
 const db = getFirestore(fbApp);
 const functions = getFunctions(fbApp);
 if (useEmulators) {
@@ -281,6 +283,9 @@ function viewInvite(id) {
   } else if (invite.status === "linked") {
     body = `<div class="alert green"><h1>${name} is linked!</h1>
       <p>${name}'s phone now has a big button that reaches you.</p></div><a class="button" href="#/">Done</a>`;
+  } else if (invite.status === "expired") {
+    body = `<div class="card"><h1>This invite expired</h1><p>Invites have to be finished within an hour. Make a new one and try again.</p>
+      <a class="button" href="#/add">Make a new invite</a></div>`;
   } else {
     body = `<div class="card"><h1>Stopped</h1><p>This invite was cancelled. If the pictures didn't match, someone else may have opened the link. Make a new one and send it again.</p>
       <a class="button" href="#/add">Make a new invite</a></div>`;

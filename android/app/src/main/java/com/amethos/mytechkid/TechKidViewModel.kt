@@ -230,6 +230,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             "cancelled" -> screen = Screen.Welcome(
                 "Stopped. Nothing was linked. If this wasn't your family, delete the message.",
             )
+            "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
             "waiting" -> screen = current.copy(confirmed = true)
             // "linked": the user listener moves us to Home.
         }
@@ -239,8 +240,10 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         inviteListener?.remove()
         inviteListener = db.document("circles/${invite.circleId}/invites/${invite.inviteId}")
             .addSnapshotListener { snap, _ ->
-                if (snap?.getString("status") == "cancelled" && screen is Screen.Pictures) {
-                    screen = Screen.Welcome("Your family stopped this invite. Ask them to send a new one.")
+                if (screen !is Screen.Pictures) return@addSnapshotListener
+                when (snap?.getString("status")) {
+                    "cancelled" -> screen = Screen.Welcome("Your family stopped this invite. Ask them to send a new one.")
+                    "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
                 }
             }
     }

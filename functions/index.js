@@ -100,7 +100,7 @@ async function openInvite(tx, data) {
   if (given.length !== stored.length || !crypto.timingSafeEqual(given, stored)) {
     throw new HttpsError("permission-denied", "This invite link isn't valid.");
   }
-  if (invite.expiresAt.toMillis() < Date.now() && invite.status === "open") {
+  if (invite.expiresAt.toMillis() < Date.now() && (invite.status === "open" || invite.status === "claimed")) {
     throw new HttpsError("deadline-exceeded", "This invite has expired. Ask for a new one.");
   }
   return { ref, invite };
@@ -161,6 +161,12 @@ exports.confirmInvite = onCall(async (request) => {
     const isClaimer = invite.claimedBy === uid;
     if (!isHelper && !isClaimer) throw new HttpsError("permission-denied", "Not your invite.");
     if (invite.status !== "claimed") throw new HttpsError("failed-precondition", "This invite isn't waiting for a picture check.");
+    // The whole pairing has to finish within the invite's hour; a half-finished
+    // invite must not stay usable forever.
+    if (invite.expiresAt.toMillis() < Date.now()) {
+      tx.update(inviteRef, { status: "expired" });
+      return { status: "expired" };
+    }
 
     if (!match) {
       tx.update(inviteRef, { status: "cancelled", cancelledBy: uid });

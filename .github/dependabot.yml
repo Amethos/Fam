@@ -1,0 +1,19 @@
+# Monthly pull requests that update libraries with security fixes.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /functions
+    schedule: { interval: monthly }
+    groups: { functions: { patterns: ["*"] } }
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: monthly }
+    groups: { web: { patterns: ["*"] } }
+  - package-ecosystem: gradle
+    directory: /android
+    schedule: { interval: monthly }
+    groups: { android: { patterns: ["*"] } }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    groups: { actions: { patterns: ["*"] } }

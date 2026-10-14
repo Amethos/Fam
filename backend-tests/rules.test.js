@@ -52,6 +52,9 @@ test("users can only set their name, alert tokens and platform", async () => {
   await assertFails(updateDoc(doc(db("mom"), "users/mom"), { circleId: "evil" }));
   await assertFails(setDoc(doc(db("stranger"), "users/stranger"), { displayName: "X", circleId: "c1" }));
   await assertFails(getDoc(doc(db("stranger"), "users/mom")));
+  const tooMany = Array.from({ length: 11 }, (_, i) => `t${i}`);
+  await assertFails(setDoc(doc(db("mom"), "users/mom"), { fcmTokens: tooMany }, { merge: true }));
+  await assertFails(setDoc(doc(db("mom"), "users/mom"), { displayName: "x".repeat(61) }, { merge: true }));
 });
 
 test("invites are readable only by helpers and the phone that claimed them", async () => {

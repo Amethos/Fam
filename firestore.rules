@@ -15,12 +15,22 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // Alert tokens: one per installed device. A small cap stops anyone
+    // stuffing their own record.
+    function validUserFields() {
+      let d = request.resource.data;
+      return (!('fcmTokens' in d) || (d.fcmTokens is list && d.fcmTokens.size() <= 10))
+        && (!('displayName' in d) || (d.displayName is string && d.displayName.size() <= 60));
+    }
+
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform']);
+        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform'])
+        && validUserFields();
       allow update: if signedIn() && request.auth.uid == uid
-        && changedOnly(['displayName', 'fcmTokens', 'platform']);
+        && changedOnly(['displayName', 'fcmTokens', 'platform'])
+        && validUserFields();
     }
 
     match /circles/{cid} {
