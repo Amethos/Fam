@@ -64,10 +64,14 @@ jobs:
           java-version: 17
       - run: ./gradlew assembleDebug --no-daemon --stacktrace
       - run: cp app/build/outputs/apk/debug/app-debug.apk mytechkid-beta.apk
+      # Mom's app reads this to know a newer build is ready (Updater.kt).
+      - run: echo "{\"versionCode\": $GITHUB_RUN_NUMBER}" > version.json
       - uses: actions/upload-artifact@v4
         with:
           name: mytechkid-beta-apk
-          path: android/mytechkid-beta.apk
+          path: |
+            android/mytechkid-beta.apk
+            android/version.json
 
   # Publishes the backend, the helper web app and Mom's app download.
   # Skipped until the FIREBASE_SERVICE_ACCOUNT secret is added (docs/SETUP.md).

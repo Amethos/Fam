@@ -28,6 +28,7 @@ features. Every change is checked against this page.
 | Clickjacking ("click here" over a hidden app) | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | `firebase.json` |
 | Invite tokens leaking to other sites | `Referrer-Policy: no-referrer` | `firebase.json` |
 | Known-vulnerable libraries | `npm audit` fails the build on high-severity issues in shipped code; Dependabot proposes updates monthly | `.github/` |
+| Fake update replacing Mom's app | Updates come only from our own site over HTTPS; the app checks the file is a newer My Tech Kid, and Android refuses any update not signed with the same key | `Updater.kt` |
 | Parent's data in phone backups | `allowBackup="false"` | Android manifest |
 
 Every change to rules or pairing is covered by tests that run on every build:
@@ -56,7 +57,9 @@ These are requirements, not nice-to-haves:
 
 ## Before any public launch
 
-- Replace the committed beta signing key with a private one.
+- Replace the committed beta signing key with a private one. (Until then,
+  anyone who can read this repo could sign an update; the self-updater only
+  downloads from our own site, but the key must not stay public.)
 - Turn on **Firebase App Check** (only our real apps can call the backend).
 - Firebase Authentication settings: **email enumeration protection** on and a
   **password policy** (8+ characters).

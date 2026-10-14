@@ -68,6 +68,11 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var scamChecks by mutableStateOf(listOf<ScamCheck>())
         private set
+    var updateReady by mutableStateOf(false)
+        private set
+    var updating by mutableStateOf(false)
+        private set
+    private var lastUpdateCheck = 0L
 
     private var uid: String? = null
     private var circleId: String? = null
@@ -302,6 +307,34 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- First-time intro (after linking) ----------
+
+    // ---------- Beta updates ----------
+
+    /** Called whenever the app comes to the front; checks at most every 15 minutes. */
+    fun checkForUpdate() {
+        val now = System.currentTimeMillis()
+        if (updating || now - lastUpdateCheck < 15 * 60_000) return
+        lastUpdateCheck = now
+        viewModelScope.launch {
+            updateReady = try { Updater.isUpdateAvailable(getApplication<Application>()) } catch (e: Exception) { false }
+        }
+    }
+
+    fun startUpdate() {
+        if (updating) return
+        updating = true
+        error = null
+        viewModelScope.launch {
+            try {
+                Updater.downloadAndInstall(getApplication<Application>())
+            } catch (e: Exception) {
+                error = "Couldn't get the update right now. Try again later."
+            } finally {
+                updating = false
+                lastUpdateCheck = 0L
+            }
+        }
+    }
 
     fun introSeen(): Boolean = prefs.getBoolean("introSeen", false)
 

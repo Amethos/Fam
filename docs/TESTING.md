@@ -36,6 +36,18 @@ phone, before Mom tries it on her own.
   Mom sees your answer.
 - **Scam check (shared):** In Samsung Messages, Mom presses and holds a text → **Share** → **My Tech Kid**.
 
+## Updating Mom's app
+
+When a new version is published, Mom's home screen shows **A new My Tech Kid is ready** with an **Update** button
+(it checks each time she opens the app).
+
+1. Mom taps **Update**, waits a few seconds, then taps **Update** again on Android's screen.
+2. **The very first time only**, Samsung says it can't install from this source: tap **Settings**, switch on
+   **Allow from this source**, then tap Back. Best done while you're on the phone with her.
+3. When it says the app is updated, tap **Open**.
+
+Phones with a version from before this feature need one last manual install from the download link.
+
 ## Things to try breaking (good for safety)
 
 - Open the same invite link on a **second** Android phone after Mom used it → it should refuse.

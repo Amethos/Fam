@@ -378,6 +378,7 @@ private fun HomeScreen(vm: TechKidViewModel) {
             Title(if (vm.myName.isNotBlank()) "$greeting, ${vm.myName}" else greeting)
         }
         ErrorText(vm)
+        if (vm.updateReady) UpdatePanel(vm)
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -428,6 +429,25 @@ private fun HomeScreen(vm: TechKidViewModel) {
                     Text("Is this a scam?", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("Ask before you tap or pay", fontSize = 18.sp, color = Muted)
                 }
+            }
+        }
+    }
+}
+
+// Beta only: appears when a newer My Tech Kid is on the website (Updater.kt).
+@Composable
+private fun UpdatePanel(vm: TechKidViewModel) {
+    Box(Modifier.popIn()) {
+        Panel(AmberSoft) {
+            Text("A new My Tech Kid is ready", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AmberInk)
+            if (vm.updating) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(24.dp), color = AmberInk, strokeWidth = 3.dp)
+                    Body("Getting it now…", AmberInk)
+                }
+            } else {
+                Body("Tap Update, then tap Update again on the next screen.", AmberInk)
+                BigButton("Update", color = AmberDeep) { vm.startUpdate() }
             }
         }
     }
