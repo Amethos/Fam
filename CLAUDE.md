@@ -9,6 +9,19 @@ anti-scam selling point.
 The owner is not a developer. Explain things in plain language, keep setup steps
 click-by-click, and never paste secrets into chat or commits.
 
+## Keep it simple (the owner's #1 rule)
+
+The product succeeds by being simple. Check every change against these:
+
+1. The parent never types, never logs in, never picks a setting.
+2. One screen, one job. The parent's app stays at two buttons, maximum.
+3. Faces and names, not words like "account", "permission" or "settings".
+4. If something is confusing, remove it before explaining it.
+5. A feature goes in the parent's app only if it saves the parent a step;
+   extra power belongs on the helper's side.
+6. Not doing: chat/messaging, feeds or tips, ads, a settings screen for the
+   parent, "just in case" features.
+
 ## Decisions so far
 
 - **One app, two roles** (helper / getting help). For the beta the roles are
@@ -75,3 +88,18 @@ click-by-click, and never paste secrets into chat or commits.
    arrows; enforce the 24-hour wait; Samsung restricted-settings walkthrough.
 4. **Stage 4:** phone health (battery, storage, updates), multiple helpers with
    approval, how-to guides, help history, native iPhone helper app.
+
+## Ideas for later (after testing with Mom; she decides what's next)
+
+- **Screenshot scam checks** (owner's favorite): Mom screenshots a text/email/
+  pop-up and shares it to My Tech Kid, or picks it in the app (newest first,
+  large); no typing. Helper sees it full size. Needs Firebase Storage (owner
+  clicks Build > Storage > Get started), storage rules limited to the circle,
+  auto-delete after 30 days.
+- Helper's photo on Mom's big button instead of an initial.
+- Android home-screen widget: "Get help from Josh" without opening the app.
+- If the helper doesn't respond in ~2 minutes, show Mom one big "Call Josh"
+  button that dials normally.
+- Helper quick replies: one-tap "Scam, delete it", "Not now, call you at 5".
+- In-person setup: helper scans a code on Mom's phone; skips the link and
+  picture check.
