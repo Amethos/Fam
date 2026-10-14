@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
@@ -167,9 +168,10 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         }
         circleListeners += db.collection("circles/$id/helpRequests")
             .whereEqualTo("parentId", me)
+            // Only open requests: finished ones would pile up and be re-read every launch.
+            .whereIn("status", listOf("waiting", "accepted"))
             .addSnapshotListener { snap, _ ->
                 val open = snap?.documents.orEmpty()
-                    .filter { it.getString("status") in listOf("waiting", "accepted") }
                     .sortedByDescending { it.getTimestamp("createdAt")?.toDate()?.time ?: Long.MAX_VALUE }
                     .map { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName), it.getBoolean("practice") == true) }
                 activeHelp = open.firstOrNull { !it.practice }
@@ -177,6 +179,9 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             }
         circleListeners += db.collection("circles/$id/scamChecks")
             .whereEqualTo("parentId", me)
+            // Mom's screen shows only her latest check; don't load her whole history.
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(5)
             .addSnapshotListener { snap, _ ->
                 scamChecks = snap?.documents.orEmpty().map {
                     ScamCheck(
