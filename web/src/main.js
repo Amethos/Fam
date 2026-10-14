@@ -63,6 +63,7 @@ const state = {
   scams: [],
   invites: [],
   authMode: "signin",
+  storyIndex: 0,
   verdicts: {},
   error: "",
   busy: false,
@@ -146,14 +147,124 @@ function viewSignedOut() {
   </form>`;
 }
 
-function viewNoCircle() {
+// ---------- First-run story and setup ----------
+
+// Shown once to a new visitor before they make an account. Real moments
+// helpers recognize, then what changes.
+const STORY = [
+  {
+    from: "Mom", bubble: "Honey, the screen went all funny again. Can you look at it when you get a chance?",
+    title: "You've been the family tech support for years.",
+    body: "You love helping. You just can't always be there.",
+  },
+  {
+    from: "Mom", bubble: "Which button? The blue one? I don't see a blue one.",
+    title: "\"Okay Mom, what do you see now?\"",
+    body: "Twenty minutes on the phone, trying to picture a screen you can't see.",
+  },
+  {
+    from: "Unknown number", warn: true, bubble: "URGENT: Your bank account has been locked. Tap here to verify your identity.",
+    title: "And the texts that keep you up at night.",
+    body: "Scammers count on Mom being alone when she reads one.",
+  },
+  {
+    final: true,
+    title: "Now you're one tap away.",
+    body: "Mom gets one big button. You get the alert, wherever you are. She can ask \"Is this a scam?\" before she taps anything. And only family can ever connect.",
+  },
+];
+
+const isIOS = /iPhone|iPad/.test(navigator.userAgent);
+const isInstalled = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+// iPhone only allows alerts from the home-screen app.
+const canAlert = () => typeof Notification !== "undefined" && "serviceWorker" in navigator && !(isIOS && !isInstalled());
+
+function viewStory() {
+  const i = Math.min(state.storyIndex, STORY.length - 1);
+  const s = STORY[i];
+  const top = s.bubble
+    ? `<div class="msg"><div class="typing" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="bubble${s.warn ? " warn" : ""}"><span class="from">${esc(s.from)}</span>${esc(s.bubble)}</div></div>`
+    : `<div class="story-mark" aria-hidden="true">tk<span class="dot">.</span></div>`;
+  return `<div class="story">
+    <div class="row"><div class="brand grow">${LOGO}</div>
+      <button class="secondary small" data-action="story-skip">Skip</button></div>
+    <div class="story-dots" aria-hidden="true">${STORY.map((_, k) => `<span class="${k < i ? "on" : k === i ? "on now" : ""}"></span>`).join("")}</div>
+    <div class="story-scene">${top}
+      <h1>${esc(s.title)}</h1>
+      <p class="story-body">${esc(s.body)}</p></div>
+    <button class="full${s.final ? " bounce" : ""}" data-action="${s.final ? "story-done" : "story-next"}">${s.final ? "Let's set it up" : "Next"}</button>
+  </div>`;
+}
+
+// Setup after signing up. Each step can be skipped; the dashboard keeps
+// reminding about alerts until they're on.
+function setupSteps() {
+  const c = state.circle;
+  const hasParent = (c?.parentIds?.length ?? 0) > 0 || state.invites.length > 0;
+  return [
+    { key: "home", applies: isIOS, done: isInstalled() || !!storage.get("onb:home") },
+    { key: "alerts", applies: canAlert(), done: state.alertsOn || !!storage.get("onb:alerts") },
+    { key: "family", applies: true, done: !!state.profile?.circleId },
+    { key: "parent", applies: true, done: hasParent || !!storage.get("onb:parent") },
+  ].filter((step) => step.applies);
+}
+
+function currentStep() {
+  return setupSteps().find((step) => !step.done) ?? null;
+}
+
+function stepFrame(step, inner) {
+  const steps = setupSteps();
+  const n = steps.findIndex((x) => x.key === step.key) + 1;
+  const pct = Math.round((n / steps.length) * 100);
+  if (motion.stepKey !== step.key) { motion.stepKey = step.key; motion.stepFrom = motion.stepPct ?? 0; }
+  motion.stepPct = pct;
   return `${header()}
-  <h1>Hi ${esc(myName())}! Let's set up your family</h1>
-  <p class="muted">Your family circle holds the people you help (like Mom and Dad) and anyone who helps with you.</p>
-  <form data-form="circle" class="card">
-    <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="Smith Family" required></div>
-    <button type="submit" ${state.busy ? "disabled" : ""}>Create family circle</button>
-  </form>`;
+    <div class="progress" role="progressbar" aria-label="Setup" aria-valuemin="1" aria-valuemax="${steps.length}" aria-valuenow="${n}">
+      <span style="width:${pct}%;--from:${Math.min(motion.stepFrom, pct)}%"></span></div>
+    <p class="eyebrow">Step ${n} of ${steps.length}</p>
+    ${inner}`;
+}
+
+const SHARE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
+
+function viewSetup(step) {
+  if (step.key === "home") {
+    return stepFrame(step, `<h1>Put My Tech Kid on your home screen</h1>
+      <p class="muted">On iPhone, alerts only work from the home screen. It takes ten seconds.</p>
+      <ol class="howto card">
+        <li>Tap the <strong>Share</strong> button ${SHARE_ICON} at the bottom of Safari.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+        <li>Open <strong>My Tech Kid</strong> from your home screen and sign in.</li>
+      </ol>
+      <button class="secondary" data-action="skip-step" data-step="home">I'll do it later</button>`);
+  }
+  if (step.key === "alerts") {
+    return stepFrame(step, `<h1>Know the moment Mom needs you</h1>
+      <p class="muted">When Mom taps her help button or asks about a scam, your phone buzzes. You'll only get alerts from your own family.</p>
+      <button data-action="alerts-setup" ${state.busy ? "disabled" : ""}>Turn on alerts</button>
+      <button class="secondary" data-action="skip-step" data-step="alerts">Not now</button>`);
+  }
+  if (step.key === "family") {
+    return stepFrame(step, `<h1>Name your family</h1>
+      <p class="muted">This is your circle: the people you help, like Mom and Dad, and anyone who helps alongside you.</p>
+      <form data-form="circle" class="card">
+        <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="Smith Family" required></div>
+        <button type="submit" ${state.busy ? "disabled" : ""}>Create my family</button>
+      </form>`);
+  }
+  return stepFrame(step, `<h1>Now add Mom or Dad</h1>
+    <div class="card">
+      <ol class="howto">
+        <li>You text them a link.</li>
+        <li>They tap it and install My Tech Kid.</li>
+        <li>You call, and you both check that three pictures match.</li>
+      </ol>
+      <p class="muted">Best done when you can talk on the phone for five minutes.</p>
+    </div>
+    <a class="button" href="#/add">Add Mom or Dad</a>
+    <button class="secondary" data-action="skip-step" data-step="parent">Later</button>`);
 }
 
 function alertsBanner() {
@@ -172,7 +283,7 @@ function helpCards() {
   const uid = state.user.uid;
   return state.help.map((h) => {
     if (h.status === "waiting") {
-      return `<div class="alert urgent"><div class="row"><h2 class="grow">${esc(h.parentName)} needs help</h2>
+      return `<div ${popAttrs(h.id, "alert urgent")}><div class="row"><h2 class="grow">${esc(h.parentName)} needs help</h2>
         <span class="muted">${esc(timeAgo(h.createdAt))}</span></div>
         <button data-action="accept-help" data-id="${esc(h.id)}">I'm on it</button></div>`;
     }
@@ -187,7 +298,7 @@ function helpCards() {
 
 function scamCards() {
   return state.scams.filter((s) => !s.verdict).map((s) => `
-    <div class="card"><p class="eyebrow">Scam check</p><h2>${esc(s.parentName)} asks: is this a scam?</h2>
+    <div ${popAttrs(s.id, "card")}><p class="eyebrow">Scam check</p><h2>${esc(s.parentName)} asks: is this a scam?</h2>
       <p class="quote">${esc(s.text.slice(0, 160))}${s.text.length > 160 ? "…" : ""}</p>
       <a class="button secondary" href="#/scam/${esc(s.id)}">Review and answer</a></div>`).join("");
 }
@@ -270,6 +381,18 @@ function picturesHtml(pictures) {
     `<div class="picture"><span aria-hidden="true">${esc(p.emoji)}</span><span>${esc(p.label)}</span></div>`).join("")}</div>`;
 }
 
+const CONFETTI = ["var(--amber)", "var(--navy)", "var(--green)", "var(--amber)", "var(--focus)"];
+
+function celebrate() {
+  const bits = Array.from({ length: 22 }, (_, k) => {
+    const angle = (k / 22) * Math.PI * 2;
+    const dist = 90 + (k % 4) * 28;
+    return `<i style="--x:${Math.round(Math.cos(angle) * dist)}px;--y:${Math.round(Math.sin(angle) * dist - 40)}px;--r:${k * 47}deg;--c:${CONFETTI[k % CONFETTI.length]};--d:${(k % 5) * 30}ms"></i>`;
+  }).join("");
+  return `<div class="celebrate" aria-hidden="true"><div class="confetti">${bits}</div>
+    <svg viewBox="0 0 52 52" width="96" height="96"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>`;
+}
+
 function viewInvite(id) {
   const invite = state.invites.find((i) => i.id === id);
   if (!invite) return `${header()}<a href="#/">← Back</a><p class="muted">Loading invite…</p>`;
@@ -298,7 +421,7 @@ function viewInvite(id) {
     body = `<div class="alert blue"><h2>Waiting for ${name}</h2><p>Ask ${name} to tap <strong>They match</strong> on their phone.</p></div>
       ${picturesHtml(invite.pictures)}`;
   } else if (invite.status === "linked") {
-    body = `<div class="alert green"><h1>${name} is linked!</h1>
+    body = `${celebrate()}<div class="alert green"><h1>${name} is linked!</h1>
       <p>${name}'s phone now has a big button that reaches you.</p></div><a class="button" href="#/">Done</a>`;
   } else if (invite.status === "expired") {
     body = `<div class="card"><h1>This invite expired</h1><p>Invites have to be finished within an hour. Make a new one and try again.</p>
@@ -336,6 +459,30 @@ function viewScam(id) {
   </form>`;
 }
 
+// ---------- Motion ----------
+// Entrance animations play once when a new screen appears. Live updates
+// re-render the page, so later renders pass --since (a negative delay) and
+// animations carry on from where they were instead of starting over.
+const ENTER_MS = 2200;
+const POP_MS = 1500;
+const motion = { key: "", since: 0, seen: new Map() };
+
+// Class (and timing) for a card that should bounce in the first time it shows.
+function popAttrs(id, classes) {
+  if (!motion.seen.has(id)) motion.seen.set(id, Date.now());
+  const elapsed = Date.now() - motion.seen.get(id);
+  return elapsed < POP_MS ? `class="${classes} pop" style="--since:-${elapsed}ms"` : `class="${classes}"`;
+}
+
+function screenKey(page, id, step) {
+  if (state.user === undefined) return "loading";
+  if (!state.user) return storage.get("onb:story") ? "signin" : `story${state.storyIndex}`;
+  if (state.profile === null || (state.profile.circleId && !state.circle)) return "loading";
+  if (step) return `setup-${step.key}`;
+  if (page === "invite") return `invite-${id}-${state.invites.find((i) => i.id === id)?.status}`;
+  return `${page || "home"}-${id || ""}`;
+}
+
 function render() {
   // Keep whatever the person is typing when live updates re-render the page.
   const kept = [...root.querySelectorAll("input[id], textarea[id]")].map((el) => [el.id, el.value]);
@@ -343,15 +490,23 @@ function render() {
 
   const [, page, id] = (location.hash || "#/").split("/");
   let html;
+  const step = state.user && state.profile ? currentStep() : null;
   if (state.user === undefined) html = viewLoading();
-  else if (!state.user) html = viewSignedOut();
+  else if (!state.user) html = storage.get("onb:story") ? viewSignedOut() : viewStory();
   else if (state.profile === null) html = viewLoading();
-  else if (!state.profile.circleId) html = viewNoCircle();
+  else if (state.profile.circleId && !state.circle) html = viewLoading();
+  else if (step && (!state.profile.circleId || (page !== "add" && page !== "invite"))) html = viewSetup(step);
   else if (page === "add") html = viewAdd();
   else if (page === "invite" && id) html = viewInvite(id);
   else if (page === "scam" && id) html = viewScam(id);
   else html = viewDashboard();
   root.innerHTML = html;
+
+  const key = screenKey(page, id, step);
+  if (key !== motion.key) { motion.key = key; motion.since = Date.now(); }
+  const elapsed = Date.now() - motion.since;
+  root.classList.toggle("enter", elapsed < ENTER_MS && key !== "loading");
+  root.style.setProperty("--since", `-${elapsed}ms`);
 
   for (const [elId, value] of kept) {
     const el = document.getElementById(elId);
@@ -437,6 +592,11 @@ const actions = {
     }
   },
   confirm: (el) => run(() => call("confirmInvite", { circleId, inviteId: el.dataset.id, match: el.dataset.match === "yes" })),
+  "story-next": () => { state.storyIndex += 1; render(); window.scrollTo(0, 0); },
+  "story-skip": () => { storage.set("onb:story", "1"); state.authMode = "signin"; render(); },
+  "story-done": () => { storage.set("onb:story", "1"); state.authMode = "signup"; render(); window.scrollTo(0, 0); },
+  "skip-step": (el) => { storage.set(`onb:${el.dataset.step}`, "1"); render(); window.scrollTo(0, 0); },
+  "alerts-setup": () => run(() => enableAlerts()),
   theme: (el) => {
     themeChoice = el.dataset.choice;
     storage.set("theme", themeChoice);

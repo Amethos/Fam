@@ -5,11 +5,14 @@ phone, before Mom tries it on her own.
 
 ## You (iPhone)
 
-1. Open `https://<project-id>.web.app` in **Safari**.
-2. Tap **Share → Add to Home Screen**. From now on, open My Tech Kid from your home screen.
-3. Tap **New account**, enter your first name, email and a password.
-4. Create your family circle (for example "The Smith family").
-5. Tap **Turn on alerts** and allow notifications.
+1. Open `https://<project-id>.web.app` in **Safari**. A short 4-page story plays first:
+   tap **Next** through it, then **Let's set it up**. (Already have an account? Tap **Skip**.)
+2. Make your account: your first name, email and a password.
+3. Setup walks you through the rest, one step at a time:
+   - **Home screen:** tap **Share → Add to Home Screen**, then open My Tech Kid from your home screen and sign in.
+   - **Alerts:** tap **Turn on alerts** and allow notifications.
+   - **Family name:** for example "Smith".
+   - **Add Mom or Dad:** continue below.
 
 ## Link Mom's phone
 
@@ -21,8 +24,8 @@ phone, before Mom tries it on her own.
 4. Back in Messages, Mom taps the link again → **Open my invite**.
 5. Mom sees "*Your name* wants to help you" → **Yes, *name* is my family**.
 6. Call Mom. You both see three pictures (e.g. Apple, Bicycle, Moon). If they match, **both** tap **They match**.
-7. Mom's phone shows her home screen with the big button. Your screen says "Mom is linked!"
-8. If Mom's phone asks to allow notifications, tap **Allow**.
+7. Your screen says "Mom is linked!" (with confetti). Mom's phone shows "This is your help button": she taps **OK, got it**.
+8. Mom's phone then asks to allow notifications: tap **Allow**. Her home screen appears and the big button bounces in.
 
 ## Try the features
 

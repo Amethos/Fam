@@ -135,3 +135,144 @@ a { color: var(--fg); font-weight: 600; }
 .appearance .choices { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 4px; }
 .appearance .choices button { min-height: 36px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--fg); font-weight: 600; font-size: 0.9375rem; box-shadow: none; }
 .appearance .choices button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.18); }
+
+/* ---------- First-run story ---------- */
+.story { min-height: calc(100vh - 80px); display: flex; flex-direction: column; gap: 22px; }
+.story-dots { display: flex; gap: 6px; }
+.story-dots span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.story-dots span.on { background: var(--amber); }
+.story-scene { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding-block: 12px; }
+.story h1 { font-size: 2.25rem; }
+.story-body { font-size: 1.25rem; color: var(--muted); }
+.bubble {
+  align-self: flex-start; max-width: 88%;
+  background: var(--surface-2); color: var(--fg);
+  border-radius: 22px 22px 22px 6px; padding: 14px 18px;
+  font-size: 1.1875rem; line-height: 1.4;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bubble .from { font-size: 0.8125rem; font-weight: 700; color: var(--muted); }
+.bubble.warn { background: var(--red-soft); color: var(--red-ink); }
+.bubble.warn .from { color: var(--red-ink); }
+.story-mark {
+  width: 96px; height: 96px; border-radius: 26px; background: var(--navy); color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center; font-size: 2.25rem; font-weight: 800;
+}
+.story-mark .dot { color: var(--amber); }
+.msg { display: grid; justify-items: start; align-items: start; }
+.msg > * { grid-area: 1 / 1; }
+.typing { display: none; }
+
+/* ---------- Setup steps ---------- */
+.progress { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.progress span { display: block; height: 100%; background: var(--amber); border-radius: 3px; }
+.howto { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; }
+.howto li { padding-left: 4px; }
+.howto svg { vertical-align: -3px; }
+
+/* ---------- Motion ----------
+   Entrances play once per screen (main.enter, set in render()). --since is a
+   negative delay so a live re-render picks up mid-animation. Everything sits
+   behind prefers-reduced-motion, so "Reduce Motion" on the phone turns it off. */
+button, .button { transition: transform 0.12s ease, filter 0.12s ease; }
+button:active:not(:disabled), .button:active { transform: scale(0.97); filter: brightness(0.96); }
+
+.celebrate { position: relative; z-index: 1; display: flex; justify-content: center; padding-top: 8px; }
+.celebrate svg circle { fill: var(--green); }
+.celebrate svg path { fill: none; stroke: #FFFFFF; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.confetti { position: absolute; left: 50%; top: 50%; }
+.confetti i { position: absolute; width: 8px; height: 14px; border-radius: 2px; background: var(--c); opacity: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .enter > *, .enter .story > *, .enter .story-scene > * {
+    animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(var(--since, 0ms) + var(--at, 0ms));
+  }
+  .enter .story, .enter .story > .story-scene { animation: none; }
+  .enter > :nth-child(2) { --at: 60ms; }
+  .enter > :nth-child(3) { --at: 120ms; }
+  .enter > :nth-child(4) { --at: 180ms; }
+  .enter > :nth-child(5) { --at: 240ms; }
+  .enter > :nth-child(6) { --at: 300ms; }
+  .enter > :nth-child(n+7) { --at: 360ms; }
+
+  /* Story: Mom is typing… then her text lands, like a real message. */
+  .enter .story > .row, .enter .story > .story-dots { --at: 0ms; animation-name: fade; }
+  .enter .story-scene > .msg { animation: none; }
+  .enter .typing {
+    display: inline-flex; gap: 5px; padding: 16px 18px; border-radius: 22px 22px 22px 6px; background: var(--surface-2);
+    animation: typing-out 0.2s ease-in both; animation-delay: calc(var(--since, 0ms) + 900ms);
+  }
+  .typing span { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: dot 0.9s ease-in-out infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  .enter .bubble {
+    transform-origin: 0% 100%;
+    animation: land 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--since, 0ms) + 950ms);
+  }
+  .enter .bubble.warn {
+    animation: land 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, buzz 0.5s ease-in-out 2;
+    animation-delay: calc(var(--since, 0ms) + 950ms), calc(var(--since, 0ms) + 1500ms);
+  }
+  .enter .msg ~ h1 { --at: 1250ms; }
+  .enter .msg ~ .story-body { --at: 1400ms; }
+  .enter .story-scene:has(.msg) + button { --at: 1550ms; }
+
+  /* Final page: the logo pops, then its amber dot drops in and bounces. */
+  .enter .story-mark { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .enter .story-mark .dot { display: inline-block; animation: drop 0.9s both; animation-delay: calc(var(--since, 0ms) + 450ms); }
+  .enter .story-mark ~ h1 { --at: 650ms; }
+  .enter .story-mark ~ .story-body { --at: 800ms; }
+  .enter .story > .bounce { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--since, 0ms) + 1050ms); }
+
+  .story-dots span.now {
+    background: linear-gradient(var(--amber), var(--amber)) no-repeat var(--line);
+    animation: fill 0.6s ease-out both; animation-delay: calc(var(--since, 0ms) + 150ms);
+  }
+  .progress span { animation: grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--since, 0ms) + 200ms); }
+
+  /* Help and scam cards bounce in the first time they arrive. */
+  .pop { animation: pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--since, 0ms); }
+  .alert.urgent { animation: ring 2s ease-out infinite; }
+  .alert.urgent.pop { animation: pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both, ring 2s ease-out 0.65s infinite; animation-delay: var(--since, 0ms), calc(var(--since, 0ms) + 650ms); }
+
+  /* Linked! */
+  .enter .celebrate svg { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--since, 0ms); }
+  .enter .celebrate path { stroke-dasharray: 40; animation: draw 0.45s ease-out both; animation-delay: calc(var(--since, 0ms) + 350ms); }
+  .enter .confetti i { animation: burst 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) both; animation-delay: calc(var(--since, 0ms) + 300ms + var(--d)); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop {
+    0% { opacity: 0; transform: scale(0.82); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes land { from { opacity: 0; transform: scale(0.6) translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes typing-out { to { opacity: 0; transform: scale(0.8); visibility: hidden; } }
+  @keyframes dot { 0%, 60%, 100% { transform: none; opacity: 0.45; } 30% { transform: translateY(-4px); opacity: 1; } }
+  @keyframes buzz {
+    0%, 100% { transform: none; }
+    20% { transform: translateX(-4px) rotate(-1deg); }
+    40% { transform: translateX(4px) rotate(1deg); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
+  @keyframes drop {
+    0% { opacity: 0; transform: translateY(-60px); animation-timing-function: ease-in; }
+    45% { opacity: 1; transform: none; animation-timing-function: ease-out; }
+    65% { transform: translateY(-14px); animation-timing-function: ease-in; }
+    80% { transform: none; animation-timing-function: ease-out; }
+    90% { transform: translateY(-4px); animation-timing-function: ease-in; }
+    100% { transform: none; }
+  }
+  @keyframes fill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+  @keyframes grow { from { width: var(--from, 0%); } }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(242, 179, 61, 0.55); } 70%, 100% { box-shadow: 0 0 0 14px rgba(242, 179, 61, 0); } }
+  @keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+  @keyframes burst {
+    0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(0.4); }
+    70% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 60px)) rotate(var(--r)) scale(1); }
+  }
+}

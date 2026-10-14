@@ -43,6 +43,7 @@ sealed interface Screen {
         val pictures: List<Picture>,
         val confirmed: Boolean,
     ) : Screen
+    data object Intro : Screen
     data object Home : Screen
     data class Scam(val draft: String) : Screen
 }
@@ -52,6 +53,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val functions = FirebaseFunctions.getInstance()
+    private val prefs = app.getSharedPreferences("mytechkid", android.content.Context.MODE_PRIVATE)
 
     var screen by mutableStateOf<Screen>(Screen.Loading)
         private set
@@ -120,11 +122,15 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                 watchCircle(newCircle)
             }
             when {
-                newCircle != null && screen !is Screen.Home && screen !is Screen.Scam -> {
+                newCircle != null && screen !is Screen.Home && screen !is Screen.Scam && screen !is Screen.Intro -> {
                     inviteListener?.remove()
                     val shared = pendingScamText
                     pendingScamText = null
-                    screen = if (shared != null) Screen.Scam(shared) else Screen.Home
+                    screen = when {
+                        shared != null -> Screen.Scam(shared)
+                        !introSeen() -> Screen.Intro
+                        else -> Screen.Home
+                    }
                     if (pendingInvite != null) {
                         pendingInvite = null
                         error = "This phone is already linked to your family."
@@ -293,6 +299,15 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             ),
         ).await()
         screen = Screen.Scam("")
+    }
+
+    // ---------- First-time intro (after linking) ----------
+
+    fun introSeen(): Boolean = prefs.getBoolean("introSeen", false)
+
+    fun finishIntro() {
+        prefs.edit().putBoolean("introSeen", true).apply()
+        screen = Screen.Home
     }
 
     fun goHome() {

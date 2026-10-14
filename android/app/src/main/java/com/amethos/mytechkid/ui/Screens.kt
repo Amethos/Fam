@@ -1,6 +1,14 @@
 package com.amethos.mytechkid.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -29,6 +37,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +50,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +63,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // Midnight & Amber, light: design 9 ("Today's Date"), Mom's pick for now.
 private val Ink = Color(0xFF0E1726)
@@ -80,7 +92,7 @@ fun TechKidTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun TechKidScreens(vm: TechKidViewModel) {
+fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
@@ -96,6 +108,7 @@ fun TechKidScreens(vm: TechKidViewModel) {
             is Screen.Welcome -> WelcomeScreen(s.message)
             is Screen.InviteAsk -> InviteAskScreen(vm, s)
             is Screen.Pictures -> PicturesScreen(vm, s)
+            Screen.Intro -> IntroScreen(vm, onIntroDone)
             Screen.Home -> HomeScreen(vm)
             is Screen.Scam -> ScamScreen(vm, s.draft)
         }
@@ -103,6 +116,41 @@ fun TechKidScreens(vm: TechKidViewModel) {
 }
 
 // ---------- Building blocks ----------
+
+// Grows in with a soft bounce the first time it appears. Turns itself off
+// when "Remove animations" is on, because Compose follows that setting.
+@Composable
+private fun Modifier.popIn(delayMillis: Long = 0): Modifier {
+    val scale = remember { Animatable(0.82f) }
+    val fade = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(delayMillis)
+        launch { fade.animateTo(1f, tween(200)) }
+        scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow))
+    }
+    return this.graphicsLayer {
+        scaleX = scale.value
+        scaleY = scale.value
+        alpha = fade.value
+    }
+}
+
+// A slowly breathing dot: shows Mom her request is still going out.
+@Composable
+private fun LiveDot(color: Color) {
+    val pulse by rememberInfiniteTransition(label = "live").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "pulse",
+    )
+    Box(
+        Modifier
+            .size(18.dp)
+            .graphicsLayer { alpha = pulse; scaleX = 0.8f + pulse * 0.2f; scaleY = 0.8f + pulse * 0.2f }
+            .background(color, CircleShape),
+    )
+}
 
 @Composable
 private fun Page(content: @Composable ColumnScope.() -> Unit) {
@@ -286,6 +334,31 @@ private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
 }
 
 @Composable
+private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
+    val first = vm.helperNames.firstOrNull() ?: "Your family"
+    Page {
+        Title("This is your help button")
+        Column(
+            Modifier
+                .popIn(250)
+                .fillMaxWidth()
+                .background(Navy, RoundedCornerShape(28.dp))
+                .padding(vertical = 28.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Avatar(first, 96)
+            Text("Get help from\n$first", fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+        }
+        Body("Whenever you're stuck on your phone, tap it. $first gets an alert right away and will call you.", Ink)
+        Panel(AmberSoft) {
+            Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", AmberInk)
+        }
+        BigButton("OK, got it") { onDone() }
+    }
+}
+
+@Composable
 private fun HomeScreen(vm: TechKidViewModel) {
     val helpers = names(vm.helperNames)
     val first = vm.helperNames.firstOrNull() ?: "Family"
@@ -307,19 +380,23 @@ private fun HomeScreen(vm: TechKidViewModel) {
         ErrorText(vm)
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
-                Text("Asking $helpers for help…", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LiveDot(AmberDeep)
+                    Text("Asking $helpers for help…", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+                }
                 Body("They're getting an alert on their phone right now.")
                 QuietButton("Never mind, I'm OK", enabled = !vm.busy) { vm.finishHelp("cancelled") }
             }
-            "accepted" -> Panel(GreenSoft) {
+            "accepted" -> Box(Modifier.popIn()) { Panel(GreenSoft) {
                 Text("${help.helperName ?: first} is coming to help", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Body("They'll call you in a moment.", Ink)
                 QuietButton("All fixed, thank you", enabled = !vm.busy) { vm.finishHelp("done") }
-            }
+            } }
             else -> Button(
                 onClick = { vm.askForHelp() },
                 enabled = !vm.busy,
                 modifier = Modifier
+                    .popIn(120)
                     .fillMaxWidth()
                     .heightIn(min = 340.dp),
                 shape = RoundedCornerShape(32.dp),
@@ -334,6 +411,7 @@ private fun HomeScreen(vm: TechKidViewModel) {
         Button(
             onClick = { vm.openScamCheck() },
             modifier = Modifier
+                .popIn(320)
                 .fillMaxWidth()
                 .heightIn(min = 100.dp),
             shape = RoundedCornerShape(28.dp),

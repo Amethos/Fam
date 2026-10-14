@@ -22,16 +22,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleIntent(intent)
+        // First time, the intro screen explains notifications before Android asks.
+        if (vm.introSeen()) askForNotificationsIfNeeded()
+        setContent {
+            TechKidTheme {
+                TechKidScreens(vm, onIntroDone = {
+                    askForNotificationsIfNeeded()
+                    vm.finishIntro()
+                })
+            }
+        }
+    }
+
+    private fun askForNotificationsIfNeeded() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        setContent {
-            TechKidTheme {
-                TechKidScreens(vm)
-            }
         }
     }
 
