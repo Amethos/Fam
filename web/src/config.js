@@ -2,9 +2,9 @@
 // None of these values are secret: access is controlled by firestore.rules.
 export const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
-  authDomain: "YOUR-PROJECT-ID.firebaseapp.com",
-  projectId: "YOUR-PROJECT-ID",
-  storageBucket: "YOUR-PROJECT-ID.firebasestorage.app",
+  authDomain: "my-tech-kid.firebaseapp.com",
+  projectId: "my-tech-kid",
+  storageBucket: "my-tech-kid.firebasestorage.app",
   messagingSenderId: "YOUR-SENDER-ID",
   appId: "YOUR-APP-ID",
 };
