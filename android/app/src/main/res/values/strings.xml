@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fam</string>
+    <string name="share_label">Ask family: is this a scam?</string>
+    <string name="channel_name">Messages from family</string>
+</resources>

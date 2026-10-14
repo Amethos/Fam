@@ -1,0 +1,10 @@
+node_modules/
+web/dist/
+functions/.env.local
+.firebase/
+*.log
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.idea/

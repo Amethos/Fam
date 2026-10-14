@@ -1,0 +1,14 @@
+{
+  "name": "fam-rules-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --config ../firebase.json --only firestore --project demo-fam \"node --test rules.test.js\"",
+    "e2e": "firebase emulators:exec --config ../firebase.json --only auth,firestore,functions --project demo-fam \"node pairing.e2e.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0",
+    "firebase-tools": "^15.33.0"
+  }
+}

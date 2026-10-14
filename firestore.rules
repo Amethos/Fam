@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Family circles are read-only for the apps: only the backend (functions/)
+// adds or removes members. Apps can only ask for help, ask "is this a scam?",
+// and answer those requests inside their own circle.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function circleData(cid) { return get(/databases/$(database)/documents/circles/$(cid)).data; }
+    function isHelper(cid) { return signedIn() && request.auth.uid in circleData(cid).helperIds; }
+    function isParent(cid) { return signedIn() && request.auth.uid in circleData(cid).parentIds; }
+    function isMember(cid) { return isHelper(cid) || isParent(cid); }
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform']);
+      allow update: if signedIn() && request.auth.uid == uid
+        && changedOnly(['displayName', 'fcmTokens', 'platform']);
+    }
+
+    match /circles/{cid} {
+      allow read: if isMember(cid);
+
+      match /invites/{iid} {
+        allow read: if isHelper(cid)
+          || (signedIn() && resource.data.claimedBy == request.auth.uid);
+      }
+
+      match /helpRequests/{rid} {
+        allow read: if isMember(cid);
+        allow create: if isParent(cid)
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt'])
+          && request.resource.data.parentId == request.auth.uid
+          && request.resource.data.status == 'waiting'
+          && request.resource.data.createdAt == request.time;
+        allow update: if (isHelper(cid)
+            && changedOnly(['status', 'helperId', 'helperName', 'updatedAt'])
+            && request.resource.data.status in ['accepted', 'done']
+            && request.resource.data.helperId == request.auth.uid)
+          || (isParent(cid)
+            && resource.data.parentId == request.auth.uid
+            && changedOnly(['status', 'updatedAt'])
+            && request.resource.data.status in ['cancelled', 'done']);
+      }
+
+      match /scamChecks/{sid} {
+        allow read: if isMember(cid);
+        allow create: if isParent(cid)
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'text', 'createdAt', 'verdict'])
+          && request.resource.data.parentId == request.auth.uid
+          && request.resource.data.verdict == null
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+        allow update: if isHelper(cid)
+          && resource.data.verdict == null
+          && changedOnly(['verdict', 'note', 'answeredBy', 'answeredByName', 'answeredAt'])
+          && request.resource.data.verdict in ['scam', 'unsure', 'safe']
+          && request.resource.data.answeredBy == request.auth.uid
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 500;
+      }
+    }
+  }
+}

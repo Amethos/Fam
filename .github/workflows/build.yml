@@ -1,0 +1,107 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm test
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Rules and pairing tests (local emulators)
+        working-directory: backend-tests
+        run: |
+          npm ci
+          npm test
+          npm run e2e
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - run: cp app/build/outputs/apk/debug/app-debug.apk fam-beta.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fam-beta-apk
+          path: android/fam-beta.apk
+
+  # Publishes the backend, the helper web app and Mom's app download.
+  # Skipped until the FIREBASE_SERVICE_ACCOUNT secret is added (docs/SETUP.md).
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [backend, web, android]
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check setup
+        id: ready
+        run: |
+          if [ -z "$FIREBASE_SA" ] || grep -q "YOUR-FIREBASE-PROJECT-ID" .firebaserc; then
+            echo "Firebase isn't set up yet; skipping deploy (see docs/SETUP.md)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          node-version: 20
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          name: web-dist
+          path: web/dist
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          name: fam-beta-apk
+          path: web/dist/download
+      - name: Deploy to Firebase
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          (cd functions && npm ci)
+          echo "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@15 deploy --only hosting,functions,firestore --non-interactive --force
