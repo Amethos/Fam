@@ -44,7 +44,8 @@ service cloud.firestore {
       match /helpRequests/{rid} {
         allow read: if isMember(cid);
         allow create: if isParent(cid)
-          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt', 'practice'])
+          && request.resource.data.get('practice', false) is bool
           && request.resource.data.parentId == request.auth.uid
           && request.resource.data.status == 'waiting'
           && request.resource.data.createdAt == request.time;

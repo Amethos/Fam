@@ -336,25 +336,58 @@ private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
 @Composable
 private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
     val first = vm.helperNames.firstOrNull() ?: "Your family"
+    val practice = vm.practiceHelp
     Page {
-        Title("This is your help button")
-        Column(
-            Modifier
-                .popIn(250)
-                .fillMaxWidth()
-                .background(Navy, RoundedCornerShape(28.dp))
-                .padding(vertical = 28.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Avatar(first, 96)
-            Text("Get help from\n$first", fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+        when (practice?.status) {
+            // Step 1: meet the button, and try it once for real.
+            null -> {
+                Title("This is your help button")
+                Body("Let's try it once together. Tap it now. $first will see it's just practice.", Ink)
+                Button(
+                    onClick = { vm.tryPractice() },
+                    enabled = !vm.busy,
+                    modifier = Modifier
+                        .popIn(250)
+                        .fillMaxWidth()
+                        .heightIn(min = 300.dp),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Color.White),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Avatar(first, 104)
+                        Text("Get help from\n$first", fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    }
+                }
+                ErrorText(vm)
+                QuietButton("Not now") { onDone() }
+            }
+            // Step 2: waiting for the helper's "Got it".
+            "waiting" -> {
+                Title("Asking $first…")
+                Panel(InfoSoft) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        LiveDot(AmberDeep)
+                        Text("$first's phone is buzzing", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
+                    }
+                    Body("When $first taps Got it, you'll see it here.", Ink)
+                }
+                QuietButton("Not now") { onDone() }
+            }
+            // Step 3: it worked.
+            else -> {
+                Box(Modifier.popIn()) {
+                    Panel(GreenSoft) {
+                        Avatar(first, 72)
+                        Text("$first got it!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        Body("That's all there is to it. Whenever you're stuck on your phone, tap your button and $first will call you.", Ink)
+                    }
+                }
+                Panel(AmberSoft) {
+                    Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", AmberInk)
+                }
+                BigButton("OK, got it") { onDone() }
+            }
         }
-        Body("Whenever you're stuck on your phone, tap it. $first gets an alert right away and will call you.", Ink)
-        Panel(AmberSoft) {
-            Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", AmberInk)
-        }
-        BigButton("OK, got it") { onDone() }
     }
 }
 

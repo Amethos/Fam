@@ -22,7 +22,7 @@ fun firstName(name: String): String = name.trim().split(Regex("\\s+")).first().i
 
 data class InviteLink(val circleId: String, val inviteId: String, val token: String)
 data class Picture(val emoji: String, val label: String)
-data class HelpRequest(val id: String, val status: String, val helperName: String?)
+data class HelpRequest(val id: String, val status: String, val helperName: String?, val practice: Boolean = false)
 data class ScamCheck(
     val id: String,
     val text: String,
@@ -65,6 +65,9 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     var helperNames by mutableStateOf(listOf<String>())
         private set
     var activeHelp by mutableStateOf<HelpRequest?>(null)
+        private set
+    /** The one-time practice run on the intro screen. */
+    var practiceHelp by mutableStateOf<HelpRequest?>(null)
         private set
     var scamChecks by mutableStateOf(listOf<ScamCheck>())
         private set
@@ -165,10 +168,12 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         circleListeners += db.collection("circles/$id/helpRequests")
             .whereEqualTo("parentId", me)
             .addSnapshotListener { snap, _ ->
-                activeHelp = snap?.documents
-                    ?.filter { it.getString("status") in listOf("waiting", "accepted") }
-                    ?.maxByOrNull { it.getTimestamp("createdAt")?.toDate()?.time ?: Long.MAX_VALUE }
-                    ?.let { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName)) }
+                val open = snap?.documents.orEmpty()
+                    .filter { it.getString("status") in listOf("waiting", "accepted") }
+                    .sortedByDescending { it.getTimestamp("createdAt")?.toDate()?.time ?: Long.MAX_VALUE }
+                    .map { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName), it.getBoolean("practice") == true) }
+                activeHelp = open.firstOrNull { !it.practice }
+                practiceHelp = open.firstOrNull { it.practice }
             }
         circleListeners += db.collection("circles/$id/scamChecks")
             .whereEqualTo("parentId", me)
@@ -275,6 +280,21 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         ).await()
     }
 
+    /** Intro: Mom tries her button once, and her helper answers "Got it". */
+    fun tryPractice() = act {
+        val id = circleId ?: return@act
+        if (practiceHelp != null) return@act
+        db.collection("circles/$id/helpRequests").add(
+            mapOf(
+                "parentId" to uid,
+                "parentName" to myCircleName(),
+                "status" to "waiting",
+                "createdAt" to FieldValue.serverTimestamp(),
+                "practice" to true,
+            ),
+        ).await()
+    }
+
     fun finishHelp(status: String) = act {
         val id = circleId ?: return@act
         val help = activeHelp ?: return@act
@@ -341,6 +361,12 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     fun finishIntro() {
         prefs.edit().putBoolean("introSeen", true).apply()
         screen = Screen.Home
+        // Close the practice run so it never shows up as real help.
+        val id = circleId ?: return
+        val practice = practiceHelp ?: return
+        db.document("circles/$id/helpRequests/${practice.id}").update(
+            mapOf("status" to if (practice.status == "accepted") "done" else "cancelled", "updatedAt" to FieldValue.serverTimestamp()),
+        )
     }
 
     fun goHome() {

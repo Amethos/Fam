@@ -24,8 +24,11 @@ phone, before Mom tries it on her own.
 4. Back in Messages, Mom taps the link again → **Open my invite**.
 5. Mom sees "*Your name* wants to help you" → **Yes, *name* is my family**.
 6. Call Mom. You both see three pictures (e.g. Apple, Bicycle, Moon). If they match, **both** tap **They match**.
-7. Your screen says "Mom is linked!" (with confetti). Mom's phone shows "This is your help button": she taps **OK, got it**.
-8. Mom's phone then asks to allow notifications: tap **Allow**. Her home screen appears and the big button bounces in.
+7. Your screen says "Mom is linked!" (with confetti). Stay on that screen and on the call.
+8. **Practice run:** Mom's phone says "This is your help button. Let's try it once together." She taps the big button.
+   Your phone buzzes and shows **Practice run: Mom just tried the help button**. Tap **Got it**.
+9. Mom's phone says "*Your name* got it!" She taps **OK, got it**, then **Allow** when asked about notifications.
+   Her home screen appears and the big button bounces in.
 
 ## Try the features
 

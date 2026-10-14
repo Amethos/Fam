@@ -70,6 +70,12 @@ test("only the parent can ask for help, for themselves", async () => {
   await assertFails(addDoc(collection(db("stranger"), "circles/c1/helpRequests"), helpRequest("stranger")));
 });
 
+test("a practice help request is marked with a true/false flag only", async () => {
+  await assertSucceeds(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), practice: true }));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), practice: "yes" }));
+  await assertFails(addDoc(collection(db("josh"), "circles/c1/helpRequests"), { ...helpRequest("josh"), practice: true }));
+});
+
 test("helpers accept help; the parent can cancel", async () => {
   await assertFails(updateDoc(doc(db("stranger"), "circles/c1/helpRequests/h1"), { status: "accepted", helperId: "stranger", helperName: "X" }));
   await assertFails(updateDoc(doc(db("josh"), "circles/c1/helpRequests/h1"), { status: "accepted", helperId: "someoneelse", helperName: "X" }));

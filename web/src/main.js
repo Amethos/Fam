@@ -282,6 +282,15 @@ function alertsBanner() {
 function helpCards() {
   const uid = state.user.uid;
   return state.help.map((h) => {
+    if (h.practice) {
+      return h.status === "waiting"
+        ? `<div ${popAttrs(h.id, "alert urgent")}><p class="eyebrow" style="color:inherit">Practice run</p>
+            <h2>${esc(h.parentName)} just tried the help button</h2>
+            <p>This is what you'll see when ${esc(h.parentName)} needs you. Tap <strong>Got it</strong> so ${esc(h.parentName)} sees it works.</p>
+            <button data-action="accept-help" data-id="${esc(h.id)}">Got it</button></div>`
+        : `<div ${popAttrs(h.id + "-ok", "alert green")}><h2>${esc(h.parentName)} saw it work</h2>
+            <p>You're all set. Next time it's real, you'll get an alert like that one.</p></div>`;
+    }
     if (h.status === "waiting") {
       return `<div ${popAttrs(h.id, "alert urgent")}><div class="row"><h2 class="grow">${esc(h.parentName)} needs help</h2>
         <span class="muted">${esc(timeAgo(h.createdAt))}</span></div>
@@ -421,8 +430,11 @@ function viewInvite(id) {
     body = `<div class="alert blue"><h2>Waiting for ${name}</h2><p>Ask ${name} to tap <strong>They match</strong> on their phone.</p></div>
       ${picturesHtml(invite.pictures)}`;
   } else if (invite.status === "linked") {
+    const practice = helpCards();
     body = `${celebrate()}<div class="alert green"><h1>${name} is linked!</h1>
-      <p>${name}'s phone now has a big button that reaches you.</p></div><a class="button" href="#/">Done</a>`;
+      <p>${name}'s phone now has a big button that reaches you.</p></div>
+      ${practice || `<p class="muted">Stay on the phone: ${name} will be asked to try the button once, and you'll see it here.</p>`}
+      <a class="button${practice ? " secondary" : ""}" href="#/">Done</a>`;
   } else if (invite.status === "expired") {
     body = `<div class="card"><h1>This invite expired</h1><p>Invites have to be finished within an hour. Make a new one and try again.</p>
       <a class="button" href="#/add">Make a new invite</a></div>`;

@@ -231,6 +231,11 @@ async function helpersOf(circleId) {
 
 exports.onHelpRequest = onDocumentCreated("circles/{circleId}/helpRequests/{id}", async (event) => {
   const req = event.data.data();
+  if (req.practice) {
+    await notify(await helpersOf(event.params.circleId), `Practice: ${req.parentName} tried the help button`,
+      `Tap "Got it" so ${req.parentName} sees it works.`, "/#/");
+    return;
+  }
   await notify(await helpersOf(event.params.circleId), `${req.parentName} needs help`, "Tap to help now.", "/#/");
 });
 
@@ -238,6 +243,7 @@ exports.onHelpRequestUpdated = onDocumentUpdated("circles/{circleId}/helpRequest
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (before.status !== "accepted" && after.status === "accepted") {
+    if (after.practice) return; // Mom is watching it happen on her screen.
     await notify([after.parentId], `${after.helperName} is coming to help`, `${after.helperName} will call you in a moment.`);
   }
 });
