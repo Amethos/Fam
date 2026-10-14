@@ -26,8 +26,11 @@ has an Appearance switch (Automatic / Light / Dark).
 ## Mom's app
 
 Same colors, but big, calm and high-contrast; no settings on her phone.
-Mom is picking her favorite of 10 home-screen designs (`mom-picks.html`).
-Her pick decides the Android app's look.
+**Current: design 9, "Today's Date"** from `mom-picks.html` (light ground
+`#EEF2F8`, day and date + "Good morning/afternoon/evening, Mom", big navy
+help button with an amber initial, white "Is this a scam?" button with an
+amber shield). Chosen by the owner for now; Mom's own feedback comes later.
+Code: `android/app/src/main/java/com/amethos/mytechkid/ui/Screens.kt`.
 
 ## Files here
 

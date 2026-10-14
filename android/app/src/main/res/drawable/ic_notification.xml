@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small notification icon: a white shield (Android tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2L4,5v6c0,5.25 3.4,9.4 8,11 4.6,-1.6 8,-5.75 8,-11V5L12,2zM13,17h-2v-2h2v2zM13,13h-2V7h2v6z" />
+</vector>

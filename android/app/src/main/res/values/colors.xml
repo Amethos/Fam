@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ground">#F4F6F8</color>
-    <color name="blue">#1D5BD6</color>
+    <color name="ground">#EEF2F8</color>
+    <color name="navy">#0E1726</color>
 </resources>

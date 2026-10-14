@@ -59,8 +59,8 @@ rules or pairing change needs a test in `backend-tests/`.
   was rejected: too close to the funded video-chat startup Super Quick Question.
   Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj (copies in `docs/design/`).
 - **Look: Midnight & Amber** (navy + amber, Manrope), light and dark, for the
-  helper app and website; see `docs/design/DESIGN.md`. Mom's app keeps the
-  same colors but stays big and simple; she's choosing from 10 designs.
+  helper app and website; see `docs/design/DESIGN.md`. Mom's app uses
+  design 9 ("Today's Date") for now, pending her own feedback.
 
 ## Layout
 

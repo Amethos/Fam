@@ -1,8 +1,9 @@
 package com.amethos.mytechkid.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,14 +49,22 @@ import androidx.compose.ui.unit.sp
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val Ink = Color(0xFF15212E)
-private val Muted = Color(0xFF3E4A57)
-private val Ground = Color(0xFFF4F6F8)
-private val Blue = Color(0xFF1D5BD6)
-private val Peach = Color(0xFFFFE2CC)
-private val OrangeSoft = Color(0xFFFFF1E6)
-private val OrangeInk = Color(0xFF5C2C0A)
+// Midnight & Amber, light: design 9 ("Today's Date"), Mom's pick for now.
+private val Ink = Color(0xFF0E1726)
+private val Muted = Color(0xFF4A5568)
+private val Ground = Color(0xFFEEF2F8)
+private val Navy = Color(0xFF0E1726)
+private val Amber = Color(0xFFF2B33D)
+private val AmberSoft = Color(0xFFFFF1D6)
+private val AmberInk = Color(0xFF5C3A00)
+private val AmberDeep = Color(0xFF9A5B00)
+private val Line = Color(0xFFC9D3E3)
+private val InfoSoft = Color(0xFFE3E9F3)
 private val Red = Color(0xFFB3261E)
 private val RedSoft = Color(0xFFFCE8E6)
 private val RedInk = Color(0xFF5C1712)
@@ -60,7 +74,7 @@ private val GreenSoft = Color(0xFFDCEBDF)
 @Composable
 fun TechKidTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = lightColorScheme(primary = Blue, background = Ground, surface = Color.White, onSurface = Ink),
+        colorScheme = lightColorScheme(primary = Navy, background = Ground, surface = Color.White, onSurface = Ink),
         content = content,
     )
 }
@@ -118,7 +132,7 @@ private fun Body(text: String, color: Color = Muted) {
 }
 
 @Composable
-private fun BigButton(text: String, color: Color = Blue, enabled: Boolean = true, onClick: () -> Unit) {
+private fun BigButton(text: String, color: Color = Navy, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -163,16 +177,36 @@ private fun Avatar(name: String, size: Int) {
     Box(
         Modifier
             .size(size.dp)
-            .background(Peach, CircleShape)
-            .border(5.dp, Color.White, CircleShape),
+            .background(Amber, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             name.trim().take(1).uppercase().ifEmpty { "?" },
             fontSize = (size / 2.4).sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF8A4210),
+            color = Navy,
         )
+    }
+}
+
+/** A shield with "!" drawn in code, so no icon library is needed. */
+@Composable
+private fun Shield(color: Color, size: Int) {
+    Canvas(Modifier.size(size.dp)) {
+        val w = this.size.width
+        val h = this.size.height
+        val outline = Path().apply {
+            moveTo(w * 0.5f, h * 0.08f)
+            lineTo(w * 0.85f, h * 0.22f)
+            lineTo(w * 0.85f, h * 0.5f)
+            cubicTo(w * 0.85f, h * 0.72f, w * 0.7f, h * 0.86f, w * 0.5f, h * 0.92f)
+            cubicTo(w * 0.3f, h * 0.86f, w * 0.15f, h * 0.72f, w * 0.15f, h * 0.5f)
+            lineTo(w * 0.15f, h * 0.22f)
+            close()
+        }
+        drawPath(outline, color, style = Stroke(width = w * 0.09f, join = StrokeJoin.Round))
+        drawLine(color, Offset(w * 0.5f, h * 0.33f), Offset(w * 0.5f, h * 0.58f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+        drawCircle(color, radius = w * 0.055f, center = Offset(w * 0.5f, h * 0.72f))
     }
 }
 
@@ -194,7 +228,7 @@ private fun WelcomeScreen(message: String?) {
     Page {
         Spacer(Modifier.heightIn(min = 24.dp))
         Title("Welcome to My Tech Kid")
-        if (message != null) Panel(OrangeSoft) { Body(message, OrangeInk) }
+        if (message != null) Panel(AmberSoft) { Body(message, AmberInk) }
         Body("My Tech Kid puts a big button on your phone that reaches your family when you need help.")
         Body("To get started, ask your family to text you an invite link. Then tap the link in your messages.")
     }
@@ -207,12 +241,12 @@ private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
             Avatar(s.helperName, 120)
         }
         Title("${s.helperName} wants to help you with your phone")
-        Panel(OrangeSoft) {
+        Panel(AmberSoft) {
             Text(
                 "Only continue if ${s.helperName} is family you know.",
-                fontSize = 21.sp, fontWeight = FontWeight.Bold, color = OrangeInk,
+                fontSize = 21.sp, fontWeight = FontWeight.Bold, color = AmberInk,
             )
-            Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", OrangeInk)
+            Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", AmberInk)
         }
         ErrorText(vm)
         BigButton("Yes, ${s.helperName} is my family", enabled = !vm.busy) { vm.acceptInvite() }
@@ -257,10 +291,22 @@ private fun HomeScreen(vm: TechKidViewModel) {
     val first = vm.helperNames.firstOrNull() ?: "Family"
     val help = vm.activeHelp
     Page {
-        Title(if (vm.myName.isNotBlank()) "Hi ${vm.myName}" else "Hi there")
+        val hour = LocalTime.now().hour
+        val greeting = when {
+            hour < 12 -> "Good morning"
+            hour < 18 -> "Good afternoon"
+            else -> "Good evening"
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())),
+                fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Muted,
+            )
+            Title(if (vm.myName.isNotBlank()) "$greeting, ${vm.myName}" else greeting)
+        }
         ErrorText(vm)
         when (help?.status) {
-            "waiting" -> Panel(Color(0xFFE3ECFB)) {
+            "waiting" -> Panel(InfoSoft) {
                 Text("Asking $helpers for help…", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Body("They're getting an alert on their phone right now.")
                 QuietButton("Never mind, I'm OK", enabled = !vm.busy) { vm.finishHelp("cancelled") }
@@ -277,7 +323,7 @@ private fun HomeScreen(vm: TechKidViewModel) {
                     .fillMaxWidth()
                     .heightIn(min = 340.dp),
                 shape = RoundedCornerShape(32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Color.White),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Avatar(first, 120)
@@ -291,11 +337,19 @@ private fun HomeScreen(vm: TechKidViewModel) {
                 .fillMaxWidth()
                 .heightIn(min = 100.dp),
             shape = RoundedCornerShape(28.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = OrangeSoft, contentColor = OrangeInk),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Ink),
+            border = BorderStroke(2.dp, Line),
         ) {
-            Column(Modifier.fillMaxWidth()) {
-                Text("Is this a scam?", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text("Ask before you tap or pay", fontSize = 18.sp)
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Shield(AmberDeep, 44)
+                Column {
+                    Text("Is this a scam?", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("Ask before you tap or pay", fontSize = 18.sp, color = Muted)
+                }
             }
         }
     }
@@ -334,7 +388,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
 @Composable
 private fun LatestAnswer(check: ScamCheck, helpers: String) {
     when (check.verdict) {
-        null -> Panel(Color(0xFFE3ECFB)) {
+        null -> Panel(InfoSoft) {
             Text("Waiting for $helpers to answer…", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
             Body("Don't tap any links or pay anything until they do.", Ink)
             Quote(check.text)
