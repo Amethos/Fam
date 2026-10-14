@@ -38,7 +38,7 @@ click-by-click, and never paste secrets into chat or commits.
 
 ## Layout
 
-- `functions/` — Firebase Cloud Functions (Node 20): `createCircle`,
+- `functions/` — Firebase Cloud Functions (Node 22): `createCircle`,
   `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, and push
   notification triggers. Unit tests: `npm test` (pure helpers in `pairing.js`).
 - `backend-tests/` — `npm test` checks `firestore.rules`; `npm run e2e` runs the
