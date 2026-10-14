@@ -73,7 +73,8 @@ rules or pairing change needs a test in `backend-tests/`.
 - `firestore.rules` — who can read/write what. Data model:
   `users/{uid}` (displayName, role, circleId, fcmTokens),
   `circles/{cid}` (name, helperIds, parentIds, members map),
-  `circles/{cid}/invites`, `/helpRequests`, `/scamChecks`.
+  `circles/{cid}/invites`, `/helpRequests`, `/scamChecks`, `/screenShares` (+ `/signals`;
+  stage 2, see `docs/STAGE2.md`).
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.
   Config in `web/src/config.js`. All person-supplied text goes through `esc()`.
 - `android/` — parent app, Kotlin + Jetpack Compose, package `com.amethos.mytechkid`.

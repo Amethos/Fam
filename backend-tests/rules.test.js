@@ -118,3 +118,76 @@ test("only a helper answers a scam check, once", async () => {
   await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh")));
   await assertFails(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh", { verdict: "safe" })));
 });
+
+// ---- Screen sharing (stage 2) ----
+
+const share = (extra = {}) => ({ parentId: "mom", parentName: "Mom", status: "waiting", createdAt: serverTimestamp(), ...extra });
+const join = (uid, extra = {}) => ({ status: "live", helperId: uid, helperName: "Josh", startedAt: serverTimestamp(), ...extra });
+const end = (uid) => ({ status: "ended", endedBy: uid, endedAt: serverTimestamp() });
+const signal = (uid, extra = {}) => ({ from: uid, type: "offer", payload: "v=0", createdAt: serverTimestamp(), ...extra });
+
+async function seedShare(id, data) {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), `circles/c1/screenShares/${id}`), data));
+}
+
+test("only the parent's own phone can start sharing its screen", async () => {
+  await assertSucceeds(addDoc(collection(db("mom"), "circles/c1/screenShares"), share()));
+  await assertFails(addDoc(collection(db("josh"), "circles/c1/screenShares"), share({ parentId: "josh" })));
+  await assertFails(addDoc(collection(db("josh"), "circles/c1/screenShares"), share()));
+  await assertFails(addDoc(collection(db("stranger"), "circles/c1/screenShares"), share({ parentId: "stranger" })));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/screenShares"), share({ status: "live" })));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/screenShares"), share({ helperId: "josh" })));
+});
+
+test("one helper joins a fresh share; strangers and stale shares are refused", async () => {
+  const { Timestamp } = await import("firebase/firestore");
+  await seedShare("fresh", { parentId: "mom", parentName: "Mom", status: "waiting", createdAt: Timestamp.now() });
+  await seedShare("stale", { parentId: "mom", parentName: "Mom", status: "waiting", createdAt: Timestamp.fromMillis(Date.now() - 11 * 60 * 1000) });
+  await assertFails(updateDoc(doc(db("stranger"), "circles/c1/screenShares/fresh"), join("stranger")));
+  await assertFails(updateDoc(doc(db("mom"), "circles/c1/screenShares/fresh"), join("mom")));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/screenShares/fresh"), join("someoneelse")));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/screenShares/stale"), join("josh")));
+  await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/screenShares/fresh"), join("josh")));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/screenShares/fresh"), join("josh")));
+});
+
+test("the parent or the joined helper can end a share, and it stays ended", async () => {
+  const { Timestamp } = await import("firebase/firestore");
+  const live = { parentId: "mom", parentName: "Mom", status: "live", helperId: "josh", helperName: "Josh", createdAt: Timestamp.now() };
+  await seedShare("a", live);
+  await seedShare("b", live);
+  await assertFails(updateDoc(doc(db("stranger"), "circles/c1/screenShares/a"), end("stranger")));
+  await assertFails(updateDoc(doc(db("mom"), "circles/c1/screenShares/a"), end("josh")));
+  await assertSucceeds(updateDoc(doc(db("mom"), "circles/c1/screenShares/a"), end("mom")));
+  await assertFails(updateDoc(doc(db("mom"), "circles/c1/screenShares/a"), { status: "live" }));
+  await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/screenShares/b"), end("josh")));
+  await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/screenShares/a")));
+  await assertFails(getDoc(doc(db("stranger"), "circles/c1/screenShares/a")));
+});
+
+test("connection messages flow only between the two people on a live share", async () => {
+  const { Timestamp } = await import("firebase/firestore");
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore();
+    await setDoc(doc(d, "circles/c1"), {
+      name: "Smiths", helperIds: ["josh", "amy"], parentIds: ["mom"],
+      members: { josh: { name: "Josh", role: "helper" }, amy: { name: "Amy", role: "helper" }, mom: { name: "Mom", role: "parent" } },
+    });
+  });
+  await seedShare("live", { parentId: "mom", parentName: "Mom", status: "live", helperId: "josh", helperName: "Josh", createdAt: Timestamp.now() });
+  await seedShare("waiting", { parentId: "mom", parentName: "Mom", status: "waiting", createdAt: Timestamp.now() });
+  await seedShare("over", { parentId: "mom", parentName: "Mom", status: "ended", helperId: "josh", helperName: "Josh", createdAt: Timestamp.now() });
+  const signals = (uid, id) => collection(db(uid), `circles/c1/screenShares/${id}/signals`);
+  await assertSucceeds(addDoc(signals("mom", "live"), signal("mom")));
+  await assertSucceeds(addDoc(signals("josh", "live"), signal("josh", { type: "answer" })));
+  // Another helper in the family can't listen in.
+  await assertFails(addDoc(signals("amy", "live"), signal("amy")));
+  await assertFails(addDoc(signals("stranger", "live"), signal("stranger")));
+  // Nobody can pretend to be Mom.
+  await assertFails(addDoc(signals("josh", "live"), signal("mom")));
+  await assertFails(addDoc(signals("mom", "live"), signal("mom", { type: "control" })));
+  await assertFails(addDoc(signals("mom", "waiting"), signal("mom")));
+  await assertFails(addDoc(signals("mom", "over"), signal("mom")));
+  await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/screenShares/live/signals/x")));
+  await assertFails(getDoc(doc(db("amy"), "circles/c1/screenShares/live/signals/x")));
+});
