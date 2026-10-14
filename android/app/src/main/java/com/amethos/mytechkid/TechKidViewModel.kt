@@ -75,7 +75,13 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var updating by mutableStateOf(false)
         private set
+    /** Android's "allow My Tech Kid to update itself" switch is open (asked once per phone). */
+    var needsInstallSwitch by mutableStateOf(false)
+        private set
     private var lastUpdateCheck = 0L
+    private var inFront = false
+    private var installPending = false
+    private var askedForSwitch = false
 
     private var uid: String? = null
     private var circleId: String? = null
@@ -330,13 +336,29 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Beta updates ----------
 
-    /** Called whenever the app comes to the front; checks at most every 15 minutes. */
-    fun checkForUpdate() {
+    fun appResumed() {
+        inFront = true
+        continueUpdate()
+        checkForUpdate()
+    }
+
+    fun appPaused() {
+        inFront = false
+    }
+
+    /** Checks at most every 15 minutes. A failed check (no internet) changes nothing. */
+    private fun checkForUpdate() {
         val now = System.currentTimeMillis()
         if (updating || now - lastUpdateCheck < 15 * 60_000) return
         lastUpdateCheck = now
         viewModelScope.launch {
-            updateReady = try { Updater.isUpdateAvailable(getApplication<Application>()) } catch (e: Exception) { false }
+            val app = getApplication<Application>()
+            val ready = try { Updater.isUpdateAvailable(app) } catch (e: Exception) { return@launch }
+            updateReady = ready
+            if (!ready && !updating && !installPending) {
+                needsInstallSwitch = false
+                Updater.cleanUp(app)
+            }
         }
     }
 
@@ -344,15 +366,53 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         if (updating) return
         updating = true
         error = null
+        askedForSwitch = false
         viewModelScope.launch {
+            val app = getApplication<Application>()
             try {
-                Updater.downloadAndInstall(getApplication<Application>())
+                // Reuse a download that finished while Mom was away from the app.
+                if (Updater.downloaded(app) == null) Updater.download(app)
+                installPending = true
+                continueUpdate()
             } catch (e: Exception) {
                 error = "Couldn't get the update right now. Try again later."
             } finally {
                 updating = false
                 lastUpdateCheck = 0L
             }
+        }
+    }
+
+    /**
+     * Shows Android's install screen once the update is downloaded. Android won't
+     * open it while My Tech Kid is in the background, so if Mom left the app
+     * during the download it waits until she comes back.
+     */
+    private fun continueUpdate() {
+        if (!installPending || !inFront) return
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            if (!installPending || !inFront) return@launch
+            val apk = Updater.downloaded(app)
+            if (apk == null) {
+                installPending = false
+                return@launch
+            }
+            if (!inFront) return@launch
+            if (!Updater.canInstall(app)) {
+                // Back without turning the switch on: the panel explains, Update tries again.
+                if (askedForSwitch) {
+                    installPending = false
+                    return@launch
+                }
+                askedForSwitch = true
+                needsInstallSwitch = true
+                Updater.askToAllowInstalls(app)
+                return@launch
+            }
+            installPending = false
+            needsInstallSwitch = false
+            Updater.install(app, apk)
         }
     }
 
