@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nearby — landing page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6F8}
+a{color:#1D5BD6}a:hover{color:#123F99}
+</style>
+</helmet>
+<div style="font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #15212E; background: #F4F6F8; font-size: 1.125rem; line-height: 1.55">
+
+<header style="background: #FFFFFF; border-bottom: 1px solid #DDE3EA">
+<div style="max-width: 1160px; margin: 0 auto; padding: 18px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+<a href="#top" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #15212E">
+<svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true"><circle cx="11" cy="17" r="8" stroke="{{accent}}" stroke-width="3"></circle><circle cx="23" cy="17" r="8" stroke="#F08A3C" stroke-width="3"></circle></svg>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 1.5rem">Nearby</span>
+</a>
+<nav aria-label="Main" style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center">
+<a href="#how" style="color: #15212E; text-decoration: none">How it works</a>
+<a href="#safety" style="color: #15212E; text-decoration: none">Scam protection</a>
+<a href="#devices" style="color: #15212E; text-decoration: none">Phones</a>
+<a href="#signup" style="background: {{accent}}; color: #FFFFFF; text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700">Get early access</a>
+</nav>
+</div>
+</header>
+
+<section id="top" style="max-width: 1160px; margin: 0 auto; padding: 72px 24px 64px; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+<div style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+<p style="margin: 0; display: inline-flex; align-self: flex-start; background: #FFF1E6; color: #8A4210; font-weight: 700; padding: 6px 14px; border-radius: 999px; font-size: 1rem">Remote tech help for families</p>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.05; letter-spacing: -0.02em">Help Mom with her phone from anywhere.</h1>
+<p style="margin: 0; font-size: 1.375rem; color: #3E4A57; max-width: 34ch">One big button on her phone calls you. You see her screen and fix it — and only family can ever connect. No strangers. No codes. Ever.</p>
+<form id="signup" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; max-width: 560px">
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 6px">
+<label for="email" style="font-weight: 700; font-size: 1rem">Your email</label>
+<input id="email" type="email" placeholder="you@example.com" style="font: inherit; padding: 14px 16px; border: 2px solid #C5CED8; border-radius: 12px; background: #FFFFFF; color: #15212E">
+</div>
+<button type="submit" style="font: inherit; font-weight: 700; background: {{accent}}; color: #FFFFFF; border: 0; border-radius: 12px; padding: 16px 24px; cursor: pointer; min-height: 56px">Join the early access list</button>
+</form>
+<p style="margin: 0; font-size: 1rem; color: #4A5562">Free to join. We'll email you when it's ready for your family's phones.</p>
+</div>
+
+<div style="flex: 0 1 340px; display: flex; justify-content: center; margin: 0 auto">
+<div style="width: 300px; height: 600px; border-radius: 44px; background: #15212E; padding: 12px; box-sizing: border-box; box-shadow: 0 30px 60px rgba(21,33,46,0.22)">
+<div style="width: 100%; height: 100%; border-radius: 34px; background: #FFFFFF; display: flex; flex-direction: column; gap: 14px; padding: 36px 18px 18px; box-sizing: border-box">
+<p style="margin: 0; font-size: 1.25rem; font-weight: 700; text-align: center">Good morning, Linda</p>
+<div style="flex: 1; border-radius: 24px; background: {{accent}}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 12px">
+<div style="width: 84px; height: 84px; border-radius: 50%; background: #FFE2CC; color: #8A4210; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.25rem; border: 4px solid #FFFFFF">J</div>
+<span style="font-size: 1.5rem; font-weight: 700; line-height: 1.2">Get help<br>from Josh</span>
+</div>
+<div style="border-radius: 20px; background: #FFF1E6; color: #8A4210; padding: 18px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.125rem">
+<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>
+Is this a scam?
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="how" style="background: #FFFFFF; border-top: 1px solid #DDE3EA; border-bottom: 1px solid #DDE3EA">
+<div style="max-width: 1160px; margin: 0 auto; padding: 72px 24px; display: flex; flex-direction: column; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 640px">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.5rem; line-height: 1.1">One app. Two roles.</h2>
+<p style="margin: 0; color: #3E4A57">You and your parents download the same app. It changes completely depending on who's using it.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px">
+<div style="background: #F4F6F8; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 48px; height: 48px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem">1</span>
+<h3 style="margin: 0; font-size: 1.375rem">You set up your family</h3>
+<p style="margin: 0; color: #3E4A57">Choose "I'm helping someone" and add Mom, Dad, or both. Siblings can join as helpers too.</p>
+</div>
+<div style="background: #F4F6F8; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 48px; height: 48px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem">2</span>
+<h3 style="margin: 0; font-size: 1.375rem">Text them an invite</h3>
+<p style="margin: 0; color: #3E4A57">Mom taps your link. On a quick call you both check that the same three pictures appear — then you're linked.</p>
+</div>
+<div style="background: #F4F6F8; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 48px; height: 48px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.25rem">3</span>
+<h3 style="margin: 0; font-size: 1.375rem">She taps one button</h3>
+<p style="margin: 0; color: #3E4A57">Whenever she's stuck, she presses "Get help." You see her screen, point to things, and fix it for her.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="safety" style="background: #15212E; color: #FFFFFF">
+<div style="max-width: 1160px; margin: 0 auto; padding: 80px 24px; display: flex; flex-direction: column; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 680px">
+<p style="margin: 0; color: #FFC59C; font-weight: 700">Built to stop scammers</p>
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.5rem; line-height: 1.1">Fake "tech support" uses remote-access apps. Ours only opens to family.</h2>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px">
+<div style="border: 1px solid #3A4A5C; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFC59C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"></path><path d="M15 14.5c3 0 6 2 6 5.5"></path></svg>
+<h3 style="margin: 0; font-size: 1.25rem">Closed family circle</h3>
+<p style="margin: 0; color: #C9D3DE">Only devices you've linked can connect. There's no code a stranger can ask for.</p>
+</div>
+<div style="border: 1px solid #3A4A5C; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFC59C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<h3 style="margin: 0; font-size: 1.25rem">24-hour safety wait</h3>
+<p style="margin: 0; color: #C9D3DE">A newly linked helper can't take control for a day. Scams run on panic — this takes the panic away.</p>
+</div>
+<div style="border: 1px solid #3A4A5C; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFC59C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+<h3 style="margin: 0; font-size: 1.25rem">Only you approve new helpers</h3>
+<p style="margin: 0; color: #C9D3DE">Mom can't be talked into adding someone. New helpers need an existing family helper's OK.</p>
+</div>
+<div style="border: 1px solid #3A4A5C; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFC59C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+<h3 style="margin: 0; font-size: 1.25rem">"Is this a scam?" button</h3>
+<p style="margin: 0; color: #C9D3DE">Got a strange text or call? Mom sends it to you with one tap and waits for your answer before she acts.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="devices" style="max-width: 1160px; margin: 0 auto; padding: 72px 24px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 680px">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.5rem; line-height: 1.1">Works with the phones your family already has</h2>
+<p style="margin: 0; color: #3E4A57">Help from an iPhone or Android. What you can do depends on your parent's phone.</p>
+</div>
+<div style="overflow-x: auto; background: #FFFFFF; border-radius: 20px; border: 1px solid #DDE3EA">
+<table style="width: 100%; border-collapse: collapse; min-width: 560px">
+<thead>
+<tr style="text-align: left; background: #EEF2F6">
+<th scope="col" style="padding: 16px 20px">Parent's phone</th>
+<th scope="col" style="padding: 16px 20px">See their screen</th>
+<th scope="col" style="padding: 16px 20px">Point and draw</th>
+<th scope="col" style="padding: 16px 20px">Take control</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top: 1px solid #DDE3EA">
+<th scope="row" style="padding: 16px 20px; text-align: left">Android</th>
+<td style="padding: 16px 20px">Yes</td>
+<td style="padding: 16px 20px">Yes</td>
+<td style="padding: 16px 20px; font-weight: 700; color: #1F6B45">Yes, from any phone</td>
+</tr>
+<tr style="border-top: 1px solid #DDE3EA">
+<th scope="row" style="padding: 16px 20px; text-align: left">iPhone</th>
+<td style="padding: 16px 20px">Yes</td>
+<td style="padding: 16px 20px">Yes</td>
+<td style="padding: 16px 20px">Through Apple's FaceTime control (helper on iPhone)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border-top: 1px solid #DDE3EA">
+<div style="max-width: 860px; margin: 0 auto; padding: 72px 24px; display: flex; flex-direction: column; gap: 24px">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.5rem; line-height: 1.1">Questions</h2>
+<details style="border-bottom: 1px solid #DDE3EA; padding-bottom: 16px" open="">
+<summary style="font-weight: 700; font-size: 1.25rem; cursor: pointer">My parents live far away. Can we still set it up?</summary>
+<p style="margin: 12px 0 0; color: #3E4A57">Yes. You text them an invite link, then confirm on a phone call that you both see the same three pictures. No visit needed.</p>
+</details>
+<details style="border-bottom: 1px solid #DDE3EA; padding-bottom: 16px">
+<summary style="font-weight: 700; font-size: 1.25rem; cursor: pointer">Can I help both Mom and Dad?</summary>
+<p style="margin: 12px 0 0; color: #3E4A57">Yes. One family circle holds both parents, and brothers or sisters can join as extra helpers.</p>
+</details>
+<details style="border-bottom: 1px solid #DDE3EA; padding-bottom: 16px">
+<summary style="font-weight: 700; font-size: 1.25rem; cursor: pointer">What if someone pretends to be me?</summary>
+<p style="margin: 12px 0 0; color: #3E4A57">Once your parent is linked, nobody new can join without your approval — and any newly linked helper waits 24 hours before they can take control.</p>
+</details>
+<details style="border-bottom: 1px solid #DDE3EA; padding-bottom: 16px">
+<summary style="font-weight: 700; font-size: 1.25rem; cursor: pointer">How much will it cost?</summary>
+<p style="margin: 12px 0 0; color: #3E4A57">[YOUR PRICE]. Early access members hear first.</p>
+</details>
+</div>
+</section>
+
+<section style="max-width: 1160px; margin: 0 auto; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 2.75rem; line-height: 1.1; max-width: 20ch">Be the help they can count on — no matter how far away.</h2>
+<a href="#signup" style="background: {{accent}}; color: #FFFFFF; text-decoration: none; padding: 18px 28px; border-radius: 14px; font-weight: 700; font-size: 1.25rem">Join the early access list</a>
+</section>
+
+<footer style="border-top: 1px solid #DDE3EA; background: #FFFFFF">
+<div style="max-width: 1160px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; color: #4A5562; font-size: 1rem">
+<span>Nearby (working name)</span>
+<span>Banks, Apple and Microsoft will never ask you to install a remote-access app.</span>
+</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#1D5BD6","options":["#1D5BD6","#1F6B45","#5B3FC4","#15212E"]},"$preview":{"width":1280,"height":3700}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#1D5BD6' };
+}
+}
+</script>
+</body>
+</html>

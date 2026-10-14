@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Helper — Answer a scam check</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F6F8; color: #15212E; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 56px 20px 32px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="HelperDashboard.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; border: 1px solid #DDE3EA; display: flex; align-items: center; justify-content: center; color: #15212E">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 1.625rem">Mom's scam check</h1>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; border: 1px solid #DDE3EA; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 0.875rem; color: #4A5562">Text from +1 (555) 019-8872 · 2 min ago</p>
+<p style="margin: 0; font-size: 1.0625rem; line-height: 1.45">Your package could not be delivered. Pay the $1.99 fee to reschedule: parcel-redelivery-help.co</p>
+</div>
+
+<div style="background: #FFF1E6; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-weight: 700; color: #5C2C0A">Warning signs we spotted</p>
+<ul style="margin: 0; padding-left: 20px; color: #5C2C0A; line-height: 1.5">
+<li>Asks for a small payment by link</li>
+<li>Website isn't from a real delivery company</li>
+<li>Sent from an unknown number</li>
+</ul>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="font-weight: 700; margin-bottom: 10px">Your answer</legend>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<button type="button" aria-pressed="true" style="font: inherit; font-weight: 700; background: #B3261E; color: #FFFFFF; border: 0; border-radius: 14px; min-height: 52px; cursor: pointer">Scam</button>
+<button type="button" style="font: inherit; font-weight: 700; background: #FFFFFF; color: #15212E; border: 2px solid #C5CED8; border-radius: 14px; min-height: 52px; cursor: pointer">Not sure</button>
+<button type="button" style="font: inherit; font-weight: 700; background: #FFFFFF; color: #15212E; border: 2px solid #C5CED8; border-radius: 14px; min-height: 52px; cursor: pointer">Safe</button>
+</div>
+<label for="note" style="font-size: 0.9375rem; color: #3E4A57; margin-top: 4px">Message to Mom</label>
+<textarea id="note" rows="3" style="font: inherit; padding: 12px 14px; border: 2px solid #C5CED8; border-radius: 14px; background: #FFFFFF; color: #15212E; resize: none">Hi Mom, that's a fake delivery text. Just delete it. Love you!</textarea>
+</fieldset>
+
+<button type="button" style="margin-top: auto; font: inherit; font-size: 1.1875rem; font-weight: 700; background: #1D5BD6; color: #FFFFFF; border: 0; border-radius: 16px; min-height: 60px; cursor: pointer">Send to Mom</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

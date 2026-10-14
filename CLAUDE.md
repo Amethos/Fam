@@ -57,7 +57,10 @@ rules or pairing change needs a test in `backend-tests/`.
   parents already say "I'll ask my tech kid"). Earlier working names: "Fam"
   (the GitHub repo is still called Fam) and "Nearby" (mockups). "Quick Question"
   was rejected: too close to the funded video-chat startup Super Quick Question.
-  Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj
+  Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj (copies in `docs/design/`).
+- **Look: Midnight & Amber** (navy + amber, Manrope), light and dark, for the
+  helper app and website; see `docs/design/DESIGN.md`. Mom's app keeps the
+  same colors but stays big and simple; she's choosing from 10 designs.
 
 ## Layout
 
