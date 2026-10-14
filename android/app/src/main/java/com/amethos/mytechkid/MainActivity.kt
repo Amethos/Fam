@@ -1,4 +1,4 @@
-package com.amethos.fam
+package com.amethos.mytechkid
 
 import android.Manifest
 import android.content.Intent
@@ -10,11 +10,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import com.amethos.fam.ui.FamScreens
-import com.amethos.fam.ui.FamTheme
+import com.amethos.mytechkid.ui.TechKidScreens
+import com.amethos.mytechkid.ui.TechKidTheme
 
 class MainActivity : ComponentActivity() {
-    private val vm: FamViewModel by viewModels()
+    private val vm: TechKidViewModel by viewModels()
 
     private val askNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -29,8 +29,8 @@ class MainActivity : ComponentActivity() {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            FamTheme {
-                FamScreens(vm)
+            TechKidTheme {
+                TechKidScreens(vm)
             }
         }
     }
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         when (intent?.action) {
             Intent.ACTION_VIEW -> {
                 val data = intent.data ?: return
-                if (data.scheme != "fam" || data.host != "join") return
+                if (data.scheme != "mytechkid" || data.host != "join") return
                 val c = data.getQueryParameter("c")
                 val i = data.getQueryParameter("i")
                 val t = data.getQueryParameter("t")

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Fam"
+rootProject.name = "MyTechKid"
 include(":app")

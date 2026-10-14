@@ -1,4 +1,4 @@
-package com.amethos.fam
+package com.amethos.mytechkid
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -15,7 +15,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
 /** Receives alerts from family ("Josh is coming to help", scam-check answers). */
-class FamMessagingService : FirebaseMessagingService() {
+class TechKidMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -25,7 +25,7 @@ class FamMessagingService : FirebaseMessagingService() {
         )
     }
 
-    // Called for messages that arrive while Fam is open (otherwise Android shows them itself).
+    // Called for messages that arrive while My Tech Kid is open (otherwise Android shows them itself).
     override fun onMessageReceived(message: RemoteMessage) {
         val note = message.notification ?: return
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -39,7 +39,7 @@ class FamMessagingService : FirebaseMessagingService() {
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        val built = NotificationCompat.Builder(this, FamApp.CHANNEL_ID)
+        val built = NotificationCompat.Builder(this, TechKidApp.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(note.title)
             .setContentText(note.body)

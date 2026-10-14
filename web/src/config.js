@@ -13,7 +13,7 @@ export const firebaseConfig = {
 export const vapidKey = "YOUR-WEB-PUSH-KEY";
 
 // Must match applicationId in android/app/build.gradle.kts.
-export const androidPackage = "com.amethos.fam";
-export const apkPath = "/download/fam-beta.apk";
+export const androidPackage = "com.amethos.mytechkid";
+export const apkPath = "/download/mytechkid-beta.apk";
 
 export const isConfigured = !firebaseConfig.apiKey.startsWith("YOUR-");

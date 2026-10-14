@@ -1,4 +1,4 @@
-# Fam
+# My Tech Kid
 
 Help your parents with their phone from anywhere. One big button on their
 phone reaches you, and only family can ever connect.

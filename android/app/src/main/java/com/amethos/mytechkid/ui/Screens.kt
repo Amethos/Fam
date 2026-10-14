@@ -1,4 +1,4 @@
-package com.amethos.fam.ui
+package com.amethos.mytechkid.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.amethos.fam.FamViewModel
-import com.amethos.fam.ScamCheck
-import com.amethos.fam.Screen
+import com.amethos.mytechkid.TechKidViewModel
+import com.amethos.mytechkid.ScamCheck
+import com.amethos.mytechkid.Screen
 
 private val Ink = Color(0xFF15212E)
 private val Muted = Color(0xFF3E4A57)
@@ -58,7 +58,7 @@ private val Green = Color(0xFF1F6B45)
 private val GreenSoft = Color(0xFFDCEBDF)
 
 @Composable
-fun FamTheme(content: @Composable () -> Unit) {
+fun TechKidTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(primary = Blue, background = Ground, surface = Color.White, onSurface = Ink),
         content = content,
@@ -66,7 +66,7 @@ fun FamTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun FamScreens(vm: FamViewModel) {
+fun TechKidScreens(vm: TechKidViewModel) {
     Box(
         Modifier
             .fillMaxSize()
@@ -77,7 +77,7 @@ fun FamScreens(vm: FamViewModel) {
             Screen.Loading -> Centered { CircularProgressIndicator() }
             Screen.NotConfigured -> Page {
                 Title("Almost there")
-                Body("This copy of Fam isn't connected yet. Your family needs to finish setup (docs/SETUP.md).")
+                Body("This copy of My Tech Kid isn't connected yet. Your family needs to finish setup (docs/SETUP.md).")
             }
             is Screen.Welcome -> WelcomeScreen(s.message)
             is Screen.InviteAsk -> InviteAskScreen(vm, s)
@@ -177,7 +177,7 @@ private fun Avatar(name: String, size: Int) {
 }
 
 @Composable
-private fun ErrorText(vm: FamViewModel) {
+private fun ErrorText(vm: TechKidViewModel) {
     vm.error?.let { Text(it, fontSize = 19.sp, color = Red, fontWeight = FontWeight.Bold) }
 }
 
@@ -193,15 +193,15 @@ private fun names(list: List<String>): String = when (list.size) {
 private fun WelcomeScreen(message: String?) {
     Page {
         Spacer(Modifier.heightIn(min = 24.dp))
-        Title("Welcome to Fam")
+        Title("Welcome to My Tech Kid")
         if (message != null) Panel(OrangeSoft) { Body(message, OrangeInk) }
-        Body("Fam puts a big button on your phone that reaches your family when you need help.")
+        Body("My Tech Kid puts a big button on your phone that reaches your family when you need help.")
         Body("To get started, ask your family to text you an invite link. Then tap the link in your messages.")
     }
 }
 
 @Composable
-private fun InviteAskScreen(vm: FamViewModel, s: Screen.InviteAsk) {
+private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
     Page {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(s.helperName, 120)
@@ -221,7 +221,7 @@ private fun InviteAskScreen(vm: FamViewModel, s: Screen.InviteAsk) {
 }
 
 @Composable
-private fun PicturesScreen(vm: FamViewModel, s: Screen.Pictures) {
+private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
     Page {
         if (s.confirmed) {
             Title("Almost done")
@@ -252,7 +252,7 @@ private fun PicturesScreen(vm: FamViewModel, s: Screen.Pictures) {
 }
 
 @Composable
-private fun HomeScreen(vm: FamViewModel) {
+private fun HomeScreen(vm: TechKidViewModel) {
     val helpers = names(vm.helperNames)
     val first = vm.helperNames.firstOrNull() ?: "Family"
     val help = vm.activeHelp
@@ -302,7 +302,7 @@ private fun HomeScreen(vm: FamViewModel) {
 }
 
 @Composable
-private fun ScamScreen(vm: FamViewModel, draft: String) {
+private fun ScamScreen(vm: TechKidViewModel, draft: String) {
     BackHandler { vm.goHome() }
     var text by remember(draft) { mutableStateOf(draft) }
     val latest: ScamCheck? = vm.scamChecks.firstOrNull()
@@ -312,7 +312,7 @@ private fun ScamScreen(vm: FamViewModel, draft: String) {
         if (latest != null && draft.isEmpty()) {
             LatestAnswer(latest, helpers)
         }
-        Body("Paste or type the message you got. Tip: in Messages, press and hold a text, tap Share, then choose Fam.")
+        Body("Paste or type the message you got. Tip: in Messages, press and hold a text, tap Share, then choose My Tech Kid.")
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },

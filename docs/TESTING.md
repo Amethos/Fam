@@ -6,16 +6,16 @@ phone, before Mom tries it on her own.
 ## You (iPhone)
 
 1. Open `https://<project-id>.web.app` in **Safari**.
-2. Tap **Share → Add to Home Screen**. From now on, open Fam from your home screen.
+2. Tap **Share → Add to Home Screen**. From now on, open My Tech Kid from your home screen.
 3. Tap **New account**, enter your first name, email and a password.
 4. Create your family circle (for example "The Smith family").
 5. Tap **Turn on alerts** and allow notifications.
 
 ## Link Mom's phone
 
-1. In Fam, tap **Add Mom or Dad**, type what you call her (e.g. "Mom"), tap **Create invite link**.
+1. In My Tech Kid, tap **Add Mom or Dad**, type what you call her (e.g. "Mom"), tap **Create invite link**.
 2. Tap **Share link** and send it to Mom by text message. Stay on that screen.
-3. On Mom's phone: tap the link → **Download Fam** → open the download → **Install**.
+3. On Mom's phone: tap the link → **Download My Tech Kid** → open the download → **Install**.
    - Samsung may ask to allow Chrome or Samsung Internet to **install unknown apps**: allow it.
    - Samsung may warn the app is unknown (because it's not from the Play Store): choose **Install anyway**.
 4. Back in Messages, Mom taps the link again → **Open my invite**.
@@ -31,7 +31,7 @@ phone, before Mom tries it on her own.
 - **Scam check (typed):** Mom taps **Is this a scam?**, types or pastes a message, taps **Send**.
   You get an alert → **Answer** → pick Scam / Not sure / Safe, add a note → **Send to Mom**.
   Mom sees your answer.
-- **Scam check (shared):** In Samsung Messages, Mom presses and holds a text → **Share** → **Fam**.
+- **Scam check (shared):** In Samsung Messages, Mom presses and holds a text → **Share** → **My Tech Kid**.
 
 ## Things to try breaking (good for safety)
 

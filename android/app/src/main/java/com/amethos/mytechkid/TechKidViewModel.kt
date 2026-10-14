@@ -1,4 +1,4 @@
-package com.amethos.fam
+package com.amethos.mytechkid
 
 import android.app.Application
 import androidx.compose.runtime.getValue
@@ -45,7 +45,7 @@ sealed interface Screen {
 }
 
 /** Everything Mom's phone knows and can do. The UI in ui/Screens.kt only reads and calls this. */
-class FamViewModel(app: Application) : AndroidViewModel(app) {
+class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val functions = FirebaseFunctions.getInstance()
@@ -74,7 +74,7 @@ class FamViewModel(app: Application) : AndroidViewModel(app) {
     private val circleListeners = mutableListOf<ListenerRegistration>()
 
     init {
-        if (FamApp.isPlaceholderConfig(app)) {
+        if (TechKidApp.isPlaceholderConfig(app)) {
             screen = Screen.NotConfigured
         } else {
             viewModelScope.launch { start() }
@@ -186,7 +186,7 @@ class FamViewModel(app: Application) : AndroidViewModel(app) {
         when {
             circleId != null -> screen = Screen.Scam(text)
             !userLoaded -> pendingScamText = text
-            else -> error = "Fam isn't set up yet. Ask your family to send you an invite link."
+            else -> error = "My Tech Kid isn't set up yet. Ask your family to send you an invite link."
         }
     }
 

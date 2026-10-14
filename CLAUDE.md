@@ -1,6 +1,6 @@
-# Fam — project notes
+# My Tech Kid — project notes
 
-Fam lets a family member (the **helper**, e.g. a grown-up kid) help a parent or
+My Tech Kid lets a family member (the **helper**, e.g. a grown-up kid) help a parent or
 grandparent (the **parent**) with their phone from anywhere. The parent's phone
 has one big "Get help" button that reaches the helper, plus an "Is this a scam?"
 button. Only linked family can ever connect: that closed circle is the main
@@ -33,7 +33,10 @@ click-by-click, and never paste secrets into chat or commits.
   later. Android parents get full control (MediaProjection + AccessibilityService).
 - Sideloaded apps on newer Samsung/Android versions need "Allow restricted
   settings" before Accessibility can be turned on; setup docs must cover that.
-- Working brand name: **Fam** (mockups used the placeholder "Nearby").
+- Brand name: **My Tech Kid** (chosen Oct 2026 for its Gen X / boomer appeal:
+  parents already say "I'll ask my tech kid"). Earlier working names: "Fam"
+  (the GitHub repo is still called Fam) and "Nearby" (mockups). "Quick Question"
+  was rejected: too close to the funded video-chat startup Super Quick Question.
   Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj
 
 ## Layout
@@ -50,7 +53,7 @@ click-by-click, and never paste secrets into chat or commits.
   `circles/{cid}/invites`, `/helpRequests`, `/scamChecks`.
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.
   Config in `web/src/config.js`. All person-supplied text goes through `esc()`.
-- `android/` — parent app, Kotlin + Jetpack Compose, package `com.amethos.fam`.
+- `android/` — parent app, Kotlin + Jetpack Compose, package `com.amethos.mytechkid`.
   `app/google-services.json` is a placeholder until Firebase is set up.
   Cannot be built in the Claude cloud container (Android SDK host is blocked);
   GitHub Actions builds it. The beta signing key `app/beta.keystore` is
@@ -59,7 +62,7 @@ click-by-click, and never paste secrets into chat or commits.
 - `.github/workflows/build.yml` — tests backend, builds web + APK, and deploys
   everything to Firebase on pushes to `main` once the
   `FIREBASE_SERVICE_ACCOUNT` secret exists. The APK is served at
-  `/download/fam-beta.apk` and invite links at `/join`.
+  `/download/mytechkid-beta.apk` and invite links at `/join`.
 - `docs/SETUP.md` — owner's one-time Firebase setup. `docs/TESTING.md` — test script.
 
 ## Roadmap

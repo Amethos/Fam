@@ -1,4 +1,4 @@
-// Fam backend: pairing, family-circle membership and push notifications.
+// My Tech Kid backend: pairing, family-circle membership and push notifications.
 // All circle membership changes happen here (never from the apps directly),
 // so the Firestore rules can keep circles read-only for clients.
 
@@ -246,6 +246,6 @@ exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}",
   const after = event.data.after.data();
   if (before.verdict || !after.verdict) return;
   const titles = { scam: "Scam — don't tap it", unsure: "Not sure — don't tap it yet", safe: "It's safe" };
-  await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open Fam to see the answer.");
+  await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open My Tech Kid to see the answer.");
 });
 

@@ -1,11 +1,11 @@
-package com.amethos.fam
+package com.amethos.mytechkid
 
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.google.firebase.FirebaseApp
 
-class FamApp : Application() {
+class TechKidApp : Application() {
     override fun onCreate() {
         super.onCreate()
         val channel = NotificationChannel(
@@ -22,7 +22,7 @@ class FamApp : Application() {
         /** True until a real google-services.json replaces the placeholder (docs/SETUP.md). */
         fun isPlaceholderConfig(context: android.content.Context): Boolean {
             val projectId = FirebaseApp.getApps(context).firstOrNull()?.options?.projectId
-            return projectId == null || projectId == "fam-placeholder"
+            return projectId == null || projectId == "mytechkid-placeholder"
         }
     }
 }

@@ -59,11 +59,11 @@ jobs:
           distribution: temurin
           java-version: 17
       - run: ./gradlew assembleDebug --no-daemon --stacktrace
-      - run: cp app/build/outputs/apk/debug/app-debug.apk fam-beta.apk
+      - run: cp app/build/outputs/apk/debug/app-debug.apk mytechkid-beta.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: fam-beta-apk
-          path: android/fam-beta.apk
+          name: mytechkid-beta-apk
+          path: android/mytechkid-beta.apk
 
   # Publishes the backend, the helper web app and Mom's app download.
   # Skipped until the FIREBASE_SERVICE_ACCOUNT secret is added (docs/SETUP.md).
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: steps.ready.outputs.ok == 'true'
         with:
-          name: fam-beta-apk
+          name: mytechkid-beta-apk
           path: web/dist/download
       - name: Deploy to Firebase
         if: steps.ready.outputs.ok == 'true'

@@ -9,7 +9,7 @@ if (isConfigured) {
   // covers data-only messages.
   onBackgroundMessage(messaging, (payload) => {
     if (payload.notification) return;
-    self.registration.showNotification(payload.data?.title ?? "Fam", { body: payload.data?.body ?? "" });
+    self.registration.showNotification(payload.data?.title ?? "My Tech Kid", { body: payload.data?.body ?? "" });
   });
 }
 

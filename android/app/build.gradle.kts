@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.amethos.fam"
+    namespace = "com.amethos.mytechkid"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.amethos.fam"
+        applicationId = "com.amethos.mytechkid"
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()

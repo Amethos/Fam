@@ -1,6 +1,6 @@
 # One-time setup (about 20 minutes)
 
-Fam runs on **Firebase**, Google's service for app logins, data and notifications.
+My Tech Kid runs on **Firebase**, Google's service for app logins, data and notifications.
 You do these steps once, on a computer, then GitHub builds and publishes
 everything automatically.
 
@@ -10,13 +10,13 @@ Things marked **send to Claude** are safe to paste into chat. The one marked
 ## 1. Create the Firebase project
 
 1. Go to <https://console.firebase.google.com> and sign in with a Google account.
-2. Click **Create a project**. Name it `fam` (Firebase may add numbers, like `fam-3f2a1`).
+2. Click **Create a project**. Name it `mytechkid` (Firebase may add numbers, like `mytechkid-3f2a1`).
 3. Google Analytics: you can turn it off. Click **Create project**.
-4. **Send to Claude:** the project ID (shown under the project name, e.g. `fam-3f2a1`).
+4. **Send to Claude:** the project ID (shown under the project name, e.g. `mytechkid-3f2a1`).
 
 ## 2. Switch to the pay-as-you-go plan
 
-Fam's backend needs this plan. Testing with your family should stay within the
+My Tech Kid's backend needs this plan. Testing with your family should stay within the
 free allowance, so expect $0, but Google asks for a card.
 
 1. Bottom-left, click **Upgrade** and choose **Blaze**.
@@ -33,14 +33,14 @@ free allowance, so expect $0, but Google asks for a card.
 ## 4. Add the web app (your side)
 
 1. Go to **Project settings** (gear icon) → **General** → **Your apps** → click the **</>** (web) icon.
-2. Nickname: `Fam helper`. Tick **Also set up Firebase Hosting**. Click **Register app**.
+2. Nickname: `My Tech Kid helper`. Tick **Also set up Firebase Hosting**. Click **Register app**.
 3. **Send to Claude:** the `firebaseConfig` block it shows (apiKey, authDomain, projectId and so on).
    Skip the "install the SDK" and "deploy" steps; GitHub handles those.
 
 ## 5. Add the Android app (Mom's side)
 
 1. Still in **Your apps**, click **Add app** → the **Android** icon.
-2. Package name: `com.amethos.fam` (exactly). Nickname: `Fam for Mom`. Click **Register app**.
+2. Package name: `com.amethos.mytechkid` (exactly). Nickname: `My Tech Kid for Mom`. Click **Register app**.
 3. Download **google-services.json**. **Send to Claude:** open the file and paste its contents.
 4. Skip the remaining steps.
 
@@ -49,7 +49,7 @@ free allowance, so expect $0, but Google asks for a card.
 1. **Project settings → Cloud Messaging** → scroll to **Web Push certificates** → **Generate key pair**.
 2. **Send to Claude:** the long key it shows.
 
-## 7. Let GitHub publish Fam
+## 7. Let GitHub publish My Tech Kid
 
 1. **Project settings → Service accounts** → **Generate new private key** → **Generate key**. A file downloads.
 2. **Never paste this file in chat.** It's the master key to your project.
@@ -72,7 +72,7 @@ switches services on; if it does, Claude can re-run it.
 When it's green:
 
 - **Your helper app:** `https://<project-id>.web.app`
-- **Mom's app download:** `https://<project-id>.web.app/download/fam-beta.apk`
+- **Mom's app download:** `https://<project-id>.web.app/download/mytechkid-beta.apk`
   (you normally don't need this: the invite link offers it)
 
 Next: [TESTING.md](TESTING.md).

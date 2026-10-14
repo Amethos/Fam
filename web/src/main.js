@@ -1,4 +1,4 @@
-// Fam helper app (the person giving help). Runs in the browser and can be
+// My Tech Kid helper app (the person giving help). Runs in the browser and can be
 // added to an iPhone home screen. Mom's side is the Android app in android/.
 
 import "./styles.css";
@@ -24,10 +24,10 @@ const LOGO = `<svg width="30" height="30" viewBox="0 0 34 34" fill="none" aria-h
 const useEmulators = import.meta.env.VITE_EMULATORS === "1";
 
 if (!isConfigured && !useEmulators) {
-  root.innerHTML = `<div class="brand">${LOGO} Fam</div>
+  root.innerHTML = `<div class="brand">${LOGO} My Tech Kid</div>
     <div class="card"><h1>Almost there</h1>
-    <p>Fam isn't connected to Firebase yet. Fill in <code>web/src/config.js</code> — see <code>docs/SETUP.md</code>.</p></div>`;
-  throw new Error("Fam: web/src/config.js is not filled in yet");
+    <p>My Tech Kid isn't connected to Firebase yet. Fill in <code>web/src/config.js</code> — see <code>docs/SETUP.md</code>.</p></div>`;
+  throw new Error("My Tech Kid: web/src/config.js is not filled in yet");
 }
 
 const fbApp = initializeApp(useEmulators
@@ -104,7 +104,7 @@ function myName() {
 }
 
 function header() {
-  return `<div class="row"><div class="brand grow">${LOGO} Fam</div>
+  return `<div class="row"><div class="brand grow">${LOGO} My Tech Kid</div>
     ${state.user ? `<button class="secondary" data-action="signout">Sign out</button>` : ""}</div>
     ${state.error ? `<p class="error" role="alert">${esc(state.error)}</p>` : ""}`;
 }
@@ -117,7 +117,7 @@ function viewSignedOut() {
   const signup = state.authMode === "signup";
   return `${header()}
   <h1>${signup ? "Create your helper account" : "Welcome back"}</h1>
-  <p class="muted">Fam lets you help your parents with their phone from anywhere. Only your family can connect.</p>
+  <p class="muted">My Tech Kid lets you help your parents with their phone from anywhere. Only your family can connect.</p>
   <div class="tabs" role="group" aria-label="Account">
     <button class="${signup ? "secondary" : ""}" data-action="mode" data-mode="signin" aria-pressed="${!signup}">Sign in</button>
     <button class="${signup ? "" : "secondary"}" data-action="mode" data-mode="signup" aria-pressed="${signup}">New account</button>
@@ -147,7 +147,7 @@ function alertsBanner() {
   const installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   if (ios && !installed) {
     return `<div class="alert blue"><h2>Get an alert when Mom needs help</h2>
-      <p>On iPhone, first add Fam to your home screen: tap the <strong>Share</strong> button, then <strong>Add to Home Screen</strong>. Then open Fam from your home screen and turn on alerts.</p></div>`;
+      <p>On iPhone, first add My Tech Kid to your home screen: tap the <strong>Share</strong> button, then <strong>Add to Home Screen</strong>. Then open My Tech Kid from your home screen and turn on alerts.</p></div>`;
   }
   return `<div class="alert blue"><h2>Get an alert when Mom needs help</h2>
     <button data-action="alerts">Turn on alerts</button></div>`;
@@ -163,7 +163,7 @@ function helpCards() {
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
-        <p>Give them a call now. Seeing their screen arrives in the next Fam update.</p>
+        <p>Give them a call now. Seeing their screen arrives in the next My Tech Kid update.</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
     return `<div class="alert blue"><p><strong>${esc(h.helperName)}</strong> is helping ${esc(h.parentName)}.</p></div>`;
@@ -186,7 +186,7 @@ function memberCards() {
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
         <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">Linked ${esc(timeAgo(p.linkedAt))}</span></div></div>
         <p class="muted">${isPast(p.controlAllowedAt)
-          ? "Safety wait is over — remote control can be used once it arrives in a Fam update."
+          ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
           : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
@@ -356,7 +356,7 @@ function friendlyError(err) {
 async function enableAlerts({ quiet = false } = {}) {
   try {
     if (!(await isSupported())) throw new Error("This browser can't show alerts.");
-    if ((await Notification.requestPermission()) !== "granted") throw new Error("Alerts are turned off for Fam in your settings.");
+    if ((await Notification.requestPermission()) !== "granted") throw new Error("Alerts are turned off for My Tech Kid in your settings.");
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
     const token = await getToken(getMessaging(fbApp), { vapidKey, serviceWorkerRegistration: registration });
     await setDoc(doc(db, "users", auth.currentUser.uid), { fcmTokens: arrayUnion(token), platform: "web" }, { merge: true });
@@ -385,7 +385,7 @@ const actions = {
   })),
   share: async (el) => {
     const url = el.dataset.url;
-    const text = `Hi ${el.dataset.name}, it's ${myName()}. Tap this link to set up Fam so I can help with your phone:`;
+    const text = `Hi ${el.dataset.name}, it's ${myName()}. Tap this link to set up My Tech Kid so I can help with your phone:`;
     if (navigator.share) {
       try { await navigator.share({ text, url }); } catch { /* closed the share sheet */ }
     } else {
