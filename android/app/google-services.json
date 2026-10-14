@@ -1,18 +1,28 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "mytechkid-placeholder",
-    "storage_bucket": "mytechkid-placeholder.appspot.com"
+    "project_number": "491750036445",
+    "project_id": "my-tech-kid",
+    "storage_bucket": "my-tech-kid.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-        "android_client_info": { "package_name": "com.amethos.mytechkid" }
+        "mobilesdk_app_id": "1:491750036445:android:08a098454d6c4a7c589c34",
+        "android_client_info": {
+          "package_name": "com.amethos.mytechkid"
+        }
       },
       "oauth_client": [],
-      "api_key": [{ "current_key": "AIzaSyPLACEHOLDER-replace-with-your-google-services-json" }],
-      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGp3qcOCRNVsDKfR1_u7qauz3URpfA2bw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"
