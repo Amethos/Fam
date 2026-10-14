@@ -17,6 +17,9 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+/** "Josh Smith" -> "Josh": Mom's screens use first names only. */
+fun firstName(name: String): String = name.trim().split(Regex("\\s+")).first().ifBlank { name }
+
 data class InviteLink(val circleId: String, val inviteId: String, val token: String)
 data class Picture(val emoji: String, val label: String)
 data class HelpRequest(val id: String, val status: String, val helperName: String?)
@@ -146,7 +149,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             val members = snap?.get("members") as? Map<String, Map<String, Any?>> ?: emptyMap()
             @Suppress("UNCHECKED_CAST")
             val helperIds = snap?.get("helperIds") as? List<String> ?: emptyList()
-            helperNames = helperIds.mapNotNull { members[it]?.get("name") as? String }
+            helperNames = helperIds.mapNotNull { (members[it]?.get("name") as? String)?.let(::firstName) }
         }
         circleListeners += db.collection("circles/$id/helpRequests")
             .whereEqualTo("parentId", me)
@@ -154,7 +157,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                 activeHelp = snap?.documents
                     ?.filter { it.getString("status") in listOf("waiting", "accepted") }
                     ?.maxByOrNull { it.getTimestamp("createdAt")?.toDate()?.time ?: Long.MAX_VALUE }
-                    ?.let { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")) }
+                    ?.let { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName)) }
             }
         circleListeners += db.collection("circles/$id/scamChecks")
             .whereEqualTo("parentId", me)
@@ -196,7 +199,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.Loading
         try {
             val result = call("peekInvite", invite.asMap())
-            screen = Screen.InviteAsk(invite, result["helperName"] as? String ?: "Your family")
+            screen = Screen.InviteAsk(invite, (result["helperName"] as? String)?.let(::firstName) ?: "Your family")
         } catch (e: Exception) {
             screen = Screen.Welcome(friendly(e))
         }

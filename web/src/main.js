@@ -99,8 +99,11 @@ function watchCircle(id) {
 
 // ---------- Views ----------
 
+// First name only: "Hi Josh", "Josh is coming to help". People sometimes type
+// their full name into the first-name box.
 function myName() {
-  return state.profile?.displayName || state.user?.displayName || "Helper";
+  const full = state.profile?.displayName || state.user?.displayName || "";
+  return full.trim().split(/\s+/)[0] || "Helper";
 }
 
 function header() {
