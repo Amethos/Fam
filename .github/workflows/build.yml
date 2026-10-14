@@ -71,6 +71,10 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [backend, web, android]
     runs-on: ubuntu-latest
+    # One publish at a time, so an older build can never overwrite a newer one.
+    concurrency:
+      group: deploy-firebase
+      cancel-in-progress: false
     env:
       FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
