@@ -2,7 +2,7 @@
 import assert from "node:assert";
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, doc, getDoc } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 function client(name) {
@@ -49,6 +49,16 @@ const circle = (await getDoc(doc(mom.db, `circles/${circleId}`))).data();
 assert.deepEqual(circle.parentIds, [mom.auth.currentUser.uid]);
 assert.equal(circle.members[mom.auth.currentUser.uid].name, "Mom");
 assert.ok(circle.members[mom.auth.currentUser.uid].controlAllowedAt.toMillis() > Date.now() + 23 * 3600 * 1000);
+
+// Mom's phone says what kind of phone it is; the helper sees it in the circle.
+await setDoc(doc(mom.db, `users/${mom.auth.currentUser.uid}`),
+  { device: { platform: "android", model: "Samsung SM-S911U", osVersion: 14 } }, { merge: true });
+let momDevice;
+for (let i = 0; i < 50 && !momDevice; i++) {
+  await new Promise((r) => setTimeout(r, 200));
+  momDevice = (await getDoc(doc(josh.db, `circles/${circleId}`))).get(`members.${mom.auth.currentUser.uid}.device`);
+}
+assert.deepEqual(momDevice, { platform: "android", model: "Samsung SM-S911U", osVersion: 14 });
 
 // A linked phone can't be pulled into another family by a new invite.
 const scammer = client("scammer");

@@ -57,6 +57,23 @@ test("users can only set their name, alert tokens and platform", async () => {
   await assertFails(setDoc(doc(db("mom"), "users/mom"), { displayName: "x".repeat(61) }, { merge: true }));
 });
 
+test("a phone can say what kind of phone it is, and nothing else rides along", async () => {
+  const set = (device) => setDoc(doc(db("mom"), "users/mom"), { device }, { merge: true });
+  await assertSucceeds(set({ platform: "android", model: "Samsung SM-S911U", osVersion: 14 }));
+  await assertSucceeds(set({ platform: "ios", osVersion: 18 }));
+  await assertSucceeds(setDoc(doc(db("newhelper"), "users/newhelper"), { device: { platform: "computer" } }));
+  // A brand-new phone, so nothing already saved fills in the gaps.
+  const fresh = (device) => setDoc(doc(db("fresh"), "users/fresh"), { device });
+  await assertFails(fresh({ platform: "toaster" }));
+  await assertFails(fresh({ model: "No platform" }));
+  await assertFails(fresh({ platform: "android", circleId: "c2" }));
+  await assertFails(fresh({ platform: "android", model: "x".repeat(61) }));
+  await assertFails(fresh({ platform: "android", osVersion: "14" }));
+  await assertFails(fresh("android"));
+  await assertFails(set({ platform: "toaster" }));
+  await assertFails(setDoc(doc(db("stranger"), "users/mom"), { device: { platform: "android" } }, { merge: true }));
+});
+
 test("invites are readable only by helpers and the phone that claimed them", async () => {
   await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/invites/i1")));
   await assertSucceeds(getDoc(doc(db("newphone"), "circles/c1/invites/i1")));

@@ -4,13 +4,14 @@
 
 const crypto = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
+const { cleanDevice, sameDevice } = require("./device");
 
 initializeApp();
 const db = getFirestore();
@@ -296,4 +297,25 @@ exports.onScreenShare = onDocumentCreated("circles/{circleId}/screenShares/{id}"
   const share = event.data.data();
   await notify(await helpersOf(event.params.circleId), `${share.parentName} wants to show you their screen`,
     "Tap to watch now.", `/#/watch/${event.params.id}`);
+});
+
+// Each app reports what kind of phone it runs on (users/{uid}.device). Copy it
+// into the family circle, which only the backend can write, so the helper can
+// see whether Mom needs in-app screen sharing (Android) or FaceTime (iPhone).
+exports.onUserDevice = onDocumentWritten("users/{uid}", async (event) => {
+  const after = event.data?.after?.data();
+  const circleId = after?.circleId;
+  const device = cleanDevice(after?.device);
+  if (!circleId || !device) return;
+  const before = event.data?.before?.data();
+  if (before?.circleId === circleId && sameDevice(cleanDevice(before?.device), device)) return;
+  const uid = event.params.uid;
+  const ref = db.doc(`circles/${circleId}`);
+  await db.runTransaction(async (tx) => {
+    const circle = await tx.get(ref);
+    // Never re-add someone who was removed from the family.
+    if (!circle.exists || !circle.get(`members.${uid}`)) return;
+    if (sameDevice(circle.get(`members.${uid}.device`), device)) return;
+    tx.update(ref, { [`members.${uid}.device`]: device });
+  });
 });

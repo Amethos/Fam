@@ -71,8 +71,8 @@ rules or pairing change needs a test in `backend-tests/`.
   whole pairing flow against local emulators (in the Claude container, unset the
   `*_PROXY` variables for that command).
 - `firestore.rules` — who can read/write what. Data model:
-  `users/{uid}` (displayName, role, circleId, fcmTokens),
-  `circles/{cid}` (name, helperIds, parentIds, members map),
+  `users/{uid}` (displayName, role, circleId, fcmTokens, device),
+  `circles/{cid}` (name, helperIds, parentIds, members map; `members.<uid>.device` is copied from the user doc by `onUserDevice` so helpers know whether to use in-app sharing or FaceTime),
   `circles/{cid}/invites`, `/helpRequests`, `/scamChecks`, `/screenShares` (+ `/signals`;
   stage 2, see `docs/STAGE2.md`).
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.

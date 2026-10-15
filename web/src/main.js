@@ -16,8 +16,10 @@ import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 import { watchShare, closeWatch } from "./watch.js";
+import { thisDevice, helpMethod, deviceLabel } from "./device.js";
 
 const root = document.getElementById("app");
+const myDevice = thisDevice();
 
 // Appearance: follows the phone (light by day, dark at night) unless the
 // helper picks one. Remembered on this device only.
@@ -86,6 +88,7 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     userUnsubs.push(onSnapshot(doc(db, "users", user.uid), (snap) => {
       state.profile = snap.data() ?? {};
+      reportDevice(user.uid, state.profile.device);
       watchCircle(state.profile.circleId ?? null);
       render();
     }));
@@ -93,6 +96,14 @@ onAuthStateChanged(auth, (user) => {
   }
   render();
 });
+
+// Tell the family what kind of phone this is, so the right way to help is
+// picked (FaceTime between iPhones, the app's own screen sharing on Android).
+function reportDevice(uid, saved) {
+  if (deviceLabel(saved) === deviceLabel(myDevice) && saved?.platform === myDevice.platform) return;
+  setDoc(doc(db, "users", uid), { device: myDevice }, { merge: true })
+    .catch((err) => console.warn("Could not save this phone's type", err));
+}
 
 function watchCircle(id) {
   if (id === circleId) return;
@@ -342,7 +353,8 @@ function memberCards() {
   const helpers = (c.helperIds ?? []).map((id) => ({ id, ...c.members?.[id] }));
   const parentHtml = parents.length
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
-        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">Linked ${esc(timeAgo(p.linkedAt))}</span></div></div>
+        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
+        ${howToHelp(p)}
         <p class="muted">${isPast(p.controlAllowedAt)
           ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
           : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
@@ -351,6 +363,22 @@ function memberCards() {
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+function howToHelp(p) {
+  const name = esc(p.name);
+  switch (helpMethod(p.device, myDevice)) {
+    case "app":
+      return `<p class="muted">${name} can show you their screen from the My Tech Kid app. You'll get an alert when they do.</p>`;
+    case "facetime-control":
+      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen.
+        Then tap the pointing-hand button to ask to tap for them, and they tap Allow.</p>`;
+    case "facetime-view":
+      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen so you can
+        see it and talk them through it. To tap for them too, you both need iPhones on iOS 18 or newer.</p>`;
+    default:
+      return "";
+  }
 }
 
 function pendingInvites() {
