@@ -316,6 +316,13 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         ).await()
     }
 
+    /** Mom said yes to Android's sharing prompt: start showing her helper the screen. */
+    fun startScreenShare(context: android.content.Context, projection: android.content.Intent) {
+        val id = circleId ?: return
+        val me = uid ?: return
+        ScreenShareService.start(context, projection, id, me, myCircleName())
+    }
+
     fun openScamCheck() {
         screen = Screen.Scam("")
     }

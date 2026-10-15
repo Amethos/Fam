@@ -291,3 +291,9 @@ exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}",
   await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open My Tech Kid to see the answer.");
 });
 
+
+exports.onScreenShare = onDocumentCreated("circles/{circleId}/screenShares/{id}", async (event) => {
+  const share = event.data.data();
+  await notify(await helpersOf(event.params.circleId), `${share.parentName} wants to show you their screen`,
+    "Tap to watch now.", `/#/watch/${event.params.id}`);
+});

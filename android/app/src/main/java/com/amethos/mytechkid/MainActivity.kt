@@ -3,6 +3,7 @@ package com.amethos.mytechkid
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,6 +20,13 @@ class MainActivity : ComponentActivity() {
     private val askNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    // Android's own "Start sharing?" prompt. Mom must say yes every time.
+    private val askToShareScreen =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val data = result.data
+            if (result.resultCode == RESULT_OK && data != null) vm.startScreenShare(this, data)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleIntent(intent)
@@ -26,10 +34,18 @@ class MainActivity : ComponentActivity() {
         if (vm.introSeen()) askForNotificationsIfNeeded()
         setContent {
             TechKidTheme {
-                TechKidScreens(vm, onIntroDone = {
-                    askForNotificationsIfNeeded()
-                    vm.finishIntro()
-                })
+                TechKidScreens(
+                    vm,
+                    onIntroDone = {
+                        askForNotificationsIfNeeded()
+                        vm.finishIntro()
+                    },
+                    onShowScreen = {
+                        val projection = getSystemService(MediaProjectionManager::class.java)
+                        askToShareScreen.launch(projection.createScreenCaptureIntent())
+                    },
+                    onStopScreen = { ScreenShareService.stop(this) },
+                )
             }
         }
     }

@@ -15,6 +15,7 @@ import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
+import { watchShare, closeWatch } from "./watch.js";
 
 const root = document.getElementById("app");
 
@@ -62,6 +63,7 @@ const state = {
   help: [],
   scams: [],
   invites: [],
+  shares: [],
   authMode: "signin",
   storyIndex: 0,
   verdicts: {},
@@ -80,7 +82,7 @@ onAuthStateChanged(auth, (user) => {
   clear(userUnsubs);
   clear(circleUnsubs);
   circleId = null;
-  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [] });
+  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [], shares: [] });
   if (user) {
     userUnsubs.push(onSnapshot(doc(db, "users", user.uid), (snap) => {
       state.profile = snap.data() ?? {};
@@ -98,7 +100,7 @@ function watchCircle(id) {
   circleId = id;
   if (!id) {
     // Unlinked (or removed from the family): forget what we were showing.
-    Object.assign(state, { circle: null, help: [], scams: [], invites: [] });
+    Object.assign(state, { circle: null, help: [], scams: [], invites: [], shares: [] });
     return;
   }
   const base = `circles/${id}`;
@@ -111,6 +113,8 @@ function watchCircle(id) {
       (s) => { state.scams = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
       (s) => { state.invites = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
+    onSnapshot(query(collection(db, base, "screenShares"), where("status", "in", ["waiting", "live"])),
+      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
   );
 }
 
@@ -302,10 +306,25 @@ function helpCards() {
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
-        <p>Give them a call now. Seeing their screen arrives in the next My Tech Kid update.</p>
+        <p>Give them a call now. If you need to see their phone, ask them to tap <strong>Show my screen</strong>.</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
     return `<div class="alert blue"><p><strong>${esc(h.helperName)}</strong> is helping ${esc(h.parentName)}.</p></div>`;
+  }).join("");
+}
+
+// Mom tapped "Show my screen" on her phone.
+function shareCards() {
+  return state.shares.map((sh) => {
+    if (sh.status === "waiting") {
+      return `<div ${popAttrs(sh.id, "alert urgent")}><h2>${esc(sh.parentName)} wants to show you their screen</h2>
+        <a class="button" href="#/watch/${esc(sh.id)}">Watch ${esc(sh.parentName)}'s screen</a></div>`;
+    }
+    if (sh.helperId === state.user.uid) {
+      return `<div class="alert blue"><p>You're watching ${esc(sh.parentName)}'s screen.</p>
+        <a class="button secondary" href="#/watch/${esc(sh.id)}">Open it</a></div>`;
+    }
+    return `<div class="alert blue"><p><strong>${esc(sh.helperName)}</strong> is watching ${esc(sh.parentName)}'s screen.</p></div>`;
   }).join("");
 }
 
@@ -356,6 +375,7 @@ function viewDashboard() {
   <div><p class="muted">Your family</p><h1>${esc(familyTitle(state.circle?.name))}</h1></div>
   ${alertsBanner()}
   ${helpCards()}
+  ${shareCards()}
   ${scamCards()}
   ${memberCards()}
   ${pendingInvites()}
@@ -519,6 +539,12 @@ function render() {
   else if (page === "scam" && id) html = viewScam(id);
   else html = viewDashboard();
   root.innerHTML = html;
+
+  if (page === "watch" && id && state.circle) {
+    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id });
+  } else {
+    closeWatch();
+  }
 
   const key = screenKey(page, id, step);
   if (key !== motion.key) { motion.key = key; motion.since = Date.now(); }
