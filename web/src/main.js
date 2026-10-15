@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 import {
   getFirestore, connectFirestoreEmulator, doc, collection, query, where, orderBy, limit, onSnapshot,
-  setDoc, updateDoc, serverTimestamp, arrayUnion,
+  setDoc, updateDoc, addDoc, serverTimestamp, arrayUnion,
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
@@ -61,6 +61,7 @@ const call = (name, data) => httpsCallable(functions, name)(data).then((r) => r.
 const state = {
   user: undefined, // undefined = still loading, null = signed out
   profile: null,
+  ringing: {}, // parent id -> true while their phone is ringing
   circle: null,
   help: [],
   scams: [],
@@ -355,6 +356,7 @@ function memberCards() {
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
         <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
         ${howToHelp(p)}
+        ${ringButton(p)}
         <p class="muted">${isPast(p.controlAllowedAt)
           ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
           : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
@@ -363,6 +365,16 @@ function memberCards() {
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+// Only Mom's Android app can ring itself; iPhones have Find My for that.
+function ringButton(p) {
+  if (p.device?.platform !== "android") return "";
+  if (state.ringing[p.id]) {
+    return `<p class="muted" role="status">Ringing ${esc(p.name)}'s phone now. It stops after 30 seconds, or when they tap Found it.</p>`;
+  }
+  return `<button class="secondary small" data-action="ring" data-id="${esc(p.id)}" ${state.busy ? "disabled" : ""}>
+    Ring ${esc(p.name)}'s phone</button>`;
 }
 
 function howToHelp(p) {
@@ -642,6 +654,14 @@ const actions = {
   "accept-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
     status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
   })),
+  ring: (el) => run(async () => {
+    const parentId = el.dataset.id;
+    await addDoc(collection(db, `circles/${circleId}/rings`), {
+      parentId, helperId: state.user.uid, helperName: myName(), createdAt: serverTimestamp(),
+    });
+    state.ringing[parentId] = true;
+    setTimeout(() => { delete state.ringing[parentId]; render(); }, 30_000);
+  }),
   "remove-member": (el) => {
     const name = el.dataset.name || "this person";
     if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;

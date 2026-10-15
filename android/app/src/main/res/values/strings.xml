@@ -4,4 +4,5 @@
     <string name="share_label">Ask family: is this a scam?</string>
     <string name="channel_name">Messages from family</string>
     <string name="share_channel_name">Showing your screen</string>
+    <string name="ring_channel_name">Family ringing your phone</string>
 </resources>

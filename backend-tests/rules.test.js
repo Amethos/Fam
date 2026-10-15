@@ -208,3 +208,15 @@ test("connection messages flow only between the two people on a live share", asy
   await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/screenShares/live/signals/x")));
   await assertFails(getDoc(doc(db("amy"), "circles/c1/screenShares/live/signals/x")));
 });
+
+test("only a helper can ring a parent's phone, in their own name", async () => {
+  const ring = (uid, extra = {}) => addDoc(collection(db(uid), "circles/c1/rings"),
+    { parentId: "mom", helperId: uid, helperName: "Josh", createdAt: serverTimestamp(), ...extra });
+  await assertSucceeds(ring("josh"));
+  await assertFails(ring("mom"));
+  await assertFails(ring("stranger"));
+  await assertFails(ring("josh", { parentId: "someone-else" }));
+  await assertFails(ring("josh", { helperId: "mom" }));
+  await assertFails(ring("josh", { loud: "forever" }));
+  await assertFails(ring("josh", { helperName: "x".repeat(61) }));
+});

@@ -299,6 +299,23 @@ exports.onScreenShare = onDocumentCreated("circles/{circleId}/screenShares/{id}"
     "Tap to watch now.", `/#/watch/${event.params.id}`);
 });
 
+// "Ring Mom's phone": a data message, so her app plays the sound itself (loud,
+// even on silent) and says who is ringing. Rings older than two minutes are
+// dropped so a phone that was off doesn't go off later by surprise.
+exports.onRing = onDocumentCreated("circles/{circleId}/rings/{id}", async (event) => {
+  const ring = event.data.data();
+  if (ring.createdAt?.toMillis() < Date.now() - 2 * 60 * 1000) return;
+  const pairs = await tokensFor([ring.parentId]);
+  if (pairs.length === 0) return;
+  const res = await getMessaging().sendEachForMulticast({
+    tokens: pairs.map((p) => p.token),
+    data: { type: "ring", ringId: event.params.id, helperName: String(ring.helperName ?? "") },
+    android: { priority: "high", ttl: 2 * 60 * 1000 },
+  });
+  const dead = deadTokens(pairs, res.responses);
+  await Promise.all(dead.map((p) => db.doc(`users/${p.uid}`).update({ fcmTokens: FieldValue.arrayRemove(p.token) })));
+});
+
 // Each app reports what kind of phone it runs on (users/{uid}.device). Copy it
 // into the family circle, which only the backend can write, so the helper can
 // see whether Mom needs in-app screen sharing (Android) or FaceTime (iPhone).

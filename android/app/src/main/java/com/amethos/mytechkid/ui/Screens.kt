@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.sp
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
+import androidx.compose.ui.platform.LocalContext
+import com.amethos.mytechkid.RingService
+import com.amethos.mytechkid.RingState
 import com.amethos.mytechkid.ShareState
 import java.time.LocalDate
 import java.time.LocalTime
@@ -418,6 +421,8 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
         }
         ErrorText(vm)
         if (vm.updateReady) UpdatePanel(vm)
+        val ringer = RingState.ringingFrom
+        if (ringer != null) RingingPanel(ringer)
         val watcher = ShareState.watcher
         if (watcher != null) SharingPanel(watcher, onStopScreen)
         when (help?.status) {
@@ -489,6 +494,18 @@ private fun SharingPanel(watcher: String, onStop: () -> Unit) {
         }
         Body("Banking and password screens stay hidden. Nothing is recorded.", AmberInk)
         BigButton("Stop showing my screen", color = Red) { onStop() }
+    }
+}
+
+@Composable
+private fun RingingPanel(helper: String) {
+    val context = LocalContext.current
+    Panel(AmberSoft) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LiveDot(AmberDeep)
+            Text("$helper is ringing your phone", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+        }
+        BigButton("Found it", color = Green) { RingService.stop(context) }
     }
 }
 

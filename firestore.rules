@@ -77,6 +77,20 @@ service cloud.firestore {
             && request.resource.data.status in ['cancelled', 'done']);
       }
 
+      // "Ring Mom's phone": a helper makes a parent's phone play loudly so it
+      // can be found. Only helpers in the family, only for a parent in it, in
+      // their own name. Kept as a record of who rang and when.
+      match /rings/{ringid} {
+        allow read: if isMember(cid);
+        allow create: if isHelper(cid)
+          && request.resource.data.keys().hasOnly(['parentId', 'helperId', 'helperName', 'createdAt'])
+          && request.resource.data.parentId in circleData(cid).parentIds
+          && request.resource.data.helperId == request.auth.uid
+          && request.resource.data.helperName is string
+          && request.resource.data.helperName.size() <= 60
+          && request.resource.data.createdAt == request.time;
+      }
+
       // Screen sharing (stage 2). Never unattended: only the parent's own
       // phone can start a share, a helper can join only within 10 minutes,
       // and either side can end it. Ended shares stay as the family's
