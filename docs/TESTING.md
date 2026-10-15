@@ -34,6 +34,15 @@ phone, before Mom tries it on her own.
 
 - **Help button:** Mom taps **Get help from *you***. You should get an alert. Tap **I'm on it**:
   Mom's screen says you're coming and she gets a notification. When done, tap **All fixed**.
+- **See Mom's screen:** after you tap **I'm on it**, Mom taps **Show *you* my screen**, then **Start now** on
+  Android's prompt. You get an alert → **Watch Mom's screen**. Her phone shows *you* can see her screen with a
+  big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
+  **Stop** ends it on both phones.
+- **Ring Mom's phone:** put Mom's phone on silent somewhere nearby. On your dashboard, tap **Ring Mom's phone**.
+  It should play loudly for 30 seconds and say *you* are ringing it. Mom taps **Found it** (on the screen or in the
+  notification) to stop it. Her normal volume should come back afterwards.
+- **Phone type:** Mom's card on your dashboard should show her phone (for example "Samsung SM-S911U · Android 14")
+  and say she can show you her screen from the app.
 - **Scam check (typed):** Mom taps **Is this a scam?**, types or pastes a message, taps **Send**.
   You get an alert → **Answer** → pick Scam / Not sure / Safe, add a note → **Send to Mom**.
   Mom sees your answer.

@@ -276,3 +276,15 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
     100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 60px)) rotate(var(--r)) scale(1); }
   }
 }
+
+/* Watching Mom's screen (watch.js): full screen, above everything else. */
+#watch { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column;
+  gap: 12px; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+#watch[hidden] { display: none; }
+#watch .watch-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#watch .watch-title { font-size: 1.125rem; }
+#watch video { flex: 1; min-height: 0; width: 100%; object-fit: contain; background: #000; border-radius: 16px; }
+#watch video[hidden] { display: none; }
+#watch .watch-note { margin: 0; text-align: center; }
+#watch .watch-note:empty { display: none; }
+body.watching { overflow: hidden; }

@@ -4,13 +4,14 @@
 
 const crypto = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
+const { cleanDevice, sameDevice } = require("./device");
 
 initializeApp();
 const db = getFirestore();
@@ -291,3 +292,47 @@ exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}",
   await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open My Tech Kid to see the answer.");
 });
 
+
+exports.onScreenShare = onDocumentCreated("circles/{circleId}/screenShares/{id}", async (event) => {
+  const share = event.data.data();
+  await notify(await helpersOf(event.params.circleId), `${share.parentName} wants to show you their screen`,
+    "Tap to watch now.", `/#/watch/${event.params.id}`);
+});
+
+// "Ring Mom's phone": a data message, so her app plays the sound itself (loud,
+// even on silent) and says who is ringing. Rings older than two minutes are
+// dropped so a phone that was off doesn't go off later by surprise.
+exports.onRing = onDocumentCreated("circles/{circleId}/rings/{id}", async (event) => {
+  const ring = event.data.data();
+  if (ring.createdAt?.toMillis() < Date.now() - 2 * 60 * 1000) return;
+  const pairs = await tokensFor([ring.parentId]);
+  if (pairs.length === 0) return;
+  const res = await getMessaging().sendEachForMulticast({
+    tokens: pairs.map((p) => p.token),
+    data: { type: "ring", ringId: event.params.id, helperName: String(ring.helperName ?? "") },
+    android: { priority: "high", ttl: 2 * 60 * 1000 },
+  });
+  const dead = deadTokens(pairs, res.responses);
+  await Promise.all(dead.map((p) => db.doc(`users/${p.uid}`).update({ fcmTokens: FieldValue.arrayRemove(p.token) })));
+});
+
+// Each app reports what kind of phone it runs on (users/{uid}.device). Copy it
+// into the family circle, which only the backend can write, so the helper can
+// see whether Mom needs in-app screen sharing (Android) or FaceTime (iPhone).
+exports.onUserDevice = onDocumentWritten("users/{uid}", async (event) => {
+  const after = event.data?.after?.data();
+  const circleId = after?.circleId;
+  const device = cleanDevice(after?.device);
+  if (!circleId || !device) return;
+  const before = event.data?.before?.data();
+  if (before?.circleId === circleId && sameDevice(cleanDevice(before?.device), device)) return;
+  const uid = event.params.uid;
+  const ref = db.doc(`circles/${circleId}`);
+  await db.runTransaction(async (tx) => {
+    const circle = await tx.get(ref);
+    // Never re-add someone who was removed from the family.
+    if (!circle.exists || !circle.get(`members.${uid}`)) return;
+    if (sameDevice(circle.get(`members.${uid}.device`), device)) return;
+    tx.update(ref, { [`members.${uid}.device`]: device });
+  });
+});

@@ -59,6 +59,10 @@ import androidx.compose.ui.unit.sp
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
+import androidx.compose.ui.platform.LocalContext
+import com.amethos.mytechkid.RingService
+import com.amethos.mytechkid.RingState
+import com.amethos.mytechkid.ShareState
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -92,7 +96,12 @@ fun TechKidTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit) {
+fun TechKidScreens(
+    vm: TechKidViewModel,
+    onIntroDone: () -> Unit,
+    onShowScreen: () -> Unit = {},
+    onStopScreen: () -> Unit = {},
+) {
     Box(
         Modifier
             .fillMaxSize()
@@ -109,7 +118,7 @@ fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit) {
             is Screen.InviteAsk -> InviteAskScreen(vm, s)
             is Screen.Pictures -> PicturesScreen(vm, s)
             Screen.Intro -> IntroScreen(vm, onIntroDone)
-            Screen.Home -> HomeScreen(vm)
+            Screen.Home -> HomeScreen(vm, onShowScreen, onStopScreen)
             is Screen.Scam -> ScamScreen(vm, s.draft)
         }
     }
@@ -392,7 +401,7 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(vm: TechKidViewModel) {
+private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScreen: () -> Unit) {
     val helpers = names(vm.helperNames)
     val first = vm.helperNames.firstOrNull() ?: "Family"
     val help = vm.activeHelp
@@ -412,6 +421,10 @@ private fun HomeScreen(vm: TechKidViewModel) {
         }
         ErrorText(vm)
         if (vm.updateReady) UpdatePanel(vm)
+        val ringer = RingState.ringingFrom
+        if (ringer != null) RingingPanel(ringer)
+        val watcher = ShareState.watcher
+        if (watcher != null) SharingPanel(watcher, onStopScreen)
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -424,6 +437,7 @@ private fun HomeScreen(vm: TechKidViewModel) {
             "accepted" -> Box(Modifier.popIn()) { Panel(GreenSoft) {
                 Text("${help.helperName ?: first} is coming to help", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Body("They'll call you in a moment.", Ink)
+                if (watcher == null) BigButton("Show ${help.helperName ?: first} my screen", color = Green) { onShowScreen() }
                 QuietButton("All fixed, thank you", enabled = !vm.busy) { vm.finishHelp("done") }
             } }
             else -> Button(
@@ -464,6 +478,34 @@ private fun HomeScreen(vm: TechKidViewModel) {
                 }
             }
         }
+    }
+}
+
+// Always visible while the screen is shared: who can see it, and a big Stop.
+@Composable
+private fun SharingPanel(watcher: String, onStop: () -> Unit) {
+    Panel(AmberSoft) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LiveDot(AmberDeep)
+            Text(
+                if (watcher.isBlank()) "Getting your screen ready…" else "$watcher can see your screen",
+                fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink,
+            )
+        }
+        Body("Banking and password screens stay hidden. Nothing is recorded.", AmberInk)
+        BigButton("Stop showing my screen", color = Red) { onStop() }
+    }
+}
+
+@Composable
+private fun RingingPanel(helper: String) {
+    val context = LocalContext.current
+    Panel(AmberSoft) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LiveDot(AmberDeep)
+            Text("$helper is ringing your phone", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+        }
+        BigButton("Found it", color = Green) { RingService.stop(context) }
     }
 }
 

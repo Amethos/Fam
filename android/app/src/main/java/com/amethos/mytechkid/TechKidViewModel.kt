@@ -1,6 +1,7 @@
 package com.amethos.mytechkid
 
 import android.app.Application
+import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -101,9 +102,27 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             val user = auth.currentUser ?: auth.signInAnonymously().await().user!!
             uid = user.uid
             listenToUser(user.uid)
+            reportDevice()
             registerPushToken()
         } catch (e: Exception) {
             screen = Screen.Welcome(friendly(e))
+        }
+    }
+
+    /** Tells the family what kind of phone this is, so the helper's app picks the right way to help. */
+    private suspend fun reportDevice() {
+        val me = uid ?: return
+        val maker = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+        val model = if (Build.MODEL.startsWith(maker, ignoreCase = true)) Build.MODEL else "$maker ${Build.MODEL}"
+        val device = buildMap<String, Any> {
+            put("platform", "android")
+            put("model", model.take(60))
+            Build.VERSION.RELEASE.substringBefore('.').toIntOrNull()?.takeIf { it in 1..99 }?.let { put("osVersion", it) }
+        }
+        try {
+            db.document("users/$me").set(mapOf("device" to device), SetOptions.merge()).await()
+        } catch (e: Exception) {
+            // Only used to pick how to help; the app works without it.
         }
     }
 
@@ -314,6 +333,13 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         db.document("circles/$id/helpRequests/${help.id}").update(
             mapOf("status" to status, "updatedAt" to FieldValue.serverTimestamp()),
         ).await()
+    }
+
+    /** Mom said yes to Android's sharing prompt: start showing her helper the screen. */
+    fun startScreenShare(context: android.content.Context, projection: android.content.Intent) {
+        val id = circleId ?: return
+        val me = uid ?: return
+        ScreenShareService.start(context, projection, id, me, myCircleName())
     }
 
     fun openScamCheck() {
