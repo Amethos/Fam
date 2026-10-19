@@ -119,6 +119,18 @@ input, textarea {
 input::placeholder, textarea::placeholder { color: var(--muted); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 
+/* Big two-line choices ("Who are you?") and small pick-one chips. */
+button.choice { flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; padding: 16px 18px; min-height: 76px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); }
+button.choice strong { font-size: 1.125rem; }
+button.choice span { font-weight: 500; color: var(--muted); }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { font-weight: 700; font-size: 0.9375rem; padding: 0; margin-bottom: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.chip span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--surface-2); font-weight: 600; cursor: pointer; }
+.chip input:checked + span { background: var(--amber); color: var(--navy); }
+.chip input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .error { color: var(--red); font-weight: 700; }
 

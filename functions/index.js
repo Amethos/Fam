@@ -9,13 +9,13 @@ const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
-const { pickPictures, hashToken, newToken } = require("./pairing");
+const { RELATIONSHIPS, cleanRelationship, pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
 
 initializeApp();
 const db = getFirestore();
 
-// Hours a newly linked parent's phone waits before it accepts remote control.
+// Hours a newly linked phone (of the person getting help) waits before it accepts remote control.
 // Scams depend on urgency; a day's wait breaks that. To test without waiting,
 // set CONTROL_WAIT_HOURS=0 in functions/.env and redeploy.
 const CONTROL_WAIT_HOURS = defineInt("CONTROL_WAIT_HOURS", { default: 24 });
@@ -61,7 +61,8 @@ exports.createCircle = onCall(async (request) => {
   return { circleId: circleRef.id };
 });
 
-// Helper creates a single-use invite link for a parent ("Mom").
+// Helper creates a single-use invite link for the person they help, with
+// what the helper calls them ("Mom", "Sam") and how they know each other.
 exports.createInvite = onCall(async (request) => {
   const uid = requireAuth(request);
   const circleId = String(request.data?.circleId ?? "");
@@ -74,7 +75,8 @@ exports.createInvite = onCall(async (request) => {
   await inviteRef.set({
     createdBy: uid,
     createdByName: circle.get(`members.${uid}.name`) ?? "Your family",
-    forName: cleanName(request.data?.forName, "Mom"),
+    forName: cleanName(request.data?.forName, "Family member"),
+    relationship: cleanRelationship(request.data?.relationship),
     tokenHash: hashToken(token),
     status: "open",
     createdAt: FieldValue.serverTimestamp(),
@@ -108,7 +110,7 @@ async function openInvite(tx, data) {
 }
 
 // A phone that is already linked stays with its family: a new invite (for
-// example one a scammer talked Mom into opening) can't move it elsewhere.
+// example one a scammer talked someone into opening) can't move it elsewhere.
 async function requireUnlinked(tx, uid) {
   const user = await tx.get(db.doc(`users/${uid}`));
   if (user.get("circleId")) {
@@ -116,18 +118,20 @@ async function requireUnlinked(tx, uid) {
   }
 }
 
-// Parent's phone reads who sent the invite, before agreeing to anything.
+// The invited phone reads who sent the invite, before agreeing to anything.
 exports.peekInvite = onCall(async (request) => {
   const uid = requireAuth(request);
   return db.runTransaction(async (tx) => {
     await requireUnlinked(tx, uid);
     const { invite } = await openInvite(tx, request.data);
     if (invite.status !== "open") throw new HttpsError("failed-precondition", "This invite was already used.");
-    return { helperName: invite.createdByName, forName: invite.forName };
+    // Older invites have no relationship; show no label for those.
+    const helperRelation = RELATIONSHIPS[invite.relationship ?? "other"] ?? null;
+    return { helperName: invite.createdByName, forName: invite.forName, helperRelation };
   });
 });
 
-// Parent said "Yes, this is my family": lock the invite to this phone and
+// The invited person said "Yes, I know them": lock the invite to this phone and
 // show both sides the same three pictures.
 exports.claimInvite = onCall(async (request) => {
   const uid = requireAuth(request);
@@ -145,7 +149,7 @@ exports.claimInvite = onCall(async (request) => {
 });
 
 // Either side confirms (or rejects) that the pictures match. When both have
-// confirmed, the parent's phone joins the circle.
+// confirmed, the invited phone joins the circle.
 exports.confirmInvite = onCall(async (request) => {
   const uid = requireAuth(request);
   const circleId = String(request.data?.circleId ?? "");
@@ -189,6 +193,7 @@ exports.confirmInvite = onCall(async (request) => {
       [`members.${parentUid}`]: {
         name: invite.forName,
         role: "parent",
+        relationship: invite.relationship ?? "other",
         linkedAt: Timestamp.fromMillis(now),
         controlAllowedAt: Timestamp.fromMillis(now + CONTROL_WAIT_HOURS.value() * 3600 * 1000),
       },
@@ -198,7 +203,7 @@ exports.confirmInvite = onCall(async (request) => {
   });
 });
 
-// Helper removes a parent's phone from the family (lost, replaced or given
+// Helper removes a linked phone from the family (lost, replaced or given
 // away). The phone loses access at once and can only come back through a new
 // invite with the picture check. Removing helpers waits until a family can
 // have more than one helper, with approval from another helper.
@@ -218,14 +223,14 @@ exports.removeMember = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Only helpers can remove a phone.");
     }
     if (!circle.get("parentIds").includes(memberId)) {
-      throw new HttpsError("failed-precondition", "Only a parent's phone can be removed for now.");
+      throw new HttpsError("failed-precondition", "Only the phone of someone you help can be removed for now.");
     }
     tx.update(circleRef, {
       parentIds: FieldValue.arrayRemove(memberId),
       [`members.${memberId}`]: FieldValue.delete(),
     });
     tx.update(db.doc(`users/${memberId}`), { circleId: FieldValue.delete(), role: FieldValue.delete() });
-    // Don't leave "Mom needs help" waiting on the dashboard for a removed phone.
+    // Don't leave "Sam needs help" waiting on the dashboard for a removed phone.
     open.docs.forEach((d) => tx.update(d.ref, { status: "cancelled", updatedAt: FieldValue.serverTimestamp() }));
     return { status: "removed" };
   });
@@ -273,7 +278,7 @@ exports.onHelpRequestUpdated = onDocumentUpdated("circles/{circleId}/helpRequest
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (before.status !== "accepted" && after.status === "accepted") {
-    if (after.practice) return; // Mom is watching it happen on her screen.
+    if (after.practice) return; // They're watching it happen on their screen.
     await notify([after.parentId], `${after.helperName} is coming to help`, `${after.helperName} will call you in a moment.`);
   }
 });

@@ -5,30 +5,34 @@ phone, before Mom tries it on her own.
 
 ## You (iPhone)
 
-1. Open `https://<project-id>.web.app` in **Safari**. A short 4-page story plays first:
-   tap **Next** through it, then **Let's set it up**. (Already have an account? Tap **Skip**.)
+1. Open `https://<project-id>.web.app` in **Safari**. It asks **Who are you?**: tap
+   **I help someone with their phone**. A short 4-page story plays: tap **Next** through it,
+   then **Let's set it up**. (Already have an account? Tap **I already have an account**.)
 2. Make your account: your first name, email and a password.
 3. Setup walks you through the rest, one step at a time:
    - **Home screen:** tap **Share → Add to Home Screen**, then open My Tech Kid from your home screen and sign in.
    - **Alerts:** tap **Turn on alerts** and allow notifications.
    - **Family name:** for example "Smith".
-   - **Add Mom or Dad:** continue below.
+   - **Add someone you help:** continue below.
 
 ## Link Mom's phone
 
-1. In My Tech Kid, tap **Add Mom or Dad**, type what you call her (e.g. "Mom"), tap **Create invite link**.
+1. In My Tech Kid, tap **Add someone**, pick **Your parent**, type what you call them (e.g. "Mom"), tap **Create invite link**.
 2. Tap **Share link** and send it to Mom by text message. Stay on that screen.
 3. On Mom's phone: tap the link → **Download My Tech Kid** → open the download → **Install**.
    - Samsung may ask to allow Chrome or Samsung Internet to **install unknown apps**: allow it.
    - Samsung may warn the app is unknown (because it's not from the Play Store): choose **Install anyway**.
 4. Back in Messages, Mom taps the link again → **Open my invite**.
-5. Mom sees "*Your name* wants to help you" → **Yes, *name* is my family**.
+5. Mom sees your name with "Your child" under it, "*Your name* wants to help you" → **Yes, I know *name***.
 6. Call Mom. You both see three pictures (e.g. Apple, Bicycle, Moon). If they match, **both** tap **They match**.
 7. Your screen says "Mom is linked!" (with confetti). Stay on that screen and on the call.
 8. **Practice run:** Mom's phone says "This is your help button. Let's try it once together." She taps the big button.
    Your phone buzzes and shows **Practice run: Mom just tried the help button**. Tap **Got it**.
 9. Mom's phone says "*Your name* got it!" She taps **OK, got it**, then **Allow** when asked about notifications.
    Her home screen appears and the big button bounces in.
+
+Mom can also start it: on a fresh install her welcome screen has **Text someone who can help**,
+which opens Messages with a ready-made text and a link to the website. You still send the invite.
 
 ## Try the features
 
