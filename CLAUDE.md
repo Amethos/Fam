@@ -54,12 +54,13 @@ rules or pairing change needs a test in `backend-tests/`.
 - Sideloaded apps on newer Samsung/Android versions need "Allow restricted
   settings" before Accessibility can be turned on; setup docs must cover that.
 - **Not just parents, and gender neutral.** The person getting help can be a parent,
-  grandparent, partner, relative, chosen family, friend or neighbor: the helper picks "Who are they to
+  grandparent, partner, relative, friend or neighbor: the helper picks "Who are they to
   you?" when adding someone (`relationship` on the invite and member, keys in
   `functions/pairing.js`), and the other phone sees the matching word ("Josh, your
   grandchild"). App and website text never assumes Mom/Dad or he/she: use the person's
   name, "they", "someone you help" or "your helper". Internal names (`parentIds`,
-  `role: "parent"`) stay as they are. "Mom" in these notes is the owner's real test person.
+  `role: "parent"`) stay as they are. The circle's name is shown exactly as the helper
+  typed it (starts as "Josh's Family"; "Chosen Family" or "Team Blue" work too). "Mom" in these notes is the owner's real test person.
 - **Who are you?** The website's first screen asks "I help someone with their phone" or
   "I want help with my phone". The Android welcome screen has "Text someone who can
   help", which opens Messages with a link to `/?start=helper` (a referral only; linking

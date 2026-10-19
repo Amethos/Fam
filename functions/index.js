@@ -49,7 +49,7 @@ exports.createCircle = onCall(async (request) => {
   const circleRef = db.collection("circles").doc();
   await db.runTransaction(async (tx) => {
     tx.set(circleRef, {
-      name: cleanName(request.data?.circleName, `${displayName}'s family`),
+      name: cleanName(request.data?.circleName, `${displayName}'s Family`),
       createdBy: uid,
       createdAt: FieldValue.serverTimestamp(),
       helperIds: [uid],

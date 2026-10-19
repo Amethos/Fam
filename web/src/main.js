@@ -297,7 +297,8 @@ function viewSetup(step) {
     return stepFrame(step, `<h1>Name your family</h1>
       <p class="muted">This is your circle: the people you help, and anyone who helps alongside you. Friends and neighbors count too.</p>
       <form data-form="circle" class="card">
-        <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="Smith Family" required></div>
+        <div class="field"><label for="circleName">Name</label><input id="circleName" name="circleName" value="${esc(myName())}'s Family" maxlength="40" required></div>
+        <p class="muted">Call it anything you like, such as "Smith Family", "Chosen Family" or "Team Blue".</p>
         <button type="submit" ${state.busy ? "disabled" : ""}>Create my family</button>
       </form>`);
   }
@@ -383,20 +384,10 @@ function pendingInvites() {
     .map((i) => `<a class="button secondary" href="#/invite/${esc(i.id)}">Finish adding ${esc(i.forName)}</a>`).join("");
 }
 
-// "Scherz" -> "Scherz Family"; "the scherz family" -> "Scherz Family".
-function familyTitle(name) {
-  const words = String(name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words[0]?.toLowerCase() === "the") words.shift();
-  if (words.at(-1)?.toLowerCase() === "family") words.pop();
-  if (!words.length) return "Your Family";
-  words[0] = words[0][0].toUpperCase() + words[0].slice(1);
-  return [...words, "Family"].join(" ");
-}
-
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
   return `${header()}
-  <div><p class="muted">Your family</p><h1>${esc(familyTitle(state.circle?.name))}</h1></div>
+  <h1>${esc(state.circle?.name || "Your family")}</h1>
   ${alertsBanner()}
   ${helpCards()}
   ${scamCards()}
@@ -423,7 +414,6 @@ const RELATIONSHIPS = {
   grandparent: "Your grandparent",
   partner: "Your partner",
   relative: "Another relative",
-  chosen: "Chosen family",
   friend: "A friend",
   neighbor: "A neighbor",
   other: "Someone else",
