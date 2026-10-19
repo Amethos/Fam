@@ -24,6 +24,7 @@ test("tokens are random and hashes are stable", () => {
 test("relationships: known keys pass, anything else becomes other", () => {
   assert.strictEqual(cleanRelationship("grandparent"), "grandparent");
   assert.strictEqual(cleanRelationship("neighbor"), "neighbor");
+  assert.strictEqual(cleanRelationship("chosen"), "chosen");
   assert.strictEqual(cleanRelationship("boss"), "other");
   assert.strictEqual(cleanRelationship(undefined), "other");
   assert.strictEqual(cleanRelationship("toString"), "other");

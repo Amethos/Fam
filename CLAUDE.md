@@ -54,7 +54,7 @@ rules or pairing change needs a test in `backend-tests/`.
 - Sideloaded apps on newer Samsung/Android versions need "Allow restricted
   settings" before Accessibility can be turned on; setup docs must cover that.
 - **Not just parents, and gender neutral.** The person getting help can be a parent,
-  grandparent, partner, relative, friend or neighbor: the helper picks "Who are they to
+  grandparent, partner, relative, chosen family, friend or neighbor: the helper picks "Who are they to
   you?" when adding someone (`relationship` on the invite and member, keys in
   `functions/pairing.js`), and the other phone sees the matching word ("Josh, your
   grandchild"). App and website text never assumes Mom/Dad or he/she: use the person's

@@ -423,6 +423,7 @@ const RELATIONSHIPS = {
   grandparent: "Your grandparent",
   partner: "Your partner",
   relative: "Another relative",
+  chosen: "Chosen family",
   friend: "A friend",
   neighbor: "A neighbor",
   other: "Someone else",
