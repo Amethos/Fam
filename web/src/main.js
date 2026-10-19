@@ -398,7 +398,16 @@ function viewDashboard() {
     <a class="card" style="text-decoration:none;color:inherit" href="#/scam/${esc(s.id)}">
       <strong>${esc(s.parentName)}: ${esc(VERDICTS[s.verdict])}</strong>
       <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}
-  ${appearance()}`;
+  ${appearance()}
+  ${testingTools()}`;
+}
+
+// Beta only, for trying the first-run screens again: forgets this device's
+// onboarding progress and signs out. A new account (e.g. you+test1@gmail.com)
+// also shows the naming and adding steps again. Remove before public release.
+function testingTools() {
+  return `<div class="appearance"><span class="muted">Testing</span>
+    <button type="button" class="secondary small" data-action="replay-onboarding">Start setup over</button></div>`;
 }
 
 function appearance() {
@@ -680,6 +689,13 @@ const actions = {
   },
   confirm: (el) => run(() => call("confirmInvite", { circleId, inviteId: el.dataset.id, match: el.dataset.match === "yes" })),
   role: (el) => { storage.set("onb:role", el.dataset.role); render(); window.scrollTo(0, 0); },
+  "replay-onboarding": () => {
+    if (!confirm("Start setup over?\n\nYou'll be signed out and see the first screens again. To also see the naming and adding steps, make a new account with a different email.")) return;
+    storage.keys().filter((k) => k.startsWith("onb:")).forEach((k) => storage.remove(k));
+    Object.assign(state, { storyIndex: 0, authMode: "signin" });
+    location.hash = "#/";
+    run(() => signOut(auth));
+  },
   "role-back": () => { storage.remove("onb:role"); render(); window.scrollTo(0, 0); },
   "role-signin": () => { storage.set("onb:role", "helper"); storage.set("onb:story", "1"); state.authMode = "signin"; render(); },
   "story-next": () => { state.storyIndex += 1; render(); window.scrollTo(0, 0); },
