@@ -37,7 +37,8 @@ sealed interface Screen {
     data object Loading : Screen
     data object NotConfigured : Screen
     data class Welcome(val message: String? = null) : Screen
-    data class InviteAsk(val invite: InviteLink, val helperName: String) : Screen
+    /** [helperRelation] is how the helper says they know this person, e.g. "your grandchild". */
+    data class InviteAsk(val invite: InviteLink, val helperName: String, val helperRelation: String?) : Screen
     data class Pictures(
         val invite: InviteLink,
         val helperName: String,
@@ -142,7 +143,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     if (pendingInvite != null) {
                         pendingInvite = null
-                        error = "This phone is already linked to your family."
+                        error = "This phone is already linked to your helper."
                     }
                 }
                 // A helper removed this phone from the family (lost or replaced).
@@ -151,7 +152,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     practiceHelp = null
                     scamChecks = emptyList()
                     helperNames = emptyList()
-                    screen = Screen.Welcome("This phone isn't connected to your family any more.")
+                    screen = Screen.Welcome("This phone isn't connected to your helper any more.")
                 }
                 newCircle == null && screen is Screen.Loading -> {
                     val invite = pendingInvite
@@ -208,7 +209,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
 
     fun handleInviteLink(invite: InviteLink) {
         when {
-            circleId != null -> error = "This phone is already linked to your family."
+            circleId != null -> error = "This phone is already linked to your helper."
             !userLoaded -> pendingInvite = invite
             else -> openInvite(invite)
         }
@@ -218,7 +219,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         when {
             circleId != null -> screen = Screen.Scam(text)
             !userLoaded -> pendingScamText = text
-            else -> error = "My Tech Kid isn't set up yet. Ask your family to send you an invite link."
+            else -> error = "My Tech Kid isn't set up yet. Tap \"Text someone who can help\" to get started."
         }
     }
 
@@ -228,7 +229,11 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.Loading
         try {
             val result = call("peekInvite", invite.asMap())
-            screen = Screen.InviteAsk(invite, (result["helperName"] as? String)?.let(::firstName) ?: "Your family")
+            screen = Screen.InviteAsk(
+                invite,
+                (result["helperName"] as? String)?.let(::firstName) ?: "Someone",
+                result["helperRelation"] as? String,
+            )
         } catch (e: Exception) {
             screen = Screen.Welcome(friendly(e))
         }
@@ -246,7 +251,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun rejectInvite() {
-        screen = Screen.Welcome("Good call. You can delete that message. Only use invites from family you know.")
+        screen = Screen.Welcome("Good call. You can delete that message. Only use invites from people you know.")
     }
 
     fun confirmPictures(match: Boolean) = act {
@@ -257,9 +262,9 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         )
         when (result["status"]) {
             "cancelled" -> screen = Screen.Welcome(
-                "Stopped. Nothing was linked. If this wasn't your family, delete the message.",
+                "Stopped. Nothing was linked. If you don't know who sent it, delete the message.",
             )
-            "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
+            "expired" -> screen = Screen.Welcome("This invite expired. Ask your helper to send a new one.")
             "waiting" -> screen = current.copy(confirmed = true)
             // "linked": the user listener moves us to Home.
         }
@@ -271,15 +276,15 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             .addSnapshotListener { snap, _ ->
                 if (screen !is Screen.Pictures) return@addSnapshotListener
                 when (snap?.getString("status")) {
-                    "cancelled" -> screen = Screen.Welcome("Your family stopped this invite. Ask them to send a new one.")
-                    "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
+                    "cancelled" -> screen = Screen.Welcome("Your helper stopped this invite. Ask them to send a new one.")
+                    "expired" -> screen = Screen.Welcome("This invite expired. Ask your helper to send a new one.")
                 }
             }
     }
 
     // ---------- Help and scam checks ----------
 
-    private fun myCircleName(): String = myName.ifBlank { "Your family member" }
+    private fun myCircleName(): String = myName.ifBlank { "Someone you help" }
 
     fun askForHelp() = act {
         val id = circleId ?: return@act
@@ -409,7 +414,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun friendly(e: Exception): String = when (e) {
         is FirebaseFunctionsException -> e.message ?: "Something went wrong. Try again."
-        else -> "Couldn't reach your family. Check your internet and try again."
+        else -> "Couldn't reach your helper. Check your internet and try again."
     }
 
     override fun onCleared() {

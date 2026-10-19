@@ -25,7 +25,8 @@ object Updater {
     private const val APK = "download/mytechkid-beta.apk"
     private const val VERSION = "download/version.json"
 
-    private fun site(context: Context): String? {
+    /** The My Tech Kid website, e.g. https://my-tech-kid.web.app/ */
+    fun site(context: Context): String? {
         val projectId = FirebaseApp.getApps(context).firstOrNull()?.options?.projectId ?: return null
         return "https://$projectId.web.app/"
     }

@@ -92,7 +92,7 @@ fun TechKidTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit) {
+fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit, onTextHelper: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
@@ -103,9 +103,9 @@ fun TechKidScreens(vm: TechKidViewModel, onIntroDone: () -> Unit) {
             Screen.Loading -> Centered { CircularProgressIndicator() }
             Screen.NotConfigured -> Page {
                 Title("Almost there")
-                Body("This copy of My Tech Kid isn't connected yet. Your family needs to finish setup (docs/SETUP.md).")
+                Body("This copy of My Tech Kid isn't connected yet. Whoever set it up needs to finish setup (docs/SETUP.md).")
             }
-            is Screen.Welcome -> WelcomeScreen(s.message)
+            is Screen.Welcome -> WelcomeScreen(s.message, onTextHelper)
             is Screen.InviteAsk -> InviteAskScreen(vm, s)
             is Screen.Pictures -> PicturesScreen(vm, s)
             Screen.Intro -> IntroScreen(vm, onIntroDone)
@@ -264,40 +264,53 @@ private fun ErrorText(vm: TechKidViewModel) {
 }
 
 private fun names(list: List<String>): String = when (list.size) {
-    0 -> "your family"
+    0 -> "your helper"
     1 -> list[0]
     else -> list.dropLast(1).joinToString(", ") + " or " + list.last()
 }
 
 // ---------- Screens ----------
 
+// One job: reach someone who can help. The button opens Messages with a
+// ready-made text; the person picks who to send it to. The text is only a
+// referral: linking still needs their invite and the picture check.
 @Composable
-private fun WelcomeScreen(message: String?) {
+private fun WelcomeScreen(message: String?, onTextHelper: () -> Unit) {
     Page {
         Spacer(Modifier.heightIn(min = 24.dp))
         Title("Welcome to My Tech Kid")
         if (message != null) Panel(AmberSoft) { Body(message, AmberInk) }
-        Body("My Tech Kid puts a big button on your phone that reaches your family when you need help.")
-        Body("To get started, ask your family to text you an invite link. Then tap the link in your messages.")
+        Body("My Tech Kid puts a big button on your phone that reaches someone you trust when you need help.")
+        BigButton("Text someone who can help") { onTextHelper() }
+        Panel(AmberSoft) {
+            Body("Only send this to people you know. Banks, Samsung, Google, Microsoft and the police will never ask you to.", AmberInk)
+        }
+        Body("Already sent you a link? Tap it in your messages.")
     }
 }
 
 @Composable
 private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
     Page {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Avatar(s.helperName, 120)
+            // "Your grandchild": what the helper said, so it can sound wrong.
+            s.helperRelation?.let { Text(it.replaceFirstChar(Char::uppercase), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Muted) }
         }
         Title("${s.helperName} wants to help you with your phone")
         Panel(AmberSoft) {
             Text(
-                "Only continue if ${s.helperName} is family you know.",
+                "Only continue if you know ${s.helperName} personally.",
                 fontSize = 21.sp, fontWeight = FontWeight.Bold, color = AmberInk,
             )
             Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", AmberInk)
         }
         ErrorText(vm)
-        BigButton("Yes, ${s.helperName} is my family", enabled = !vm.busy) { vm.acceptInvite() }
+        BigButton("Yes, I know ${s.helperName}", enabled = !vm.busy) { vm.acceptInvite() }
         QuietButton("I don't know this person", enabled = !vm.busy) { vm.rejectInvite() }
     }
 }
@@ -335,7 +348,7 @@ private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
 
 @Composable
 private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
-    val first = vm.helperNames.firstOrNull() ?: "Your family"
+    val first = vm.helperNames.firstOrNull() ?: "Your helper"
     val practice = vm.practiceHelp
     Page {
         when (practice?.status) {
@@ -394,7 +407,7 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
 @Composable
 private fun HomeScreen(vm: TechKidViewModel) {
     val helpers = names(vm.helperNames)
-    val first = vm.helperNames.firstOrNull() ?: "Family"
+    val first = vm.helperNames.firstOrNull() ?: "Your helper"
     val help = vm.activeHelp
     Page {
         val hour = LocalTime.now().hour

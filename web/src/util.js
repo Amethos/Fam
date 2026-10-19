@@ -46,4 +46,10 @@ export const storage = {
   set(key, value) {
     try { localStorage.setItem(key, value); } catch { /* private mode: link just won't survive a reload */ }
   },
+  keys() {
+    try { return Object.keys(localStorage); } catch { return []; }
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch { /* nothing to forget */ }
+  },
 };
