@@ -2,7 +2,6 @@ package com.amethos.mytechkid
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -154,8 +153,8 @@ class RemoteControlService : AccessibilityService() {
     }
 
     /** A tap, press-and-hold or swipe from (x1, y1) to (x2, y2), all 0..1. Returns false if refused. */
-    fun gesture(x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long): Boolean {
-        val (w, h) = realScreenSize(this)
+    fun gesture(x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
+        val (w, h) = screen
         val ax = x1 * w; val ay = y1 * h
         val bx = x2 * w; val by = y2 * h
         if (!allowed(ax, ay)) return false
@@ -268,13 +267,7 @@ class RemoteControlService : AccessibilityService() {
 
         /** Opens Android's accessibility settings, where Mom turns on the switch once. */
         fun openSwitch(context: Context) {
-            // Straight to My Tech Kid's own switch where Android allows it,
-            // which saves Mom hunting through the accessibility list.
-            val details = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
-                .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, RemoteControlService::class.java).flattenToString())
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val list = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { context.startActivity(details) }.onFailure { context.startActivity(list) }
+            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 }

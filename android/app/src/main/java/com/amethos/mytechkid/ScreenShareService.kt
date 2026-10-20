@@ -95,6 +95,10 @@ class ScreenShareService : Service() {
     private var asking = false
     private val recent = ArrayDeque<Long>()
     private var declinedAt = 0L
+    private var startedAt = 0L
+    /** Which connection is current: "first", then a new id each time the helper's page reloads. */
+    private var gen = ""
+    private var reconnects = 0
     private var captureW = 1
     private var captureH = 1
 
@@ -152,7 +156,7 @@ class ScreenShareService : Service() {
                     if (!offered) {
                         offered = true
                         listenForSignals(ref)
-                        makeOffer(ref)
+                        connect(FIRST_GEN)
                     }
                 }
                 "ended" -> stopSharing(endShare = false)
@@ -160,8 +164,14 @@ class ScreenShareService : Service() {
         }
         // Nobody joined in time: stop on our own (the rules refuse late joins too).
         main.postDelayed({ if (ShareState.waiting) stopSharing(endShare = true) }, JOIN_WINDOW_MS)
-        // Never left on by accident: a share ends on its own after an hour.
-        main.postDelayed({ stopSharing(endShare = true) }, MAX_SHARE_MS)
+        // Never left on by accident: a share ends on its own after an hour of
+        // real time (checked often, since timers pause while the phone sleeps).
+        startedAt = System.currentTimeMillis()
+        main.postDelayed(object : Runnable {
+            override fun run() {
+                if (tooLong()) stopSharing(endShare = true) else main.postDelayed(this, 30_000)
+            }
+        }, 30_000)
         return START_NOT_STICKY
     }
 
@@ -188,7 +198,18 @@ class ScreenShareService : Service() {
         captureW = w
         captureH = h
         capturer.startCapture(w, h, FPS)
+    }
 
+    /**
+     * Opens the encrypted connection to the helper's page and offers Mom's
+     * screen. Called again when the helper's page reloads ("hello"), which
+     * replaces the old connection; tapping then needs Mom's Yes again.
+     */
+    private fun connect(newGen: String) {
+        val factory = factory ?: return
+        val source = source ?: return
+        closeConnection()
+        gen = newGen
         val config = PeerConnection.RTCConfiguration(
             listOf(
                 PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"))
@@ -199,15 +220,16 @@ class ScreenShareService : Service() {
             // Start finding a network path right away, so the helper connects sooner.
             iceCandidatePoolSize = 2
         }
-        pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
+        val myGen = newGen
+        val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
-                main.post { sendSignal("candidate", candidateJson(candidate)) }
+                main.post { if (gen == myGen) sendSignal("candidate", candidateJson(candidate)) }
             }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
-                // The helper's page closed or the network dropped for good:
-                // end it, so nothing is left shared (or tappable) by accident.
-                if (state == PeerConnection.IceConnectionState.FAILED || state == PeerConnection.IceConnectionState.CLOSED) {
-                    main.post { stopSharing(endShare = true) }
+                // The network dropped for good and the helper's page didn't
+                // come back: end it, so nothing is left shared by accident.
+                if (state == PeerConnection.IceConnectionState.FAILED) {
+                    main.post { if (gen == myGen) stopSharing(endShare = true) }
                 }
             }
             override fun onSignalingChange(state: PeerConnection.SignalingState) {}
@@ -219,9 +241,9 @@ class ScreenShareService : Service() {
             override fun onDataChannel(channel: DataChannel) {}
             override fun onRenegotiationNeeded() {}
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {}
-        })
-        val track = factory.createVideoTrack("screen", source)
-        pc?.addTrack(track, listOf("screen"))?.let { sender ->
+        }) ?: return
+        this.pc = pc
+        pc.addTrack(factory.createVideoTrack("screen-$myGen", source), listOf("screen"))?.let { sender ->
             // Smooth and quick to react: up to 30 pictures a second, and on a
             // slow connection give up a little sharpness before smoothness.
             val params = sender.parameters
@@ -233,21 +255,45 @@ class ScreenShareService : Service() {
             sender.setParameters(params)
         }
         // Created before the offer so it's part of the same encrypted connection.
-        channel = pc?.createDataChannel("control", DataChannel.Init())?.also { dc ->
+        channel = pc.createDataChannel("control", DataChannel.Init()).also { dc ->
             dc.registerObserver(object : DataChannel.Observer {
                 override fun onBufferedAmountChange(previous: Long) {}
                 override fun onStateChange() {
-                    if (dc.state() == DataChannel.State.OPEN) main.post { sendControl(if (controlOn) "on" else "ready") }
+                    val state = dc.state()
+                    main.post {
+                        if (gen != myGen) return@post
+                        when (state) {
+                            DataChannel.State.OPEN -> sendControl("ready")
+                            // The helper's page went away: stop tapping at once.
+                            DataChannel.State.CLOSING, DataChannel.State.CLOSED -> endControl()
+                            else -> {}
+                        }
+                    }
                 }
                 override fun onMessage(buffer: DataChannel.Buffer) {
                     if (buffer.binary || buffer.data.remaining() > 1000) return
                     val bytes = ByteArray(buffer.data.remaining()).also { buffer.data.get(it) }
                     val message = runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull() ?: return
-                    main.post { onHelperMessage(message) }
+                    main.post { if (gen == myGen) onHelperMessage(message) }
                 }
             })
         }
+        makeOffer(pc, myGen)
     }
+
+    /** Ends the current connection (not the share). Tapping stops with it. */
+    private fun closeConnection() {
+        endControl()
+        pendingCandidates.clear()
+        channel?.unregisterObserver()
+        channel?.dispose()
+        channel = null
+        pc?.close()
+        pc?.dispose()
+        pc = null
+    }
+
+    private fun tooLong() = System.currentTimeMillis() - startedAt > MAX_SHARE_MS
 
     /**
      * Half the real screen size (status and navigation bars included, the way
@@ -265,13 +311,14 @@ class ScreenShareService : Service() {
      * size is fixed when sharing starts (Android 14 doesn't allow resizing it),
      * so when Mom turns her phone sideways her screen shows letterboxed in it.
      */
-    private fun toScreen(x: Float, y: Float): Pair<Float, Float>? {
-        val (sw, sh) = realScreenSize(this)
+    private fun toScreen(x: Float, y: Float, screen: Pair<Int, Int>, clamp: Boolean = false): Pair<Float, Float>? {
+        val (sw, sh) = screen
         val scale = minOf(captureW.toFloat() / sw, captureH.toFloat() / sh)
         val contentW = sw * scale
         val contentH = sh * scale
         val sx = (x * captureW - (captureW - contentW) / 2) / contentW
         val sy = (y * captureH - (captureH - contentH) / 2) / contentH
+        if (clamp) return sx.coerceIn(0f, 1f) to sy.coerceIn(0f, 1f)
         return if (sx in 0f..1f && sy in 0f..1f) sx to sy else null
     }
 
@@ -279,6 +326,7 @@ class ScreenShareService : Service() {
 
     private fun onHelperMessage(m: JSONObject) {
         if (stopping || ShareState.watcher.isNullOrBlank()) return
+        if (tooLong()) return stopSharing(endShare = true)
         // A runaway helper page can't flood Mom's phone with taps.
         val now = System.currentTimeMillis()
         while (recent.isNotEmpty() && now - recent.first() > 1000) recent.removeFirst()
@@ -295,11 +343,14 @@ class ScreenShareService : Service() {
         if (controlOn) return sendControl("on")
         if (asking) return
         // Mom just said no: don't keep putting the question back on her screen.
-        if (System.currentTimeMillis() - declinedAt < ASK_AGAIN_AFTER_MS) return sendControl("declined")
+        if (System.currentTimeMillis() - declinedAt < ASK_AGAIN_AFTER_MS) {
+            return sendControl("declined", declinedAt + ASK_AGAIN_AFTER_MS)
+        }
         asking = true
         // The family's safety wait is checked here, on Mom's own phone.
+        val askedGen = gen
         db.document("circles/$circleId").get().addOnCompleteListener { task ->
-            if (stopping) return@addOnCompleteListener
+            if (stopping || gen != askedGen || !asking) return@addOnCompleteListener
             @Suppress("UNCHECKED_CAST")
             val circle = if (task.isSuccessful) task.result else null
             val me = (circle?.get("members") as? Map<String, Map<String, Any?>>)?.get(uid)
@@ -323,11 +374,15 @@ class ScreenShareService : Service() {
         val control = RemoteControlService.instance ?: run { asking = false; return sendControl("off") }
         asking = true
         sendControl("asking")
+        val askedGen = gen
         control.askMom(helperName) { yes ->
-            asking = false
-            if (stopping) {
+            if (stopping || gen != askedGen || !asking) {
+                // The share or connection ended while Mom was being asked.
                 control.hideAll()
-            } else if (yes) {
+                return@askMom
+            }
+            asking = false
+            if (yes) {
                 controlOn = true
                 ShareState.controlling = true
                 notify("$helperName can see and tap your screen")
@@ -335,7 +390,7 @@ class ScreenShareService : Service() {
                 sendControl("on")
             } else {
                 declinedAt = System.currentTimeMillis()
-                sendControl("declined")
+                sendControl("declined", declinedAt + ASK_AGAIN_AFTER_MS)
             }
         }
     }
@@ -350,42 +405,40 @@ class ScreenShareService : Service() {
     /** Mom turned the switch off: tapping stops at once. */
     fun onControlSwitchOff() {
         if (!controlOn && !asking) return
+        endControl()
+        sendControl("off")
+    }
+
+    /** Tapping stops (the question and Stop bar go away); seeing carries on. */
+    private fun endControl() {
+        if (!controlOn && !asking) return
         controlOn = false
         asking = false
         ShareState.controlling = false
-        if (!stopping) {
-            notify("$helperName can see your screen")
-            sendControl("off")
-        }
+        RemoteControlService.instance?.hideAll()
+        if (!stopping) notify("$helperName can see your screen")
     }
 
     private fun doGesture(m: JSONObject) {
         val control = RemoteControlService.instance ?: return onControlSwitchOff()
+        val screen = realScreenSize(this)
         fun unit(key: String): Float? = m.optDouble(key, Double.NaN).takeIf { it in 0.0..1.0 }?.toFloat()
-        fun point(xKey: String, yKey: String): Pair<Float, Float>? {
+        fun point(xKey: String, yKey: String, clamp: Boolean = false): Pair<Float, Float>? {
             val x = unit(xKey) ?: return null
             val y = unit(yKey) ?: return null
-            return toScreen(x, y)
+            return toScreen(x, y, screen, clamp)
         }
         val ok = when (m.optString("t")) {
             "tap", "hold" -> {
                 val p = point("x", "y")
-                p != null && control.gesture(p.first, p.second, p.first, p.second, if (m.optString("t") == "tap") 60 else 800)
+                p != null && control.gesture(p.first, p.second, p.first, p.second, if (m.optString("t") == "tap") 60 else 800, screen)
             }
             "swipe" -> {
                 // A swipe may end on the black bars; keep its end on the screen.
                 val a = point("x1", "y1")
-                val x2 = unit("x2"); val y2 = unit("y2")
+                val b = point("x2", "y2", clamp = true)
                 val ms = m.optLong("ms", 300).coerceIn(80, 1500)
-                if (a == null || x2 == null || y2 == null) {
-                    false
-                } else {
-                    val (sw, sh) = realScreenSize(this)
-                    val scale = minOf(captureW.toFloat() / sw, captureH.toFloat() / sh)
-                    val bx = ((x2 * captureW - (captureW - sw * scale) / 2) / (sw * scale)).coerceIn(0f, 1f)
-                    val by = ((y2 * captureH - (captureH - sh * scale) / 2) / (sh * scale)).coerceIn(0f, 1f)
-                    control.gesture(a.first, a.second, bx, by, ms)
-                }
+                a != null && b != null && control.gesture(a.first, a.second, b.first, b.second, ms, screen)
             }
             "key" -> control.button(m.optString("name"))
             else -> false
@@ -403,13 +456,16 @@ class ScreenShareService : Service() {
         dc.send(DataChannel.Buffer(ByteBuffer.wrap(message.toString().toByteArray(Charsets.UTF_8)), false))
     }
 
-    private fun makeOffer(ref: DocumentReference) {
-        val pc = pc ?: return
+    private fun makeOffer(pc: PeerConnection, myGen: String) {
         pc.createOffer(object : SdpAdapter() {
             override fun onCreateSuccess(desc: SessionDescription) {
                 pc.setLocalDescription(object : SdpAdapter() {
                     override fun onSetSuccess() {
-                        main.post { sendSignal("offer", JSONObject().put("sdp", desc.description).toString()) }
+                        main.post {
+                            if (gen == myGen) {
+                                sendSignal("offer", JSONObject().put("sdp", desc.description).put("gen", myGen).toString())
+                            }
+                        }
                     }
                 }, desc)
             }
@@ -422,7 +478,18 @@ class ScreenShareService : Service() {
                 if (d.id in seen || d.getString("from") == uid) return@forEach
                 seen += d.id
                 val payload = runCatching { JSONObject(d.getString("payload") ?: "") }.getOrNull() ?: return@forEach
-                when (d.getString("type")) {
+                val type = d.getString("type")
+                // The helper's page reloaded: start a fresh connection for it.
+                if (type == "hello") {
+                    val newGen = payload.optString("gen").take(40)
+                    // (A runaway page can't keep Mom's phone reconnecting forever.)
+                    if (newGen.isNotBlank() && newGen != gen && reconnects++ < MAX_RECONNECTS) connect(newGen)
+                    return@forEach
+                }
+                // Messages for an older connection (before a reload) are ignored.
+                // Pages from before reconnecting existed send no gen at all.
+                if (payload.optString("gen", FIRST_GEN) != gen) return@forEach
+                when (type) {
                     "answer" -> pc?.setRemoteDescription(object : SdpAdapter() {
                         override fun onSetSuccess() {
                             main.post {
@@ -448,8 +515,8 @@ class ScreenShareService : Service() {
         )
     }
 
-    private fun candidateJson(c: IceCandidate) =
-        JSONObject().put("candidate", c.sdp).put("sdpMid", c.sdpMid).put("sdpMLineIndex", c.sdpMLineIndex).toString()
+    private fun candidateJson(c: IceCandidate) = JSONObject()
+        .put("candidate", c.sdp).put("sdpMid", c.sdpMid).put("sdpMLineIndex", c.sdpMLineIndex).put("gen", gen).toString()
 
     private fun stopSharing(endShare: Boolean) {
         if (stopping) return
@@ -458,25 +525,20 @@ class ScreenShareService : Service() {
         listeners.forEach { it.remove() }
         listeners.clear()
         if (active === this) active = null
+        closeConnection()
         RemoteControlService.instance?.hideAll()
-        controlOn = false
         ShareState.controlAsk = false
         ShareState.controlling = false
-        channel?.unregisterObserver()
-        channel?.dispose()
-        channel = null
         if (endShare) {
             shareRef?.update(mapOf("status" to "ended", "endedBy" to uid, "endedAt" to FieldValue.serverTimestamp()))
         }
         runCatching { capturer?.stopCapture() }
-        pc?.close()
-        pc?.dispose()
         capturer?.dispose()
         source?.dispose()
         textures?.dispose()
         factory?.dispose()
         egl?.release()
-        pc = null; capturer = null; source = null; textures = null; factory = null; egl = null
+        capturer = null; source = null; textures = null; factory = null; egl = null
         ShareState.watcher = null
         ShareState.waiting = false
         stopForeground(Service.STOP_FOREGROUND_REMOVE)
@@ -533,6 +595,8 @@ class ScreenShareService : Service() {
         private const val MAX_MESSAGES_PER_SECOND = 30
         private const val MAX_SHARE_MS = 60 * 60 * 1000L
         private const val ASK_AGAIN_AFTER_MS = 15_000L
+        private const val FIRST_GEN = "first"
+        private const val MAX_RECONNECTS = 20
         private const val FPS = 30
         private const val MAX_BITRATE = 2_500_000
 

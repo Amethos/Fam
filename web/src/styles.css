@@ -293,10 +293,10 @@ body.watching { overflow: hidden; }
 #watch .watch-control-note { margin: 0; text-align: center; }
 #watch .watch-control-note:empty { display: none; }
 #watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-/* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
 #watch .watch-ripple { position: fixed; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
   background: var(--amber); opacity: 0.7; pointer-events: none; animation: watch-ripple 450ms ease-out forwards; }
 @keyframes watch-ripple { to { transform: scale(1.8); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #watch .watch-ripple { animation: none; } }
+/* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
 #watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   outline: 3px solid var(--amber); }

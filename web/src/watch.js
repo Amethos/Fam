@@ -81,36 +81,35 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   current = shareId;
   await stop({ end: false });
   const shareRef = doc(db, `circles/${circleId}/screenShares/${shareId}`);
-  const s = { shareId, name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
+  const s = { shareId, openedAt: Date.now(), name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
   session = s;
   show(s.name, "Connecting…");
 
-  let lost = false;
+  let rejoin = false;
   try {
-    lost = await runTransaction(db, async (tx) => {
+    rejoin = await runTransaction(db, async (tx) => {
       const snap = await tx.get(shareRef);
       const share = snap.data();
       if (!share) throw new Error("This screen share isn't available.");
-      // Opened again after this page reloaded: the old connection is gone and
-      // Mom's phone can't start a new one on its own, so end it cleanly.
-      if (share.status === "live" && share.helperId === uid) {
-        tx.update(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() });
-        return true;
-      }
+      // Already watching it (this page reloaded, or was opened again): ask
+      // Mom's phone for a fresh connection instead of joining.
+      if (share.status === "live" && share.helperId === uid) return true;
       if (share.status !== "waiting") throw new Error("This screen share has ended.");
       tx.update(shareRef, { status: "live", helperId: uid, helperName: myName, startedAt: serverTimestamp() });
       return false;
     });
-    if (lost) throw new Error("lost");
   } catch (err) {
     if (session === s) session = null;
     const ended = /ended|isn't available/.test(err.message);
-    show(s.name, err.message === "lost"
-      ? `The connection was lost when this page reloaded. Ask ${s.name} to tap Show my screen again.`
-      : ended ? err.message : `Couldn't join. It may have timed out: ask ${s.name} to tap Show my screen again.`);
+    show(s.name, ended ? err.message : `Couldn't join. It may have timed out: ask ${s.name} to tap Show my screen again.`);
     return;
   }
   if (session !== s) return;
+  // Which connection this page is on. Mom's phone labels its first offer
+  // "first" (older versions of her app send no label); a reloaded page picks
+  // a new label and only listens to messages carrying it.
+  const gen = rejoin ? crypto.randomUUID() : "first";
+  const ours = (payload) => (payload.gen ?? "first") === gen;
 
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   s.pc = pc;
@@ -118,7 +117,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   const send = (type, payload) => addDoc(signals, { from: uid, type, payload: JSON.stringify(payload), createdAt: serverTimestamp() });
 
   pc.onicecandidate = (e) => {
-    if (e.candidate) send("candidate", { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex });
+    if (e.candidate) send("candidate", { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex, gen });
   };
   pc.ontrack = (e) => {
     // Show each picture as soon as it arrives instead of buffering for
@@ -154,7 +153,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
     const share = snap.data();
     s.name = share?.parentName || s.name;
     if (!share || share.status === "ended") {
-      stop({ end: false, message: `${s.name} stopped sharing.` });
+      stop({ end: false, message: `${s.name}'s screen share ended.` });
     } else if (!pc.remoteDescription) {
       show(s.name, `Waiting for ${s.name}'s phone…`);
     }
@@ -164,17 +163,25 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
     snap.docChanges().forEach(async ({ type, doc: d }) => {
       if (type !== "added" || s.seen.has(d.id)) return;
       const m = d.data();
-      if (m.from === uid) return;
       s.seen.add(d.id);
       try {
         const payload = JSON.parse(m.payload);
+        // This share was opened again in a newer window, which takes over.
+        if (m.from === uid) {
+          if (m.type === "hello" && payload.gen !== gen && payload.at > s.openedAt && session === s) {
+            current = null;
+            stop({ end: false, message: `${s.name}'s screen is open in another window now.` });
+          }
+          return;
+        }
+        if (!ours(payload)) return; // for an earlier connection
         if (m.type === "offer") {
           await pc.setRemoteDescription({ type: "offer", sdp: payload.sdp });
           s.remoteSet = true;
           for (const c of s.pending.splice(0)) await pc.addIceCandidate(c);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          await send("answer", { sdp: answer.sdp });
+          await send("answer", { sdp: answer.sdp, gen });
         } else if (m.type === "candidate") {
           if (s.remoteSet) await pc.addIceCandidate(payload);
           else s.pending.push(payload);
@@ -184,6 +191,8 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       }
     });
   }));
+
+  if (rejoin) send("hello", { gen, at: s.openedAt }).catch((err) => console.warn("screen share hello", err));
 
   // Ending the share is how we tell Mom's phone to stop.
   s.end = () => updateDoc(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});
@@ -197,6 +206,7 @@ function send(msg) {
 }
 
 let controlOn = false;
+let askTimer;
 
 // What Mom's phone says about tapping. null = not available (no channel).
 function setControl(msg) {
@@ -212,6 +222,11 @@ function setControl(msg) {
   keys.hidden = !controlOn;
   ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
   ask.textContent = `Ask to tap for ${name}`;
+  // Just said no: asking again works after a short pause, so wait it out here.
+  clearTimeout(askTimer);
+  const wait = msg?.state === "declined" && msg.until ? msg.until - Date.now() : 0;
+  ask.disabled = wait > 0;
+  if (wait > 0) askTimer = setTimeout(() => { ask.disabled = false; }, Math.min(wait, 60_000));
   el.classList.toggle("controlling", controlOn);
   const notes = {
     ready: "",
