@@ -49,6 +49,12 @@ These are requirements, not nice-to-haves:
   server (TURN) can't see the screen.
 - **Short-lived session credentials** issued by the backend only to members of
   the circle; nothing reusable is stored on the helper's phone.
+- **Mom says yes each time.** Tapping for her (stage 3) starts only when the
+  helper asks during a share she started and she taps Yes on her own phone.
+  While the question shows, and on her Stop bar, the helper's taps are refused,
+  so only her finger can answer or stop. Taps travel in the same end-to-end
+  encrypted connection as the video (a WebRTC data channel) and are rate-limited.
+  The accessibility service reads nothing on the screen (`RemoteControlService.kt`).
 - **Respect protected screens.** Apps that block screenshots (banking,
   passwords) stay black; we never try to get around that.
 - **Nothing recorded or stored.** Screens are streamed, not saved.
@@ -58,6 +64,8 @@ These are requirements, not nice-to-haves:
 
 ## Before any public launch
 
+- Delete `functions/.env.my-tech-kid`, which turns the 24-hour safety wait
+  off on the real project for beta testing.
 - Replace the committed beta signing key with a private one. (Until then,
   anyone who can read this repo could sign an update; the self-updater only
   downloads from our own site, but the key must not stay public.)

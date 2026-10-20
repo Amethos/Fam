@@ -20,16 +20,28 @@ service cloud.firestore {
     function validUserFields() {
       let d = request.resource.data;
       return (!('fcmTokens' in d) || (d.fcmTokens is list && d.fcmTokens.size() <= 10))
-        && (!('displayName' in d) || (d.displayName is string && d.displayName.size() <= 60));
+        && (!('displayName' in d) || (d.displayName is string && d.displayName.size() <= 60))
+        && (!('device' in d) || validDevice(d.device));
+    }
+
+    // What kind of phone this is, so the helper's app can pick the right way
+    // to help (in-app screen sharing on Android, FaceTime on iPhone).
+    function validDevice(v) {
+      return v is map
+        && v.keys().hasAll(['platform'])
+        && v.keys().hasOnly(['platform', 'model', 'osVersion'])
+        && v.platform in ['android', 'ios', 'computer']
+        && (!('model' in v) || (v.model is string && v.model.size() <= 60))
+        && (!('osVersion' in v) || (v.osVersion is int && v.osVersion >= 0 && v.osVersion < 100));
     }
 
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform'])
+        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform', 'device'])
         && validUserFields();
       allow update: if signedIn() && request.auth.uid == uid
-        && changedOnly(['displayName', 'fcmTokens', 'platform'])
+        && changedOnly(['displayName', 'fcmTokens', 'platform', 'device'])
         && validUserFields();
     }
 
@@ -63,6 +75,20 @@ service cloud.firestore {
             && changedOnly(['status', 'updatedAt'])
             && resource.data.status in ['waiting', 'accepted']
             && request.resource.data.status in ['cancelled', 'done']);
+      }
+
+      // "Ring Mom's phone": a helper makes a parent's phone play loudly so it
+      // can be found. Only helpers in the family, only for a parent in it, in
+      // their own name. Kept as a record of who rang and when.
+      match /rings/{ringid} {
+        allow read: if isMember(cid);
+        allow create: if isHelper(cid)
+          && request.resource.data.keys().hasOnly(['parentId', 'helperId', 'helperName', 'createdAt'])
+          && request.resource.data.parentId in circleData(cid).parentIds
+          && request.resource.data.helperId == request.auth.uid
+          && request.resource.data.helperName is string
+          && request.resource.data.helperName.size() <= 60
+          && request.resource.data.createdAt == request.time;
       }
 
       // Screen sharing (stage 2). Never unattended: only the parent's own

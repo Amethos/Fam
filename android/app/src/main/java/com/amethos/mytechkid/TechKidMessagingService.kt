@@ -27,6 +27,12 @@ class TechKidMessagingService : FirebaseMessagingService() {
 
     // Called for messages that arrive while My Tech Kid is open (otherwise Android shows them itself).
     override fun onMessageReceived(message: RemoteMessage) {
+        // "Ring Mom's phone" arrives as a data message so it reaches the app even
+        // when it's closed. Only the family's own backend can send it.
+        if (message.data["type"] == "ring") {
+            runCatching { RingService.start(this, message.data["helperName"] ?: "") }
+            return
+        }
         val note = message.notification ?: return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=

@@ -9,14 +9,17 @@ import {
 } from "firebase/auth";
 import {
   getFirestore, connectFirestoreEmulator, doc, collection, query, where, orderBy, limit, onSnapshot,
-  setDoc, updateDoc, serverTimestamp, arrayUnion,
+  setDoc, updateDoc, addDoc, serverTimestamp, arrayUnion,
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
+import { watchShare, closeWatch } from "./watch.js";
+import { thisDevice, helpMethod, deviceLabel } from "./device.js";
 
 const root = document.getElementById("app");
+const myDevice = thisDevice();
 
 // Appearance: follows the phone (light by day, dark at night) unless the
 // helper picks one. Remembered on this device only.
@@ -58,10 +61,12 @@ const call = (name, data) => httpsCallable(functions, name)(data).then((r) => r.
 const state = {
   user: undefined, // undefined = still loading, null = signed out
   profile: null,
+  ringing: {}, // parent id -> true while their phone is ringing
   circle: null,
   help: [],
   scams: [],
   invites: [],
+  shares: [],
   authMode: "signin",
   storyIndex: 0,
   verdicts: {},
@@ -80,10 +85,11 @@ onAuthStateChanged(auth, (user) => {
   clear(userUnsubs);
   clear(circleUnsubs);
   circleId = null;
-  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [] });
+  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [], shares: [] });
   if (user) {
     userUnsubs.push(onSnapshot(doc(db, "users", user.uid), (snap) => {
       state.profile = snap.data() ?? {};
+      reportDevice(user.uid, state.profile.device);
       watchCircle(state.profile.circleId ?? null);
       render();
     }));
@@ -92,13 +98,21 @@ onAuthStateChanged(auth, (user) => {
   render();
 });
 
+// Tell the family what kind of phone this is, so the right way to help is
+// picked (FaceTime between iPhones, the app's own screen sharing on Android).
+function reportDevice(uid, saved) {
+  if (deviceLabel(saved) === deviceLabel(myDevice) && saved?.platform === myDevice.platform) return;
+  setDoc(doc(db, "users", uid), { device: myDevice }, { merge: true })
+    .catch((err) => console.warn("Could not save this phone's type", err));
+}
+
 function watchCircle(id) {
   if (id === circleId) return;
   clear(circleUnsubs);
   circleId = id;
   if (!id) {
     // Unlinked (or removed from the family): forget what we were showing.
-    Object.assign(state, { circle: null, help: [], scams: [], invites: [] });
+    Object.assign(state, { circle: null, help: [], scams: [], invites: [], shares: [] });
     return;
   }
   const base = `circles/${id}`;
@@ -111,7 +125,21 @@ function watchCircle(id) {
       (s) => { state.scams = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
       (s) => { state.invites = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
+    onSnapshot(query(collection(db, base, "screenShares"), where("status", "in", ["waiting", "live"])),
+      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); openMyShare(); render(); }, fail),
   );
+}
+
+// After "I'm on it", the helper is waiting for Mom's screen: open it as soon
+// as she taps Show my screen, once per share.
+const autoOpened = new Set();
+function openMyShare() {
+  const uid = state.user?.uid;
+  const mine = state.shares.find((sh) => sh.status === "waiting" && !autoOpened.has(sh.id)
+    && state.help.some((h) => h.status === "accepted" && h.helperId === uid && h.parentId === sh.parentId));
+  if (!mine || location.hash.startsWith("#/watch/")) return;
+  autoOpened.add(mine.id);
+  location.hash = `#/watch/${mine.id}`;
 }
 
 // ---------- Views ----------
@@ -302,10 +330,26 @@ function helpCards() {
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
-        <p>Give them a call now. Seeing their screen arrives in the next My Tech Kid update.</p>
+        <p>Give them a call now. To see their phone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>.
+          It opens here by itself, and from there you can ask to tap for them.</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
     return `<div class="alert blue"><p><strong>${esc(h.helperName)}</strong> is helping ${esc(h.parentName)}.</p></div>`;
+  }).join("");
+}
+
+// Mom tapped "Show my screen" on her phone.
+function shareCards() {
+  return state.shares.map((sh) => {
+    if (sh.status === "waiting") {
+      return `<div ${popAttrs(sh.id, "alert urgent")}><h2>${esc(sh.parentName)} wants to show you their screen</h2>
+        <a class="button" href="#/watch/${esc(sh.id)}">Watch ${esc(sh.parentName)}'s screen</a></div>`;
+    }
+    if (sh.helperId === state.user.uid) {
+      return `<div class="alert blue"><p>You're watching ${esc(sh.parentName)}'s screen.</p>
+        <a class="button secondary" href="#/watch/${esc(sh.id)}">Open it</a></div>`;
+    }
+    return `<div class="alert blue"><p><strong>${esc(sh.helperName)}</strong> is watching ${esc(sh.parentName)}'s screen.</p></div>`;
   }).join("");
 }
 
@@ -323,15 +367,43 @@ function memberCards() {
   const helpers = (c.helperIds ?? []).map((id) => ({ id, ...c.members?.[id] }));
   const parentHtml = parents.length
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
-        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">Linked ${esc(timeAgo(p.linkedAt))}</span></div></div>
+        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
+        ${howToHelp(p)}
+        ${ringButton(p)}
         <p class="muted">${isPast(p.controlAllowedAt)
-          ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
-          : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
+          ? `You can tap for ${esc(p.name)} while they show you their screen, once they say yes on their phone.`
+          : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
         <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
           ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+// Only Mom's Android app can ring itself; iPhones have Find My for that.
+function ringButton(p) {
+  if (p.device?.platform !== "android") return "";
+  if (state.ringing[p.id]) {
+    return `<p class="muted" role="status">Ringing ${esc(p.name)}'s phone now. It stops after 30 seconds, or when they tap Found it.</p>`;
+  }
+  return `<button class="secondary small" data-action="ring" data-id="${esc(p.id)}" ${state.busy ? "disabled" : ""}>
+    Ring ${esc(p.name)}'s phone</button>`;
+}
+
+function howToHelp(p) {
+  const name = esc(p.name);
+  switch (helpMethod(p.device, myDevice)) {
+    case "app":
+      return `<p class="muted">${name} can show you their screen from the My Tech Kid app. You'll get an alert when they do.</p>`;
+    case "facetime-control":
+      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen.
+        Then tap the pointing-hand button to ask to tap for them, and they tap Allow.</p>`;
+    case "facetime-view":
+      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen so you can
+        see it and talk them through it. To tap for them too, you both need iPhones on iOS 18 or newer.</p>`;
+    default:
+      return "";
+  }
 }
 
 function pendingInvites() {
@@ -356,6 +428,7 @@ function viewDashboard() {
   <div><p class="muted">Your family</p><h1>${esc(familyTitle(state.circle?.name))}</h1></div>
   ${alertsBanner()}
   ${helpCards()}
+  ${shareCards()}
   ${scamCards()}
   ${memberCards()}
   ${pendingInvites()}
@@ -520,6 +593,12 @@ function render() {
   else html = viewDashboard();
   root.innerHTML = html;
 
+  if (page === "watch" && id && state.circle) {
+    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id });
+  } else {
+    closeWatch();
+  }
+
   const key = screenKey(page, id, step);
   if (key !== motion.key) { motion.key = key; motion.since = Date.now(); }
   const elapsed = Date.now() - motion.since;
@@ -588,6 +667,14 @@ const actions = {
   "accept-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
     status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
   })),
+  ring: (el) => run(async () => {
+    const parentId = el.dataset.id;
+    await addDoc(collection(db, `circles/${circleId}/rings`), {
+      parentId, helperId: state.user.uid, helperName: myName(), createdAt: serverTimestamp(),
+    });
+    state.ringing[parentId] = true;
+    setTimeout(() => { delete state.ringing[parentId]; render(); }, 30_000);
+  }),
   "remove-member": (el) => {
     const name = el.dataset.name || "this person";
     if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;
