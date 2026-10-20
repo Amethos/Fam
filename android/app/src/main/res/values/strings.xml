@@ -3,4 +3,7 @@
     <string name="app_name">My Tech Kid</string>
     <string name="share_label">Ask family: is this a scam?</string>
     <string name="channel_name">Messages from family</string>
+    <!-- Shown on the phone's Accessibility page next to the switch. -->
+    <string name="ask_service_label">My Tech Kid ask button</string>
+    <string name="ask_service_description">Puts a small button at the edge of your screen. When you tap it, My Tech Kid takes a picture of what\'s on your screen and asks you before sending it to your family, so they can tell you if it\'s a scam. Passwords and codes are covered up first. It never looks at your screen at any other time, and it never taps or types anything for you.</string>
 </resources>
