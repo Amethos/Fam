@@ -67,7 +67,7 @@ rules or pairing change needs a test in `backend-tests/`.
 ## Layout
 
 - `functions/` — Firebase Cloud Functions (Node 22): `createCircle`,
-  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`, and push
+  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`, `shareIceServers` (relay passes for screen sharing), and push
   notification triggers. Unit tests: `npm test` (pure helpers in `pairing.js`).
 - `backend-tests/` — `npm test` checks `firestore.rules`; `npm run e2e` runs the
   whole pairing flow against local emulators (in the Claude container, unset the

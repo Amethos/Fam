@@ -18,9 +18,27 @@ import {
 import { esc } from "./util.js";
 import { gestureFor, pointOnVideo } from "./gesture.js";
 
-// Public STUN servers find a direct path between the phones. A TURN relay for
-// networks that block direct paths comes later (docs/STAGE2.md).
-const ICE_SERVERS = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] }];
+// Public STUN servers find a direct path between the phones. The backend adds
+// a short-lived relay pass for networks that block direct paths, once the
+// relay is set up (docs/STAGE2.md); without it, these are used.
+const ICE_SERVERS = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+const ICE_WAIT_MS = 4000;
+
+// The relay pass, or plain STUN if the backend is slow or says no.
+async function iceServersFrom(fetchServers) {
+  if (!fetchServers) return ICE_SERVERS;
+  let timer;
+  const slow = new Promise((resolve) => { timer = setTimeout(() => resolve(null), ICE_WAIT_MS); });
+  try {
+    const got = await Promise.race([fetchServers(), slow]);
+    return Array.isArray(got?.iceServers) && got.iceServers.length ? got.iceServers : ICE_SERVERS;
+  } catch (err) {
+    console.warn("relay pass", err);
+    return ICE_SERVERS;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const FALLBACK_NAME = "Your family member";
 let session = null;
@@ -76,7 +94,7 @@ function show(name, message, { video = false } = {}) {
 
 // Opens the watch page for one share: joins it if it's still waiting, then
 // answers Mom's phone and shows her screen.
-export async function watchShare({ db, uid, myName, circleId, shareId, parentName }) {
+export async function watchShare({ db, uid, myName, circleId, shareId, parentName, iceServers }) {
   if (current === shareId) return;
   current = shareId;
   await stop({ end: false });
@@ -111,7 +129,9 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   const gen = rejoin ? crypto.randomUUID() : "first";
   const ours = (payload) => (payload.gen ?? "first") === gen;
 
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const servers = await iceServersFrom(iceServers);
+  if (session !== s) return;
+  const pc = new RTCPeerConnection({ iceServers: servers });
   s.pc = pc;
   const signals = collection(db, `circles/${circleId}/screenShares/${shareId}/signals`);
   const send = (type, payload) => addDoc(signals, { from: uid, type, payload: JSON.stringify(payload), createdAt: serverTimestamp() });

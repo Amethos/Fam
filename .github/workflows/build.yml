@@ -87,6 +87,10 @@ jobs:
       cancel-in-progress: false
     env:
       FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      # Optional: the screen-sharing relay (docs/STAGE2.md). Without them,
+      # sharing uses direct connections only.
+      TURN_KEY_ID: ${{ secrets.CLOUDFLARE_TURN_KEY_ID }}
+      TURN_API_TOKEN: ${{ secrets.CLOUDFLARE_TURN_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - name: Check setup
@@ -116,6 +120,11 @@ jobs:
         if: steps.ready.outputs.ok == 'true'
         run: |
           (cd functions && npm ci)
+          if [ -n "$TURN_KEY_ID" ] && [ -n "$TURN_API_TOKEN" ]; then
+            printf '\nCLOUDFLARE_TURN_KEY_ID=%s\nCLOUDFLARE_TURN_API_TOKEN=%s\n' "$TURN_KEY_ID" "$TURN_API_TOKEN" >> functions/.env.my-tech-kid
+          else
+            echo "No relay secrets yet; screen sharing will use direct connections only."
+          fi
           echo "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@15 deploy --only hosting,functions,firestore --non-interactive --force

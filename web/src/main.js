@@ -595,7 +595,8 @@ function render() {
 
   if (page === "watch" && id && state.circle) {
     watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id,
-      parentName: state.shares.find((sh) => sh.id === id)?.parentName });
+      parentName: state.shares.find((sh) => sh.id === id)?.parentName,
+      iceServers: () => call("shareIceServers", { circleId, shareId: id }) });
   } else {
     closeWatch();
   }

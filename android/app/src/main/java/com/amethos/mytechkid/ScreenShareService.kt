@@ -23,6 +23,7 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.functions.FirebaseFunctions
 import org.json.JSONObject
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
@@ -99,6 +100,8 @@ class ScreenShareService : Service() {
     /** Which connection is current: "first", then a new id each time the helper's page reloads. */
     private var gen = ""
     private var reconnects = 0
+    private var iceServers: List<PeerConnection.IceServer>? = null
+    private val serversWaiters = mutableListOf<() -> Unit>()
     private var captureW = 1
     private var captureH = 1
 
@@ -144,7 +147,8 @@ class ScreenShareService : Service() {
                 "status" to "waiting",
                 "createdAt" to FieldValue.serverTimestamp(),
             ),
-        ).addOnFailureListener { stopSharing(endShare = false) }
+        ).addOnSuccessListener { fetchIceServers(circleId, ref.id) }
+            .addOnFailureListener { stopSharing(endShare = false) }
         listeners += ref.addSnapshotListener { snap, _ ->
             when (snap?.getString("status")) {
                 "live" -> {
@@ -156,7 +160,7 @@ class ScreenShareService : Service() {
                     if (!offered) {
                         offered = true
                         listenForSignals(ref)
-                        connect(FIRST_GEN)
+                        withIceServers { connect(FIRST_GEN) }
                     }
                 }
                 "ended" -> stopSharing(endShare = false)
@@ -210,12 +214,7 @@ class ScreenShareService : Service() {
         val source = source ?: return
         closeConnection()
         gen = newGen
-        val config = PeerConnection.RTCConfiguration(
-            listOf(
-                PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"))
-                    .createIceServer(),
-            ),
-        ).apply {
+        val config = PeerConnection.RTCConfiguration(iceServers ?: STUN_ONLY).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             // Start finding a network path right away, so the helper connects sooner.
             iceCandidatePoolSize = 2
@@ -291,6 +290,47 @@ class ScreenShareService : Service() {
         pc?.close()
         pc?.dispose()
         pc = null
+    }
+
+    /**
+     * Fetched while Mom waits for her helper: network addresses, with a
+     * short-lived relay pass for networks that block direct connections (once
+     * the family's relay is set up). Plain STUN if the backend is slow or fails.
+     */
+    private fun fetchIceServers(circleId: String, shareId: String) {
+        FirebaseFunctions.getInstance().getHttpsCallable("shareIceServers")
+            .call(mapOf("circleId" to circleId, "shareId" to shareId))
+            .addOnCompleteListener { task ->
+                val list = if (task.isSuccessful) parseIceServers(task.result?.getData()) else null
+                main.post { serversReady(list?.takeIf { it.isNotEmpty() } ?: STUN_ONLY) }
+            }
+    }
+
+    private fun serversReady(list: List<PeerConnection.IceServer>) {
+        if (stopping || iceServers != null) return
+        iceServers = list
+        serversWaiters.toList().forEach { it() }
+        serversWaiters.clear()
+    }
+
+    /** Runs once the addresses are in; the helper is never kept waiting more than a few seconds for them. */
+    private fun withIceServers(block: () -> Unit) {
+        if (iceServers != null) return block()
+        serversWaiters += block
+        main.postDelayed({ serversReady(STUN_ONLY) }, ICE_WAIT_MS)
+    }
+
+    private fun parseIceServers(data: Any?): List<PeerConnection.IceServer> {
+        val list = (data as? Map<*, *>)?.get("iceServers") as? List<*> ?: return emptyList()
+        return list.mapNotNull { item ->
+            val server = item as? Map<*, *> ?: return@mapNotNull null
+            val urls = (server["urls"] as? List<*>)?.filterIsInstance<String>()?.take(10).orEmpty()
+            if (urls.isEmpty()) return@mapNotNull null
+            PeerConnection.IceServer.builder(urls).apply {
+                (server["username"] as? String)?.let { setUsername(it) }
+                (server["credential"] as? String)?.let { setPassword(it) }
+            }.createIceServer()
+        }
     }
 
     private fun tooLong() = System.currentTimeMillis() - startedAt > MAX_SHARE_MS
@@ -597,6 +637,11 @@ class ScreenShareService : Service() {
         private const val ASK_AGAIN_AFTER_MS = 15_000L
         private const val FIRST_GEN = "first"
         private const val MAX_RECONNECTS = 20
+        private const val ICE_WAIT_MS = 4_000L
+        private val STUN_ONLY = listOf(
+            PeerConnection.IceServer.builder(listOf("stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"))
+                .createIceServer(),
+        )
         private const val FPS = 30
         private const val MAX_BITRATE = 2_500_000
 

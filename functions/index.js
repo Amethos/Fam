@@ -12,6 +12,7 @@ const { getMessaging } = require("firebase-admin/messaging");
 const { pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
 const { cleanDevice, sameDevice } = require("./device");
+const { relayPass } = require("./relay");
 
 initializeApp();
 const db = getFirestore();
@@ -298,6 +299,29 @@ exports.onScreenShare = onDocumentCreated("circles/{circleId}/screenShares/{id}"
   const share = event.data.data();
   await notify(await helpersOf(event.params.circleId), `${share.parentName} wants to show you their screen`,
     "Tap to watch now.", `/#/watch/${event.params.id}`);
+});
+
+// Network addresses for a screen share, with a short-lived relay pass when
+// the relay is set up (docs/STAGE2.md). Only the two people on the share get
+// one, and only while it's open: the parent from the moment they start it, the
+// helper once they've joined. The relay key never leaves the backend.
+const SHARE_MAX_MS = 60 * 60 * 1000;
+exports.shareIceServers = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const circleId = String(request.data?.circleId ?? "");
+  const shareId = String(request.data?.shareId ?? "");
+  if (!/^[\w-]{1,128}$/.test(circleId) || !/^[\w-]{1,128}$/.test(shareId)) {
+    throw new HttpsError("invalid-argument", "Missing share.");
+  }
+  const circle = (await loadCircle(circleId)).data();
+  const snap = await db.doc(`circles/${circleId}/screenShares/${shareId}`).get();
+  const share = snap.data();
+  const age = Date.now() - (share?.createdAt?.toMillis?.() ?? 0);
+  const allowed = share && circle.members?.[uid] && age < SHARE_MAX_MS + 10 * 60 * 1000 && (
+    (uid === share.parentId && ["waiting", "live"].includes(share.status))
+    || (uid === share.helperId && share.status === "live"));
+  if (!allowed) throw new HttpsError("permission-denied", "This screen share isn't open.");
+  return { iceServers: await relayPass({ keyId: process.env.CLOUDFLARE_TURN_KEY_ID, apiToken: process.env.CLOUDFLARE_TURN_API_TOKEN }) };
 });
 
 // "Ring Mom's phone": a data message, so her app plays the sound itself (loud,
