@@ -126,8 +126,20 @@ function watchCircle(id) {
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
       (s) => { state.invites = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "screenShares"), where("status", "in", ["waiting", "live"])),
-      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
+      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); openMyShare(); render(); }, fail),
   );
+}
+
+// After "I'm on it", the helper is waiting for Mom's screen: open it as soon
+// as she taps Show my screen, once per share.
+const autoOpened = new Set();
+function openMyShare() {
+  const uid = state.user?.uid;
+  const mine = state.shares.find((sh) => sh.status === "waiting" && !autoOpened.has(sh.id)
+    && state.help.some((h) => h.status === "accepted" && h.helperId === uid && h.parentId === sh.parentId));
+  if (!mine || location.hash.startsWith("#/watch/")) return;
+  autoOpened.add(mine.id);
+  location.hash = `#/watch/${mine.id}`;
 }
 
 // ---------- Views ----------
@@ -318,7 +330,8 @@ function helpCards() {
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
-        <p>Give them a call now. If you need to see their phone, ask them to tap <strong>Show my screen</strong>.</p>
+        <p>Give them a call now. To see their phone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>.
+          It opens here by itself, and from there you can ask to tap for them.</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
     return `<div class="alert blue"><p><strong>${esc(h.helperName)}</strong> is helping ${esc(h.parentName)}.</p></div>`;
@@ -358,8 +371,8 @@ function memberCards() {
         ${howToHelp(p)}
         ${ringButton(p)}
         <p class="muted">${isPast(p.controlAllowedAt)
-          ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
-          : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
+          ? `You can tap for ${esc(p.name)} while they show you their screen, once they say yes on their phone.`
+          : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
         <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
           ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;

@@ -5,4 +5,6 @@
     <string name="channel_name">Messages from family</string>
     <string name="share_channel_name">Showing your screen</string>
     <string name="ring_channel_name">Family ringing your phone</string>
+    <string name="control_service_label">My Tech Kid: let family tap for me</string>
+    <string name="control_service_description">Lets your family tap and swipe on your phone while you show them your screen. It only works after you tap Yes on your phone each time, and a Stop button shows the whole time. It doesn\'t read or save anything on your screen.</string>
 </resources>

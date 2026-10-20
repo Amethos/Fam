@@ -27,6 +27,15 @@ helper's watch page (`web/src/watch.js`), on top of the tested rules in
 - Apps that block screenshots (banking, passwords) stay black.
 - Nothing is recorded or stored.
 
+## Tapping for Mom (stage 3, beta)
+
+While a share is live, the helper's page can ask to tap. Mom's phone checks the
+family's safety wait (`controlAllowedAt`), whether her accessibility switch is
+on, then asks her on her own screen. If she taps Yes, the helper's taps arrive
+over a data channel in the same WebRTC connection and `RemoteControlService`
+performs them, with a Stop bar on top. The beta turns the safety wait off on the
+real project (`functions/.env.my-tech-kid`).
+
 ## Still to build
 
 | Piece | Where | Needs from the owner |

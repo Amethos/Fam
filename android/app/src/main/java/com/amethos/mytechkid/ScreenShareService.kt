@@ -39,6 +39,8 @@ import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoSource
 import org.webrtc.DataChannel
+import com.google.firebase.Timestamp
+import java.nio.ByteBuffer
 
 /** What Mom's screens show while her screen is shared. Read by ui/Screens.kt. */
 object ShareState {
@@ -46,6 +48,12 @@ object ShareState {
     var watcher by mutableStateOf<String?>(null)
         internal set
     var waiting by mutableStateOf(false)
+        internal set
+    /** The helper asked to tap for Mom, but her accessibility switch is still off. */
+    var controlAsk by mutableStateOf(false)
+        internal set
+    /** Mom said yes: the helper can tap on her phone until the share ends. */
+    var controlling by mutableStateOf(false)
         internal set
 }
 
@@ -55,6 +63,11 @@ object ShareState {
  * with Stop shows the whole time. The picture goes phone to phone over WebRTC
  * (end-to-end encrypted); Firestore only carries the setup messages.
  * Apps that block screenshots (banking, passwords) show as black.
+ *
+ * Tapping for Mom (stage 3) rides on the same connection, in a data channel
+ * only the joined helper is on. It works only after the family's safety wait
+ * (controlAllowedAt), with Mom's accessibility switch on, and after she taps
+ * Yes on her own phone; RemoteControlService does the taps.
  */
 class ScreenShareService : Service() {
     private val db = FirebaseFirestore.getInstance()
@@ -73,6 +86,13 @@ class ScreenShareService : Service() {
     private var textures: SurfaceTextureHelper? = null
     private var source: VideoSource? = null
     private var pc: PeerConnection? = null
+    private var channel: DataChannel? = null
+
+    private var circleId: String = ""
+    private var helperName: String = ""
+    private var controlOn = false
+    private var asking = false
+    private val recent = ArrayDeque<Long>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -90,6 +110,8 @@ class ScreenShareService : Service() {
             return START_NOT_STICKY
         }
         uid = me
+        this.circleId = circleId
+        active = this
         // Android requires the notification before the screen can be captured.
         val notification = notification("Waiting for your family to watch…")
         if (Build.VERSION.SDK_INT >= 29) {
@@ -119,6 +141,7 @@ class ScreenShareService : Service() {
             when (snap?.getString("status")) {
                 "live" -> {
                     val helper = firstName(snap.getString("helperName") ?: "Your family")
+                    helperName = helper
                     ShareState.watcher = helper
                     ShareState.waiting = false
                     notify("$helper can see your screen")
@@ -182,6 +205,129 @@ class ScreenShareService : Service() {
         })
         val track = factory.createVideoTrack("screen", source)
         pc?.addTrack(track, listOf("screen"))
+        // Created before the offer so it's part of the same encrypted connection.
+        channel = pc?.createDataChannel("control", DataChannel.Init())?.also { dc ->
+            dc.registerObserver(object : DataChannel.Observer {
+                override fun onBufferedAmountChange(previous: Long) {}
+                override fun onStateChange() {
+                    if (dc.state() == DataChannel.State.OPEN) main.post { sendControl(if (controlOn) "on" else "ready") }
+                }
+                override fun onMessage(buffer: DataChannel.Buffer) {
+                    if (buffer.binary || buffer.data.remaining() > 1000) return
+                    val bytes = ByteArray(buffer.data.remaining()).also { buffer.data.get(it) }
+                    val message = runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull() ?: return
+                    main.post { onHelperMessage(message) }
+                }
+            })
+        }
+    }
+
+    // ---------- Tapping for Mom ----------
+
+    private fun onHelperMessage(m: JSONObject) {
+        if (stopping || ShareState.watcher.isNullOrBlank()) return
+        // A runaway helper page can't flood Mom's phone with taps.
+        val now = System.currentTimeMillis()
+        while (recent.isNotEmpty() && now - recent.first() > 1000) recent.removeFirst()
+        if (recent.size >= MAX_MESSAGES_PER_SECOND) return
+        recent.addLast(now)
+
+        when (m.optString("t")) {
+            "ask" -> askForControl()
+            "tap", "hold", "swipe", "key" -> if (controlOn) doGesture(m)
+        }
+    }
+
+    private fun askForControl() {
+        if (controlOn) return sendControl("on")
+        if (asking) return
+        asking = true
+        // The family's safety wait is checked here, on Mom's own phone.
+        db.document("circles/$circleId").get().addOnCompleteListener { task ->
+            if (stopping) return@addOnCompleteListener
+            @Suppress("UNCHECKED_CAST")
+            val circle = if (task.isSuccessful) task.result else null
+            val me = (circle?.get("members") as? Map<String, Map<String, Any?>>)?.get(uid)
+            val allowedAt = (me?.get("controlAllowedAt") as? Timestamp)?.toDate()?.time
+            when {
+                allowedAt == null -> { asking = false; sendControl("waiting") }
+                allowedAt > System.currentTimeMillis() -> { asking = false; sendControl("waiting", allowedAt) }
+                RemoteControlService.instance == null -> {
+                    // Mom turns on the switch once; her app shows how.
+                    asking = false
+                    ShareState.controlAsk = true
+                    notify("$helperName wants to tap for you. Open My Tech Kid to allow it.")
+                    sendControl("off")
+                }
+                else -> askMom()
+            }
+        }
+    }
+
+    private fun askMom() {
+        val control = RemoteControlService.instance ?: run { asking = false; return sendControl("off") }
+        asking = true
+        sendControl("asking")
+        control.askMom(helperName) { yes ->
+            asking = false
+            if (stopping) {
+                control.hideAll()
+            } else if (yes) {
+                controlOn = true
+                ShareState.controlling = true
+                notify("$helperName can see and tap your screen")
+                control.showBanner(helperName) { stopSharing(endShare = true) }
+                sendControl("on")
+            } else {
+                sendControl("declined")
+            }
+        }
+    }
+
+    /** Mom turned on the switch after her helper asked: ask her right away. */
+    fun onControlSwitchReady() {
+        if (stopping || !ShareState.controlAsk) return
+        ShareState.controlAsk = false
+        askMom()
+    }
+
+    /** Mom turned the switch off: tapping stops at once. */
+    fun onControlSwitchOff() {
+        if (!controlOn && !asking) return
+        controlOn = false
+        asking = false
+        ShareState.controlling = false
+        if (!stopping) {
+            notify("$helperName can see your screen")
+            sendControl("off")
+        }
+    }
+
+    private fun doGesture(m: JSONObject) {
+        val control = RemoteControlService.instance ?: return onControlSwitchOff()
+        fun unit(key: String): Float? = m.optDouble(key, Double.NaN).takeIf { it in 0.0..1.0 }?.toFloat()
+        val ok = when (m.optString("t")) {
+            "tap" -> { val x = unit("x"); val y = unit("y"); x != null && y != null && control.gesture(x, y, x, y, 60) }
+            "hold" -> { val x = unit("x"); val y = unit("y"); x != null && y != null && control.gesture(x, y, x, y, 800) }
+            "swipe" -> {
+                val x1 = unit("x1"); val y1 = unit("y1"); val x2 = unit("x2"); val y2 = unit("y2")
+                val ms = m.optLong("ms", 300).coerceIn(80, 1500)
+                x1 != null && y1 != null && x2 != null && y2 != null && control.gesture(x1, y1, x2, y2, ms)
+            }
+            "key" -> control.button(m.optString("name"))
+            else -> false
+        }
+        if (!ok) send(JSONObject().put("t", "refused"))
+    }
+
+    private fun sendControl(state: String, until: Long? = null) {
+        send(JSONObject().put("t", "control").put("state", state).apply { if (until != null) put("until", until) })
+    }
+
+    private fun send(message: JSONObject) {
+        val dc = channel ?: return
+        if (dc.state() != DataChannel.State.OPEN) return
+        dc.send(DataChannel.Buffer(ByteBuffer.wrap(message.toString().toByteArray(Charsets.UTF_8)), false))
     }
 
     private fun makeOffer(ref: DocumentReference) {
@@ -238,6 +384,14 @@ class ScreenShareService : Service() {
         main.removeCallbacksAndMessages(null)
         listeners.forEach { it.remove() }
         listeners.clear()
+        if (active === this) active = null
+        RemoteControlService.instance?.hideAll()
+        controlOn = false
+        ShareState.controlAsk = false
+        ShareState.controlling = false
+        channel?.unregisterObserver()
+        channel?.dispose()
+        channel = null
         if (endShare) {
             shareRef?.update(mapOf("status" to "ended", "endedBy" to uid, "endedAt" to FieldValue.serverTimestamp()))
         }
@@ -303,6 +457,11 @@ class ScreenShareService : Service() {
         private const val EXTRA_UID = "uid"
         private const val EXTRA_NAME = "name"
         private const val JOIN_WINDOW_MS = 10 * 60 * 1000L
+        private const val MAX_MESSAGES_PER_SECOND = 30
+
+        /** The share in progress, so RemoteControlService can tell it when Mom's switch changes. */
+        var active: ScreenShareService? = null
+            private set
 
         fun start(context: Context, projection: Intent, circleId: String, uid: String, name: String) {
             val intent = Intent(context, ScreenShareService::class.java)

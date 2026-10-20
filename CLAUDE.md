@@ -47,7 +47,9 @@ rules or pairing change needs a test in `backend-tests/`.
   require approval from an existing helper, never the parent alone.
 - **24-hour safety wait** before remote control works for a newly linked
   parent (`members.<uid>.controlAllowedAt`, `CONTROL_WAIT_HOURS`, default 24).
-  The parent's app must enforce it once remote control exists.
+  Enforced on the parent's phone (`ScreenShareService.askForControl`). The beta
+  sets it to 0 on the real project in `functions/.env.my-tech-kid` (delete
+  before release); emulators and tests still use 24.
 - **iPhone parents** can't be remote-controlled by any third-party app (Apple
   restriction); they'll get guided help / FaceTime's built-in remote control
   later. Android parents get full control (MediaProjection + AccessibilityService).
@@ -95,7 +97,7 @@ rules or pairing change needs a test in `backend-tests/`.
    alerts, scam check with answers.
 2. **Stage 2:** live screen view (WebRTC; parent shares via MediaProjection,
    helper watches in the web app) + voice, with a TURN relay (e.g. Cloudflare).
-3. **Stage 3:** remote control (AccessibilityService gestures) and drawing
+3. **Stage 3 (tapping built in beta, `RemoteControlService.kt`):** remote control (AccessibilityService gestures) and drawing
    arrows; enforce the 24-hour wait; Samsung restricted-settings walkthrough.
 4. **Stage 4:** phone health (battery, storage, updates), multiple helpers with
    approval, how-to guides, help history, native iPhone helper app.

@@ -62,6 +62,7 @@ import com.amethos.mytechkid.Screen
 import androidx.compose.ui.platform.LocalContext
 import com.amethos.mytechkid.RingService
 import com.amethos.mytechkid.RingState
+import com.amethos.mytechkid.RemoteControlService
 import com.amethos.mytechkid.ShareState
 import java.time.LocalDate
 import java.time.LocalTime
@@ -482,17 +483,34 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
 }
 
 // Always visible while the screen is shared: who can see it, and a big Stop.
+// When the helper asks to tap for Mom and her switch is still off, this is
+// also the disclosure Google requires before the accessibility switch.
 @Composable
 private fun SharingPanel(watcher: String, onStop: () -> Unit) {
+    val context = LocalContext.current
     Panel(AmberSoft) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LiveDot(AmberDeep)
             Text(
-                if (watcher.isBlank()) "Getting your screen ready…" else "$watcher can see your screen",
+                when {
+                    watcher.isBlank() -> "Getting your screen ready…"
+                    ShareState.controlling -> "$watcher can see and tap your screen"
+                    else -> "$watcher can see your screen"
+                },
                 fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink,
             )
         }
         Body("Banking and password screens stay hidden. Nothing is recorded.", AmberInk)
+        if (ShareState.controlAsk && watcher.isNotBlank()) {
+            Text("$watcher wants to tap on your phone for you", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Body(
+                "To allow it, turn on \"My Tech Kid: let family tap for me\" once. " +
+                    "$watcher's taps only work while you show your screen, after you say yes each time. " +
+                    "My Tech Kid doesn't read or save what's on your screen.",
+                Ink,
+            )
+            BigButton("Agree and turn it on", color = Green) { RemoteControlService.openSwitch(context) }
+        }
         BigButton("Stop showing my screen", color = Red) { onStop() }
     }
 }

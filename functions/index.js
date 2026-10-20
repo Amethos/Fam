@@ -17,8 +17,9 @@ initializeApp();
 const db = getFirestore();
 
 // Hours a newly linked parent's phone waits before it accepts remote control.
-// Scams depend on urgency; a day's wait breaks that. To test without waiting,
-// set CONTROL_WAIT_HOURS=0 in functions/.env and redeploy.
+// Scams depend on urgency; a day's wait breaks that. The default (24) is in
+// functions/.env; the beta turns it off for the real project in
+// functions/.env.my-tech-kid, which must be deleted before a public release.
 const CONTROL_WAIT_HOURS = defineInt("CONTROL_WAIT_HOURS", { default: 24 });
 
 const INVITE_TTL_MS = 60 * 60 * 1000; // invite links expire after an hour

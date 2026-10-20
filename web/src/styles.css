@@ -288,3 +288,11 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
 #watch .watch-note { margin: 0; text-align: center; }
 #watch .watch-note:empty { display: none; }
 body.watching { overflow: hidden; }
+#watch .watch-control { display: flex; flex-direction: column; gap: 8px; }
+#watch .watch-control[hidden], #watch .watch-keys[hidden], #watch [data-watch-ask][hidden], #watch .watch-back[hidden] { display: none; }
+#watch .watch-control-note { margin: 0; text-align: center; }
+#watch .watch-control-note:empty { display: none; }
+#watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+/* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
+#watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  outline: 3px solid var(--amber); }

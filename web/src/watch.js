@@ -4,6 +4,11 @@
 // (circles/{cid}/screenShares/{id}/signals), which the rules limit to the two
 // people on a live share. Nothing is recorded.
 //
+// Tapping for Mom (stage 3) uses a data channel on the same connection. Her
+// phone decides everything: the family's safety wait, her accessibility
+// switch, and her own "Yes". This page only asks, then sends taps as points
+// (0..1 of her screen) while her phone says control is on.
+//
 // The page lives in its own <section id="watch"> outside #app, so the rest of
 // the app can keep re-rendering without restarting the video.
 
@@ -11,6 +16,7 @@ import {
   doc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, runTransaction,
 } from "firebase/firestore";
 import { esc } from "./util.js";
+import { gestureFor, pointOnVideo } from "./gesture.js";
 
 // Public STUN servers find a direct path between the phones. A TURN relay for
 // networks that block direct paths comes later (docs/STAGE2.md).
@@ -40,8 +46,24 @@ function show(name, message, { video = false } = {}) {
         <button class="danger small" data-watch-stop>Stop</button></div>
       <video autoplay playsinline muted></video>
       <p class="watch-note"></p>
+      <div class="watch-control" hidden>
+        <p class="watch-control-note muted" role="status"></p>
+        <button data-watch-ask>Ask to tap for Mom</button>
+        <div class="watch-keys" hidden>
+          <button class="secondary small" data-key="back">Back</button>
+          <button class="secondary small" data-key="home">Home</button>
+          <button class="secondary small" data-key="recents">Apps</button>
+          <button class="secondary small" data-key="notifications">Alerts</button>
+        </div>
+      </div>
       <a class="button secondary watch-back" href="#/">Back to dashboard</a>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
+    el.querySelector("[data-watch-ask]").addEventListener("click", () => {
+      send({ t: "ask" });
+      setControl({ state: "sent" });
+    });
+    el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => send({ t: "key", name: b.dataset.key })));
+    addGestures(el.querySelector("video"));
   }
   el.querySelector(".watch-title").textContent = `${name}'s screen`;
   el.querySelector(".watch-note").innerHTML = message ? esc(message) : "";
@@ -92,6 +114,18 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
     video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
     show(s.name ?? "Mom", "", { video: true });
   };
+  // Mom's phone opens this channel; older versions of her app don't have it.
+  pc.ondatachannel = (e) => {
+    if (e.channel.label !== "control") return;
+    s.channel = e.channel;
+    e.channel.onmessage = (m) => {
+      let msg;
+      try { msg = JSON.parse(m.data); } catch { return; }
+      if (msg.t === "control") setControl(msg);
+      if (msg.t === "refused") flashNote("That spot is under Mom's Stop button, or Mom is answering a question. Try again.");
+    };
+    e.channel.onclose = () => { if (session === s) setControl(null); };
+  };
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === "failed") show(s.name ?? "Mom", "The connection dropped. Ask Mom to tap Stop, then Show my screen again.");
   };
@@ -135,9 +169,91 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
   s.end = () => updateDoc(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});
 }
 
+// ---------- Tapping for Mom ----------
+
+function send(msg) {
+  const ch = session?.channel;
+  if (ch?.readyState === "open") ch.send(JSON.stringify(msg));
+}
+
+let controlOn = false;
+
+// What Mom's phone says about tapping. null = not available (no channel).
+function setControl(msg) {
+  const el = document.getElementById("watch");
+  if (!el?.querySelector(".watch-control")) return;
+  const box = el.querySelector(".watch-control");
+  const note = el.querySelector(".watch-control-note");
+  const ask = el.querySelector("[data-watch-ask]");
+  const keys = el.querySelector(".watch-keys");
+  const name = session?.name ?? "Mom";
+  controlOn = msg?.state === "on";
+  box.hidden = !msg;
+  keys.hidden = !controlOn;
+  ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
+  ask.textContent = `Ask to tap for ${name}`;
+  el.classList.toggle("controlling", controlOn);
+  const notes = {
+    ready: "",
+    sent: `Asking ${name}'s phone…`,
+    asking: `${name}'s phone is asking them to say yes. Tell them it's you.`,
+    on: "Tap, hold or swipe on the screen. Stop on either phone ends it.",
+    declined: `${name} said no, or didn't answer in time. You can ask again.`,
+    off: `${name} needs to turn on tapping once. On their phone, open My Tech Kid and tap Agree and turn it on, then turn on "My Tech Kid: let family tap for me". On a Samsung, if it says Restricted setting, go to Settings, Apps, My Tech Kid, tap ⋮ at the top, then Allow restricted settings, and try again. Then tap Ask again here.`,
+    waiting: msg?.until
+      ? `For safety, tapping for ${name} unlocks ${new Date(msg.until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+      : `For safety, tapping for ${name} isn't unlocked yet.`,
+  };
+  note.textContent = notes[msg?.state] ?? "";
+}
+
+let flashTimer;
+function flashNote(text) {
+  const note = document.querySelector("#watch .watch-control-note");
+  if (!note) return;
+  const before = note.textContent;
+  note.textContent = text;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { note.textContent = before; }, 3000);
+}
+
+function pointOn(video, e) {
+  return pointOnVideo(video.getBoundingClientRect(), video.videoWidth, video.videoHeight, e.clientX, e.clientY);
+}
+
+function addGestures(video) {
+  let start = null;
+  let last = null;
+  video.addEventListener("pointerdown", (e) => {
+    if (!controlOn) return;
+    const p = pointOn(video, e);
+    if (!p) return;
+    e.preventDefault();
+    video.setPointerCapture?.(e.pointerId);
+    start = { ...p, time: performance.now() };
+    last = p;
+  });
+  video.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const p = pointOn(video, e);
+    if (p) last = p;
+  });
+  const finish = (e) => {
+    if (!start) return;
+    const g = gestureFor(start, last ?? start, performance.now() - start.time);
+    start = null;
+    last = null;
+    if (e.type === "pointerup" && controlOn) send(g);
+  };
+  video.addEventListener("pointerup", finish);
+  video.addEventListener("pointercancel", finish);
+  video.addEventListener("contextmenu", (e) => { if (controlOn) e.preventDefault(); });
+}
+
 export async function stop({ end = true, message = "" } = {}) {
   const s = session;
   session = null;
+  setControl(null);
   if (s) {
     s.unsubs.forEach((u) => u());
     s.pc?.close();

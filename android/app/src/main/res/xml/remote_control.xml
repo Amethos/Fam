@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only performs the helper's taps. Reads nothing on the screen
+     (no window content, no events). Not marked as an accessibility tool:
+     plans/app-store-compliance.md, section 2.1. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/control_service_description"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canPerformGestures="true"
+    android:canRetrieveWindowContent="false"
+    android:notificationTimeout="100" />
