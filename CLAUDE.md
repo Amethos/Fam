@@ -77,7 +77,7 @@ rules or pairing change needs a test in `backend-tests/`.
   `/phoneSettings/{parentUid}` (helper-set switches: ask button, side, hide secrets), `/screenShares` (+ `/signals`;
   stage 2, see `docs/STAGE2.md`).
 - `storage.rules` — pictures of the parent's screen (`circles/{cid}/scamShots/{uid}/{checkId}.jpg`):
-  only the parent's phone adds, only the family reads, deleted after 30 days (`cleanupScamShots`).
+  only the parent's phone adds, only helpers (and the sender) read, deleted after 30 days (`cleanupScamShots`).
 - `android/.../ask/` — the ask button: an AccessibilityService that shows a small tab at the screen
   edge and, only when tapped, takes a screenshot with passwords/codes covered (`Secrets.kt`).
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.

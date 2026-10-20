@@ -24,7 +24,7 @@ beforeEach(async () => {
   await env.clearFirestore();
   await env.withSecurityRulesDisabled(async (c) => {
     await setDoc(doc(c.firestore(), "circles/c1"), {
-      name: "Smiths", helperIds: ["josh"], parentIds: ["mom"],
+      name: "Smiths", helperIds: ["josh"], parentIds: ["mom", "dad"],
       members: { josh: { name: "Josh", role: "helper" }, mom: { name: "Mom", role: "parent" } },
     });
   });
@@ -50,10 +50,11 @@ test("only pictures, and not huge ones", async () => {
   await assertFails(put("mom", "somewhere/else.jpg"));
 });
 
-test("only the family can look at a picture", async () => {
+test("only the helpers and the sender can look at a picture", async () => {
   await assertSucceeds(put("mom", "circles/c1/scamShots/mom/f1.jpg"));
   await assertSucceeds(read("josh", "circles/c1/scamShots/mom/f1.jpg"));
   await assertSucceeds(read("mom", "circles/c1/scamShots/mom/f1.jpg"));
+  await assertFails(read("dad", "circles/c1/scamShots/mom/f1.jpg"));
   await assertFails(read("stranger", "circles/c1/scamShots/mom/f1.jpg"));
   await assertFails(read(null, "circles/c1/scamShots/mom/f1.jpg"));
 });

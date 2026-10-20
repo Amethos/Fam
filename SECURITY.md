@@ -30,7 +30,7 @@ features. Every change is checked against this page.
 | Known-vulnerable libraries | `npm audit` fails the build on high-severity issues in shipped code; Dependabot proposes updates monthly | `.github/` |
 | Fake update replacing Mom's app | Updates come only from our own site over HTTPS; the app checks the file is a newer My Tech Kid, and Android refuses any update not signed with the same key | `Updater.kt` |
 | Lost, replaced or given-away phone | A helper taps **Remove this phone**; it loses access at once and can only rejoin through a new invite and picture check | `removeMember` |
-| Pictures of the parent's screen seen by others | Only the parent's phone can add one, into its family's folder; only the family can view; can't be replaced; deleted after 30 days | `storage.rules`, `cleanupScamShots` |
+| Pictures of the parent's screen seen by others | Only the parent's phone can add one, into its family's folder; only the family's helpers (and the sender) can view; can't be replaced; deleted after 30 days | `storage.rules`, `cleanupScamShots` |
 | Codes and passwords in those pictures | Covered on the parent's phone before sending (helper can switch off); protected screens stay black; the parent sees the picture and taps Send | `ask/Secrets.kt`, `ask/AskService.kt` |
 | Private text on lock screens | Scam-check alerts never include the message or picture | `functions/alerts.js` |
 | Parent's data in phone backups | `allowBackup="false"` | Android manifest |

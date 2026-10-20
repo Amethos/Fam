@@ -1,21 +1,21 @@
 rules_version = '2';
 
 // Pictures of a parent's screen, sent for a scam check. Only the parent's own
-// phone can add one, only into its own family's folder, and only the family
-// can look at it. Nobody can change or replace a picture once it's sent;
+// phone can add one, only into its own family's folder, and only the family's
+// helpers (and the phone that sent it) can look at it. Nobody can change or replace a picture once it's sent;
 // the backend deletes them after 30 days (cleanupScamShots).
 service firebase.storage {
   match /b/{bucket}/o {
     function circle(cid) {
       return firestore.get(/databases/(default)/documents/circles/$(cid)).data;
     }
-    function isMember(cid) {
-      let c = circle(cid);
-      return request.auth != null && (request.auth.uid in c.helperIds || request.auth.uid in c.parentIds);
+    function isHelper(cid) {
+      return request.auth != null && request.auth.uid in circle(cid).helperIds;
     }
 
     match /circles/{cid}/scamShots/{uid}/{file} {
-      allow read: if isMember(cid);
+      // The helpers, and the phone that sent it. Not other parents in the family.
+      allow read: if isHelper(cid) || (request.auth != null && request.auth.uid == uid);
       allow create: if request.auth != null
         && resource == null
         && request.auth.uid == uid
