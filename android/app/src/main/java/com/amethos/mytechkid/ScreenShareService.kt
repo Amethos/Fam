@@ -32,6 +32,7 @@ import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RtpParameters
 import org.webrtc.RtpReceiver
 import org.webrtc.ScreenCapturerAndroid
 import org.webrtc.SdpObserver
@@ -93,6 +94,8 @@ class ScreenShareService : Service() {
     private var controlOn = false
     private var asking = false
     private val recent = ArrayDeque<Long>()
+    private var captureW = 1
+    private var captureH = 1
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -156,6 +159,8 @@ class ScreenShareService : Service() {
         }
         // Nobody joined in time: stop on our own (the rules refuse late joins too).
         main.postDelayed({ if (ShareState.waiting) stopSharing(endShare = true) }, JOIN_WINDOW_MS)
+        // Never left on by accident: a share ends on its own after an hour.
+        main.postDelayed({ stopSharing(endShare = true) }, MAX_SHARE_MS)
         return START_NOT_STICKY
     }
 
@@ -178,21 +183,32 @@ class ScreenShareService : Service() {
         val textures = SurfaceTextureHelper.create("screen", egl.eglBaseContext).also { this.textures = it }
         val source = factory.createVideoSource(true).also { this.source = it }
         capturer.initialize(textures, applicationContext, source.capturerObserver)
-        // Half the screen's resolution keeps it smooth on a phone connection.
-        val metrics = resources.displayMetrics
-        capturer.startCapture(metrics.widthPixels / 2, metrics.heightPixels / 2, 15)
+        val (w, h) = captureSize()
+        captureW = w
+        captureH = h
+        capturer.startCapture(w, h, FPS)
 
         val config = PeerConnection.RTCConfiguration(
             listOf(
                 PeerConnection.IceServer.builder(listOf("stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"))
                     .createIceServer(),
             ),
-        ).apply { sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN }
+        ).apply {
+            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+            // Start finding a network path right away, so the helper connects sooner.
+            iceCandidatePoolSize = 2
+        }
         pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
                 main.post { sendSignal("candidate", candidateJson(candidate)) }
             }
-            override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {}
+            override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+                // The helper's page closed or the network dropped for good:
+                // end it, so nothing is left shared (or tappable) by accident.
+                if (state == PeerConnection.IceConnectionState.FAILED || state == PeerConnection.IceConnectionState.CLOSED) {
+                    main.post { stopSharing(endShare = true) }
+                }
+            }
             override fun onSignalingChange(state: PeerConnection.SignalingState) {}
             override fun onIceConnectionReceivingChange(receiving: Boolean) {}
             override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {}
@@ -204,7 +220,17 @@ class ScreenShareService : Service() {
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {}
         })
         val track = factory.createVideoTrack("screen", source)
-        pc?.addTrack(track, listOf("screen"))
+        pc?.addTrack(track, listOf("screen"))?.let { sender ->
+            // Smooth and quick to react: up to 30 pictures a second, and on a
+            // slow connection give up a little sharpness before smoothness.
+            val params = sender.parameters
+            params.degradationPreference = RtpParameters.DegradationPreference.BALANCED
+            params.encodings.forEach {
+                it.maxFramerate = FPS
+                it.maxBitrateBps = MAX_BITRATE
+            }
+            sender.setParameters(params)
+        }
         // Created before the offer so it's part of the same encrypted connection.
         channel = pc?.createDataChannel("control", DataChannel.Init())?.also { dc ->
             dc.registerObserver(object : DataChannel.Observer {
@@ -220,6 +246,32 @@ class ScreenShareService : Service() {
                 }
             })
         }
+    }
+
+    /**
+     * Half the real screen size (status and navigation bars included, the way
+     * the capture sees it), so the picture fills the video exactly and the
+     * helper's taps land where they aim. Even numbers keep video encoders happy.
+     */
+    private fun captureSize(): Pair<Int, Int> {
+        val (w, h) = realScreenSize(this)
+        return (w / 2 and 1.inv()) to (h / 2 and 1.inv())
+    }
+
+    /**
+     * Where a point on the helper's picture (0..1 of the video) is on Mom's
+     * screen (0..1 of the screen), or null on the black bars. The picture's
+     * size is fixed when sharing starts (Android 14 doesn't allow resizing it),
+     * so when Mom turns her phone sideways her screen shows letterboxed in it.
+     */
+    private fun toScreen(x: Float, y: Float): Pair<Float, Float>? {
+        val (sw, sh) = realScreenSize(this)
+        val scale = minOf(captureW.toFloat() / sw, captureH.toFloat() / sh)
+        val contentW = sw * scale
+        val contentH = sh * scale
+        val sx = (x * captureW - (captureW - contentW) / 2) / contentW
+        val sy = (y * captureH - (captureH - contentH) / 2) / contentH
+        return if (sx in 0f..1f && sy in 0f..1f) sx to sy else null
     }
 
     // ---------- Tapping for Mom ----------
@@ -306,13 +358,30 @@ class ScreenShareService : Service() {
     private fun doGesture(m: JSONObject) {
         val control = RemoteControlService.instance ?: return onControlSwitchOff()
         fun unit(key: String): Float? = m.optDouble(key, Double.NaN).takeIf { it in 0.0..1.0 }?.toFloat()
+        fun point(xKey: String, yKey: String): Pair<Float, Float>? {
+            val x = unit(xKey) ?: return null
+            val y = unit(yKey) ?: return null
+            return toScreen(x, y)
+        }
         val ok = when (m.optString("t")) {
-            "tap" -> { val x = unit("x"); val y = unit("y"); x != null && y != null && control.gesture(x, y, x, y, 60) }
-            "hold" -> { val x = unit("x"); val y = unit("y"); x != null && y != null && control.gesture(x, y, x, y, 800) }
+            "tap", "hold" -> {
+                val p = point("x", "y")
+                p != null && control.gesture(p.first, p.second, p.first, p.second, if (m.optString("t") == "tap") 60 else 800)
+            }
             "swipe" -> {
-                val x1 = unit("x1"); val y1 = unit("y1"); val x2 = unit("x2"); val y2 = unit("y2")
+                // A swipe may end on the black bars; keep its end on the screen.
+                val a = point("x1", "y1")
+                val x2 = unit("x2"); val y2 = unit("y2")
                 val ms = m.optLong("ms", 300).coerceIn(80, 1500)
-                x1 != null && y1 != null && x2 != null && y2 != null && control.gesture(x1, y1, x2, y2, ms)
+                if (a == null || x2 == null || y2 == null) {
+                    false
+                } else {
+                    val (sw, sh) = realScreenSize(this)
+                    val scale = minOf(captureW.toFloat() / sw, captureH.toFloat() / sh)
+                    val bx = ((x2 * captureW - (captureW - sw * scale) / 2) / (sw * scale)).coerceIn(0f, 1f)
+                    val by = ((y2 * captureH - (captureH - sh * scale) / 2) / (sh * scale)).coerceIn(0f, 1f)
+                    control.gesture(a.first, a.second, bx, by, ms)
+                }
             }
             "key" -> control.button(m.optString("name"))
             else -> false
@@ -458,6 +527,9 @@ class ScreenShareService : Service() {
         private const val EXTRA_NAME = "name"
         private const val JOIN_WINDOW_MS = 10 * 60 * 1000L
         private const val MAX_MESSAGES_PER_SECOND = 30
+        private const val MAX_SHARE_MS = 60 * 60 * 1000L
+        private const val FPS = 30
+        private const val MAX_BITRATE = 2_500_000
 
         /** The share in progress, so RemoteControlService can tell it when Mom's switch changes. */
         var active: ScreenShareService? = null

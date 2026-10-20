@@ -50,7 +50,10 @@ phone, before Mom tries it on her own.
   - On your phone, tap, press and hold, or swipe on her screen; use **Back**, **Home**, **Apps** and **Alerts**
     below it. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
   - **Stop** on her bar, in her notification, in her app, or on your page ends seeing and tapping at once.
-  - Keep her phone upright for now: turning it sideways may put your taps in the wrong spot.
+  - Turn her phone sideways: the picture shows it sideways with black bars, and taps should still land
+    where you aim.
+  - A share ends on its own after an hour, and right away if the connection drops or your page reloads.
+    Mom taps **Show my screen** again to carry on.
 - **Ring Mom's phone:** put Mom's phone on silent somewhere nearby. On your dashboard, tap **Ring Mom's phone**.
   It should play loudly for 30 seconds and say *you* are ringing it. Mom taps **Found it** (on the screen or in the
   notification) to stop it. Her normal volume should come back afterwards.

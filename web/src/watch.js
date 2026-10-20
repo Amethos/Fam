@@ -22,6 +22,7 @@ import { gestureFor, pointOnVideo } from "./gesture.js";
 // networks that block direct paths comes later (docs/STAGE2.md).
 const ICE_SERVERS = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] }];
 
+const FALLBACK_NAME = "Your family member";
 let session = null;
 let current = null; // the share this page is open for, so re-renders don't re-join
 
@@ -48,7 +49,7 @@ function show(name, message, { video = false } = {}) {
       <p class="watch-note"></p>
       <div class="watch-control" hidden>
         <p class="watch-control-note muted" role="status"></p>
-        <button data-watch-ask>Ask to tap for Mom</button>
+        <button data-watch-ask>Ask to tap for them</button>
         <div class="watch-keys" hidden>
           <button class="secondary small" data-key="back">Back</button>
           <button class="secondary small" data-key="home">Home</button>
@@ -75,28 +76,38 @@ function show(name, message, { video = false } = {}) {
 
 // Opens the watch page for one share: joins it if it's still waiting, then
 // answers Mom's phone and shows her screen.
-export async function watchShare({ db, uid, myName, circleId, shareId }) {
+export async function watchShare({ db, uid, myName, circleId, shareId, parentName }) {
   if (current === shareId) return;
   current = shareId;
   await stop({ end: false });
   const shareRef = doc(db, `circles/${circleId}/screenShares/${shareId}`);
-  const s = { shareId, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
+  const s = { shareId, name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
   session = s;
-  show("Mom", "Connecting…");
+  show(s.name, "Connecting…");
 
+  let lost = false;
   try {
-    await runTransaction(db, async (tx) => {
+    lost = await runTransaction(db, async (tx) => {
       const snap = await tx.get(shareRef);
       const share = snap.data();
       if (!share) throw new Error("This screen share isn't available.");
-      if (share.status === "live" && share.helperId === uid) return; // re-opened the page
+      // Opened again after this page reloaded: the old connection is gone and
+      // Mom's phone can't start a new one on its own, so end it cleanly.
+      if (share.status === "live" && share.helperId === uid) {
+        tx.update(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() });
+        return true;
+      }
       if (share.status !== "waiting") throw new Error("This screen share has ended.");
       tx.update(shareRef, { status: "live", helperId: uid, helperName: myName, startedAt: serverTimestamp() });
+      return false;
     });
+    if (lost) throw new Error("lost");
   } catch (err) {
     if (session === s) session = null;
     const ended = /ended|isn't available/.test(err.message);
-    show("Mom", ended ? err.message : "Couldn't join. It may have timed out: ask Mom to tap Show my screen again.");
+    show(s.name, err.message === "lost"
+      ? `The connection was lost when this page reloaded. Ask ${s.name} to tap Show my screen again.`
+      : ended ? err.message : `Couldn't join. It may have timed out: ask ${s.name} to tap Show my screen again.`);
     return;
   }
   if (session !== s) return;
@@ -110,9 +121,15 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
     if (e.candidate) send("candidate", { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex });
   };
   pc.ontrack = (e) => {
+    // Show each picture as soon as it arrives instead of buffering for
+    // smoothness: taps feel quicker when the screen keeps up.
+    try {
+      if ("jitterBufferTarget" in e.receiver) e.receiver.jitterBufferTarget = 0;
+      else if ("playoutDelayHint" in e.receiver) e.receiver.playoutDelayHint = 0;
+    } catch { /* older browsers: keep the default */ }
     const video = overlay().querySelector("video");
     video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
-    show(s.name ?? "Mom", "", { video: true });
+    show(s.name, "", { video: true });
   };
   // Mom's phone opens this channel; older versions of her app don't have it.
   pc.ondatachannel = (e) => {
@@ -122,17 +139,20 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
       let msg;
       try { msg = JSON.parse(m.data); } catch { return; }
       if (msg.t === "control") setControl(msg);
-      if (msg.t === "refused") flashNote("That spot is under Mom's Stop button, or Mom is answering a question. Try again.");
+      if (msg.t === "refused") flashNote(`That spot is under ${s.name}'s Stop button, or ${s.name} is answering a question. Try again.`);
     };
     e.channel.onclose = () => { if (session === s) setControl(null); };
   };
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed") show(s.name ?? "Mom", "The connection dropped. Ask Mom to tap Stop, then Show my screen again.");
+    // Mom's phone ends it too when the connection fails, so nothing stays shared.
+    if (pc.connectionState === "failed") {
+      stop({ end: true, message: `The connection dropped. Ask ${s.name} to tap Show my screen again.` });
+    }
   };
 
   s.unsubs.push(onSnapshot(shareRef, (snap) => {
     const share = snap.data();
-    s.name = share?.parentName ?? "Mom";
+    s.name = share?.parentName || s.name;
     if (!share || share.status === "ended") {
       stop({ end: false, message: `${s.name} stopped sharing.` });
     } else if (!pc.remoteDescription) {
@@ -186,7 +206,7 @@ function setControl(msg) {
   const note = el.querySelector(".watch-control-note");
   const ask = el.querySelector("[data-watch-ask]");
   const keys = el.querySelector(".watch-keys");
-  const name = session?.name ?? "Mom";
+  const name = session?.name ?? FALLBACK_NAME;
   controlOn = msg?.state === "on";
   box.hidden = !msg;
   keys.hidden = !controlOn;
@@ -221,6 +241,16 @@ function pointOn(video, e) {
   return pointOnVideo(video.getBoundingClientRect(), video.videoWidth, video.videoHeight, e.clientX, e.clientY);
 }
 
+// Instant feedback on the helper's phone, before Mom's screen catches up.
+function ripple(x, y) {
+  const dot = document.createElement("span");
+  dot.className = "watch-ripple";
+  dot.style.left = `${x}px`;
+  dot.style.top = `${y}px`;
+  document.getElementById("watch")?.append(dot);
+  setTimeout(() => dot.remove(), 450);
+}
+
 function addGestures(video) {
   let start = null;
   let last = null;
@@ -243,7 +273,10 @@ function addGestures(video) {
     const g = gestureFor(start, last ?? start, performance.now() - start.time);
     start = null;
     last = null;
-    if (e.type === "pointerup" && controlOn) send(g);
+    if (e.type === "pointerup" && controlOn) {
+      send(g);
+      ripple(e.clientX, e.clientY);
+    }
   };
   video.addEventListener("pointerup", finish);
   video.addEventListener("pointercancel", finish);
@@ -262,7 +295,7 @@ export async function stop({ end = true, message = "" } = {}) {
   const el = document.getElementById("watch");
   if (!el) return;
   if (message) {
-    show(s?.name ?? "Mom", message);
+    show(s?.name ?? FALLBACK_NAME, message);
   } else {
     el.hidden = true;
     el.innerHTML = "";

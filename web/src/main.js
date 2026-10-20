@@ -594,7 +594,8 @@ function render() {
   root.innerHTML = html;
 
   if (page === "watch" && id && state.circle) {
-    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id });
+    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id,
+      parentName: state.shares.find((sh) => sh.id === id)?.parentName });
   } else {
     closeWatch();
   }

@@ -3,6 +3,7 @@ package com.amethos.mytechkid
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -42,7 +43,16 @@ class MainActivity : ComponentActivity() {
                     },
                     onShowScreen = {
                         val projection = getSystemService(MediaProjectionManager::class.java)
-                        askToShareScreen.launch(projection.createScreenCaptureIntent())
+                        // Always the whole screen: newer Android offers "one app" by
+                        // default, which would hide most of the phone from the helper
+                        // and put their taps in the wrong place.
+                        askToShareScreen.launch(
+                            if (Build.VERSION.SDK_INT >= 34) {
+                                projection.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+                            } else {
+                                projection.createScreenCaptureIntent()
+                            },
+                        )
                     },
                     onStopScreen = { ScreenShareService.stop(this) },
                 )
