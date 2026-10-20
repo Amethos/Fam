@@ -118,3 +118,13 @@ jobs:
           echo "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@15 deploy --only hosting,functions,firestore --non-interactive --force
+          # Picture rules for scam checks. Until Storage is turned on in the
+          # Firebase console (docs/SETUP.md), skip them instead of failing.
+          set -o pipefail
+          if ! npx --yes firebase-tools@15 deploy --only storage --non-interactive --force 2>&1 | tee storage-deploy.log; then
+            if grep -qiE "not been set up|has not been set up|Get Started" storage-deploy.log; then
+              echo "::warning::Firebase Storage isn't turned on yet, so picture scam checks won't work. See docs/SETUP.md."
+            else
+              exit 1
+            fi
+          fi

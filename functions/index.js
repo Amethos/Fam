@@ -5,12 +5,14 @@
 const crypto = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getStorage } = require("firebase-admin/storage");
 const { pickPictures, hashToken, newToken } = require("./pairing");
-const { deadTokens } = require("./alerts");
+const { deadTokens, scamAlert } = require("./alerts");
 
 initializeApp();
 const db = getFirestore();
@@ -280,7 +282,8 @@ exports.onHelpRequestUpdated = onDocumentUpdated("circles/{circleId}/helpRequest
 
 exports.onScamCheck = onDocumentCreated("circles/{circleId}/scamChecks/{id}", async (event) => {
   const check = event.data.data();
-  await notify(await helpersOf(event.params.circleId), `${check.parentName} asks: is this a scam?`, check.text.slice(0, 120), `/#/scam/${event.params.id}`);
+  const { title, body } = scamAlert(check);
+  await notify(await helpersOf(event.params.circleId), title, body, `/#/scam/${event.params.id}`);
 });
 
 exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}", async (event) => {
@@ -291,3 +294,13 @@ exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}",
   await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open My Tech Kid to see the answer.");
 });
 
+
+// Pictures of a parent's screen are kept for 30 days, then deleted. The scam
+// check itself stays (the helper app says the picture was removed).
+const SCAM_SHOT_DAYS = 30;
+exports.cleanupScamShots = onSchedule("every day 04:00", async () => {
+  const cutoff = Date.now() - SCAM_SHOT_DAYS * 24 * 3600 * 1000;
+  const [files] = await getStorage().bucket().getFiles({ prefix: "circles/" });
+  const old = files.filter((f) => f.name.includes("/scamShots/") && Date.parse(f.metadata.timeCreated) < cutoff);
+  await Promise.all(old.map((f) => f.delete({ ignoreNotFound: true })));
+});

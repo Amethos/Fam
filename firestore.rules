@@ -125,15 +125,24 @@ service cloud.firestore {
         }
       }
 
+      // A scam check carries the message text, a picture of the parent's
+      // screen, or both. The picture lives in Storage at a path tied to this
+      // check and this phone (storage.rules), so it can't point at anyone
+      // else's picture.
       match /scamChecks/{sid} {
+        function hasPicture() {
+          return 'imagePath' in request.resource.data
+            && request.resource.data.imagePath == 'circles/' + cid + '/scamShots/' + request.auth.uid + '/' + sid + '.jpg';
+        }
         allow read: if isMember(cid);
         allow create: if isParent(cid)
-          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'text', 'createdAt', 'verdict'])
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'text', 'imagePath', 'createdAt', 'verdict'])
           && request.resource.data.parentId == request.auth.uid
           && request.resource.data.verdict == null
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 2000
+          && (request.resource.data.text.size() > 0 || hasPicture())
+          && (!('imagePath' in request.resource.data) || hasPicture())
           && request.resource.data.createdAt == request.time;
         allow update: if isHelper(cid)
           && resource.data.verdict == null
@@ -142,6 +151,20 @@ service cloud.firestore {
           && request.resource.data.answeredBy == request.auth.uid
           && request.resource.data.note is string
           && request.resource.data.note.size() <= 500;
+      }
+
+      // What a helper has switched on for one parent's phone. The parent's
+      // app has no settings of its own; it only reads these. Helpers only.
+      match /phoneSettings/{pid} {
+        allow read: if isMember(cid);
+        allow create, update: if isHelper(cid)
+          && pid in circleData(cid).parentIds
+          && request.resource.data.keys().hasOnly(['askTab', 'askTabSide', 'blurSecrets', 'updatedBy', 'updatedAt'])
+          && request.resource.data.askTab is bool
+          && request.resource.data.askTabSide in ['left', 'right']
+          && request.resource.data.blurSecrets is bool
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
       }
     }
   }

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "firebase emulators:exec --config ../firebase.json --only firestore --project demo-fam \"node --test rules.test.js\"",
+    "test": "firebase emulators:exec --config ../firebase.json --only firestore,storage --project demo-fam \"node --test --test-concurrency=1 rules.test.js storage.test.js\"",
     "e2e": "firebase emulators:exec --config ../firebase.json --only auth,firestore,functions --project demo-fam \"node pairing.e2e.js\""
   },
   "devDependencies": {
