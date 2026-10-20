@@ -40,8 +40,9 @@ phone, before Mom tries it on her own.
   **Stop** ends it on both phones.
 - **Tap for Mom:** while you watch, tap **Ask to tap for Mom**.
   - The first time, her phone needs a one-time switch. Your page tells you; on her phone she opens My Tech Kid
-    and taps **Agree and turn it on**. Android's Accessibility page opens: tap **Installed apps** (Samsung) →
-    **My Tech Kid: let family tap for me** → turn it on → **Allow**.
+    and taps **Agree and turn it on**. Android opens the switch for **My Tech Kid: let family tap for me**:
+    turn it on → **Allow**. (If it opens the Accessibility list instead, tap **Installed apps** on a Samsung,
+    then **My Tech Kid: let family tap for me**.)
   - If it says **Restricted setting**: open **Settings → Apps → My Tech Kid**, tap **⋮** (top right) →
     **Allow restricted settings**, confirm, then go back and turn the switch on. (Only for apps installed from a
     link; it goes away once we're on Google Play.)

@@ -2,6 +2,7 @@ package com.amethos.mytechkid
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -267,9 +268,13 @@ class RemoteControlService : AccessibilityService() {
 
         /** Opens Android's accessibility settings, where Mom turns on the switch once. */
         fun openSwitch(context: Context) {
-            context.startActivity(
-                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            // Straight to My Tech Kid's own switch where Android allows it,
+            // which saves Mom hunting through the accessibility list.
+            val details = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, RemoteControlService::class.java).flattenToString())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val list = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(details) }.onFailure { context.startActivity(list) }
         }
     }
 }

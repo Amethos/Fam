@@ -94,6 +94,7 @@ class ScreenShareService : Service() {
     private var controlOn = false
     private var asking = false
     private val recent = ArrayDeque<Long>()
+    private var declinedAt = 0L
     private var captureW = 1
     private var captureH = 1
 
@@ -293,6 +294,8 @@ class ScreenShareService : Service() {
     private fun askForControl() {
         if (controlOn) return sendControl("on")
         if (asking) return
+        // Mom just said no: don't keep putting the question back on her screen.
+        if (System.currentTimeMillis() - declinedAt < ASK_AGAIN_AFTER_MS) return sendControl("declined")
         asking = true
         // The family's safety wait is checked here, on Mom's own phone.
         db.document("circles/$circleId").get().addOnCompleteListener { task ->
@@ -331,6 +334,7 @@ class ScreenShareService : Service() {
                 control.showBanner(helperName) { stopSharing(endShare = true) }
                 sendControl("on")
             } else {
+                declinedAt = System.currentTimeMillis()
                 sendControl("declined")
             }
         }
@@ -528,6 +532,7 @@ class ScreenShareService : Service() {
         private const val JOIN_WINDOW_MS = 10 * 60 * 1000L
         private const val MAX_MESSAGES_PER_SECOND = 30
         private const val MAX_SHARE_MS = 60 * 60 * 1000L
+        private const val ASK_AGAIN_AFTER_MS = 15_000L
         private const val FPS = 30
         private const val MAX_BITRATE = 2_500_000
 

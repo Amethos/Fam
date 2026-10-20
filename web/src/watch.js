@@ -218,7 +218,7 @@ function setControl(msg) {
     sent: `Asking ${name}'s phone…`,
     asking: `${name}'s phone is asking them to say yes. Tell them it's you.`,
     on: "Tap, hold or swipe on the screen. Stop on either phone ends it.",
-    declined: `${name} said no, or didn't answer in time. You can ask again.`,
+    declined: `${name} said no, or didn't answer in time. You can ask again in a few seconds.`,
     off: `${name} needs to turn on tapping once. On their phone, open My Tech Kid and tap Agree and turn it on, then turn on "My Tech Kid: let family tap for me". On a Samsung, if it says Restricted setting, go to Settings, Apps, My Tech Kid, tap ⋮ at the top, then Allow restricted settings, and try again. Then tap Ask again here.`,
     waiting: msg?.until
       ? `For safety, tapping for ${name} unlocks ${new Date(msg.until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
