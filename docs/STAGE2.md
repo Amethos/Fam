@@ -36,6 +36,12 @@ over a data channel in the same WebRTC connection and `RemoteControlService`
 performs them, with a Stop bar on top. The beta turns the safety wait off on the
 real project (`functions/.env.my-tech-kid`).
 
+If the helper's page reloads, it sends a `hello` signal with a new connection
+id (`gen`); Mom's phone replaces the old connection with a fresh one and ignores
+setup messages for the old one. Tapping always ends with the old connection and
+needs Mom's Yes again. A newer window of the same helper takes over from an
+older one, which shows a note instead of ending the share.
+
 ## Still to build
 
 | Piece | Where | Needs from the owner |

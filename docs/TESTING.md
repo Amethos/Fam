@@ -40,8 +40,8 @@ phone, before Mom tries it on her own.
   **Stop** ends it on both phones.
 - **Tap for Mom:** while you watch, tap **Ask to tap for Mom**.
   - The first time, her phone needs a one-time switch. Your page tells you; on her phone she opens My Tech Kid
-    and taps **Agree and turn it on**. Android's Accessibility page opens: tap **Installed apps** (Samsung) →
-    **My Tech Kid: let family tap for me** → turn it on → **Allow**.
+    and taps **Agree and turn it on**. Android opens its Accessibility list: on a Samsung tap **Installed apps**
+    (other phones: **Downloaded apps**), then **My Tech Kid: let family tap for me**, turn it on → **Allow**.
   - If it says **Restricted setting**: open **Settings → Apps → My Tech Kid**, tap **⋮** (top right) →
     **Allow restricted settings**, confirm, then go back and turn the switch on. (Only for apps installed from a
     link; it goes away once we're on Google Play.)
@@ -50,7 +50,12 @@ phone, before Mom tries it on her own.
   - On your phone, tap, press and hold, or swipe on her screen; use **Back**, **Home**, **Apps** and **Alerts**
     below it. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
   - **Stop** on her bar, in her notification, in her app, or on your page ends seeing and tapping at once.
-  - Keep her phone upright for now: turning it sideways may put your taps in the wrong spot.
+  - Turn her phone sideways: the picture shows it sideways with black bars, and taps should still land
+    where you aim.
+  - Reload your page while watching: her screen should come back by itself within a few seconds. Tapping
+    needs her **Yes** again.
+  - A share ends on its own after an hour, and right away if the connection drops for good.
+    Mom taps **Show my screen** again to carry on.
 - **Ring Mom's phone:** put Mom's phone on silent somewhere nearby. On your dashboard, tap **Ring Mom's phone**.
   It should play loudly for 30 seconds and say *you* are ringing it. Mom taps **Found it** (on the screen or in the
   notification) to stop it. Her normal volume should come back afterwards.

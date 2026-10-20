@@ -141,17 +141,6 @@ class RemoteControlService : AccessibilityService() {
 
     // ---------- The helper's taps ----------
 
-    /** Screen size in real pixels; the helper's points arrive as 0..1 of the whole screen. */
-    private fun screen(): Rect =
-        if (Build.VERSION.SDK_INT >= 30) {
-            windows.currentWindowMetrics.bounds
-        } else {
-            val m = android.util.DisplayMetrics()
-            @Suppress("DEPRECATION")
-            windows.defaultDisplay.getRealMetrics(m)
-            Rect(0, 0, m.widthPixels, m.heightPixels)
-        }
-
     /** A point the helper may tap: never on Mom's question or her Stop banner. */
     private fun allowed(x: Float, y: Float): Boolean {
         if (ask != null) return false
@@ -164,10 +153,10 @@ class RemoteControlService : AccessibilityService() {
     }
 
     /** A tap, press-and-hold or swipe from (x1, y1) to (x2, y2), all 0..1. Returns false if refused. */
-    fun gesture(x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long): Boolean {
-        val s = screen()
-        val ax = x1 * s.width(); val ay = y1 * s.height()
-        val bx = x2 * s.width(); val by = y2 * s.height()
+    fun gesture(x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
+        val (w, h) = screen
+        val ax = x1 * w; val ay = y1 * h
+        val bx = x2 * w; val by = y2 * h
         if (!allowed(ax, ay)) return false
         val path = Path().apply { moveTo(ax, ay); if (ax != bx || ay != by) lineTo(bx, by) }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs.coerceIn(1, MAX_GESTURE_MS))
@@ -213,7 +202,16 @@ class RemoteControlService : AccessibilityService() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
-        ).apply { this.gravity = gravity }
+        ).apply {
+            this.gravity = gravity
+            // Measure from the very top of the screen, notch included, the
+            // same way the helper's taps are placed.
+            if (Build.VERSION.SDK_INT >= 30) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            } else if (Build.VERSION.SDK_INT >= 28) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
 
     private fun column(bg: Int, radius: Float) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -269,9 +267,7 @@ class RemoteControlService : AccessibilityService() {
 
         /** Opens Android's accessibility settings, where Mom turns on the switch once. */
         fun openSwitch(context: Context) {
-            context.startActivity(
-                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 }
