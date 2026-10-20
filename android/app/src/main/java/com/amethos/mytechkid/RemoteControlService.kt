@@ -122,6 +122,7 @@ class RemoteControlService : AccessibilityService() {
         hideBanner()
         dots.toList().forEach { removeView(it) }
         dots.clear()
+        pointer = null
     }
 
     private fun hideAsk() {
@@ -193,6 +194,47 @@ class RemoteControlService : AccessibilityService() {
         }
     }
 
+    private var pointer: View? = null
+
+    /**
+     * "Look here": a pulsing amber ring the helper puts on Mom's screen to show
+     * her where to tap, without tapping anything. Touches pass straight through.
+     */
+    fun point(x: Float, y: Float, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
+        if (ask != null) return false
+        val (w, h) = screen
+        pointer?.let { dots -= it; removeView(it) }
+        val size = dp(72)
+        val ring = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#40F2B33D"))
+                setStroke(dp(5), Color.parseColor("#F2B33D"))
+            }
+        }
+        val params = overlayParams(size, Gravity.TOP or Gravity.START, width = size).apply {
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            this.x = (x * w).toInt() - size / 2
+            this.y = (y * h).toInt() - size / 2
+        }
+        return runCatching { windows.addView(ring, params) }.onSuccess {
+            pointer = ring
+            dots += ring
+            ring.scaleX = 0.6f
+            ring.scaleY = 0.6f
+            ring.animate().scaleX(1f).scaleY(1f).setDuration(250).withEndAction {
+                ring.animate().scaleX(0.85f).scaleY(0.85f).setDuration(400).withEndAction {
+                    ring.animate().scaleX(1f).scaleY(1f).setDuration(400).start()
+                }.start()
+            }.start()
+            ring.postDelayed({
+                dots -= ring
+                if (pointer == ring) pointer = null
+                removeView(ring)
+            }, POINTER_MS)
+        }.isSuccess
+    }
+
     // ---------- Small view helpers (an overlay can't use Compose easily) ----------
 
     private fun overlayParams(height: Int, gravity: Int, width: Int = WindowManager.LayoutParams.MATCH_PARENT) =
@@ -256,6 +298,7 @@ class RemoteControlService : AccessibilityService() {
     companion object {
         private const val ASK_TIMEOUT_MS = 60_000L
         private const val MAX_GESTURE_MS = 3_000L
+        private const val POINTER_MS = 3_000L
         private val INK = Color.parseColor("#0F172A")
         private val MUTED = Color.parseColor("#475569")
         private val GREEN = Color.parseColor("#15803D")

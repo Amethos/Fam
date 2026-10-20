@@ -69,7 +69,7 @@ function show(name, message, { video = false } = {}) {
       <div class="watch-top">
         <a class="watch-float watch-exit" href="#/" aria-label="Back (ends sharing)">${icon('<path d="M15 5l-7 7 7 7"/>', 22)}</a>
         <div class="watch-banner" role="status"><span class="watch-dot"></span>
-          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-short"></span></div>
+          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-pointing"></span><span class="watch-short"></span></div>
         <button class="watch-float watch-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="watch-menu">
           ${icon('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>', 22)}<span class="watch-dot"></span></button>
       </div>
@@ -88,6 +88,7 @@ function show(name, message, { video = false } = {}) {
             <button data-key="recents">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>')}Apps</button>
             <button data-key="notifications">${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Alerts</button>
           </div>
+          <button data-watch-point aria-pressed="false">${icon('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/>')}<span class="watch-point-label"></span></button>
         </div>
         <button class="danger" data-watch-stop><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/></svg>Stop sharing</button>
       </div>
@@ -106,6 +107,11 @@ function show(name, message, { video = false } = {}) {
     }));
     el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("animationend", () => b.classList.remove("pressed")));
     el.querySelector(".watch-banner").addEventListener("click", () => bannerPulse());
+    el.querySelector("[data-watch-point]").addEventListener("click", () => {
+      setPointing(!pointing);
+      if (pointing) setMenu(false);
+      bannerPulse();
+    });
     addMenuButton(el.querySelector(".watch-menu-btn"));
     el.querySelector(".watch-scrim").addEventListener("click", () => setMenu(false));
     addGestures(el.querySelector("video"));
@@ -114,6 +120,8 @@ function show(name, message, { video = false } = {}) {
   el.querySelector(".watch-banner .watch-connecting").textContent = `Connecting to ${name}…`;
   el.querySelector(".watch-banner .watch-live").textContent = `You're on ${name}'s screen`;
   el.querySelector(".watch-banner .watch-tapping").textContent = `Tapping on ${name}'s phone`;
+  el.querySelector(".watch-banner .watch-pointing").textContent = `Showing ${name} where to tap`;
+  el.querySelector(".watch-point-label").textContent = `Show ${name} where`;
   el.querySelector(".watch-note").innerHTML = message ? esc(message) : "";
   el.querySelector("video").hidden = !video;
   if (video !== el.classList.contains("live")) {
@@ -148,7 +156,7 @@ function bannerPulse() {
   const el = document.getElementById("watch");
   const banner = el?.querySelector(".watch-banner");
   if (!banner) return;
-  banner.querySelector(".watch-short").textContent = el.classList.contains("controlling") ? "Tapping" : (session?.name ?? FALLBACK_NAME);
+  banner.querySelector(".watch-short").textContent = pointing ? "Pointing" : el.classList.contains("controlling") ? "Tapping" : (session?.name ?? FALLBACK_NAME);
   banner.classList.remove("compact");
   clearTimeout(bannerTimer);
   if (el.classList.contains("live")) bannerTimer = setTimeout(() => banner.classList.add("compact"), 4000);
@@ -349,6 +357,14 @@ function send(msg) {
 }
 
 let controlOn = false;
+let pointing = false;
+
+function setPointing(on) {
+  pointing = on;
+  const el = document.getElementById("watch");
+  el?.classList.toggle("pointing", on);
+  el?.querySelector("[data-watch-point]")?.setAttribute("aria-pressed", String(on));
+}
 let askTimer;
 
 // What Mom's phone says about tapping. null = not available (no channel).
@@ -373,6 +389,7 @@ function setControl(msg) {
   ask.disabled = wait > 0;
   if (wait > 0) askTimer = setTimeout(() => { ask.disabled = false; }, Math.min(wait, 60_000));
   const changed = controlOn !== el.classList.contains("controlling");
+  if (!controlOn) setPointing(false);
   if (controlOn && changed) setMenu(false);
   el.classList.toggle("controlling", controlOn);
   if (changed) bannerPulse();
@@ -438,7 +455,8 @@ function addGestures(video) {
   });
   const finish = (e) => {
     if (!start) return;
-    const g = gestureFor(start, last ?? start, performance.now() - start.time);
+    // Pointing shows her where to tap (a ring on her screen) instead of tapping.
+    const g = pointing ? { t: "point", x: (last ?? start).x, y: (last ?? start).y } : gestureFor(start, last ?? start, performance.now() - start.time);
     start = null;
     last = null;
     if (e.type === "pointerup" && controlOn) {

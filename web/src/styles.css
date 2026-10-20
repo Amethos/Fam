@@ -334,6 +334,9 @@ body.watching { overflow: hidden; }
 #watch.live .watch-banner .watch-dot { animation: watch-pulse 1.8s ease-out infinite; color: var(--green); }
 #watch.controlling .watch-live, #watch.controlling .watch-connecting { display: none; }
 #watch.controlling .watch-tapping { display: inline; }
+#watch .watch-pointing { display: none; }
+#watch.controlling.pointing .watch-tapping { display: none; }
+#watch.controlling.pointing .watch-pointing { display: inline; }
 #watch.controlling .watch-dot { background: var(--amber); }
 #watch.controlling .watch-banner { background: var(--amber); color: var(--navy); border-color: var(--amber); }
 #watch.controlling .watch-banner .watch-dot { background: var(--navy); animation: none; }
@@ -360,6 +363,10 @@ body.watching { overflow: hidden; }
 #watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #watch .watch-menu .watch-keys button { flex-direction: column; gap: 4px; min-height: 62px; padding: 0 4px;
   background: rgba(255, 255, 255, 0.1); color: #FFFFFF; font-size: 0.75rem; font-weight: 700; }
+/* "Show Mom where": only while tapping is on. */
+#watch:not(.controlling) [data-watch-point] { display: none; }
+#watch .watch-menu [data-watch-point] { background: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
+#watch .watch-menu [data-watch-point][aria-pressed="true"] { background: var(--amber); color: var(--navy); box-shadow: none; }
 /* Each press flashes amber, so it's clear it was sent. */
 #watch .watch-keys button.pressed { animation: watch-pressed 500ms ease-out; }
 @keyframes watch-pressed { from { background: var(--amber); color: var(--navy); transform: scale(0.94); } }

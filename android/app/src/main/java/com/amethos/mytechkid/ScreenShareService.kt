@@ -375,7 +375,7 @@ class ScreenShareService : Service() {
 
         when (m.optString("t")) {
             "ask" -> askForControl()
-            "tap", "hold", "swipe", "key" -> if (controlOn) doGesture(m)
+            "tap", "hold", "swipe", "key", "point" -> if (controlOn) doGesture(m)
         }
     }
 
@@ -481,6 +481,8 @@ class ScreenShareService : Service() {
                 a != null && b != null && control.gesture(a.first, a.second, b.first, b.second, ms, screen)
             }
             "key" -> control.button(m.optString("name"))
+            // "Look here": a ring on her screen, nothing is tapped.
+            "point" -> point("x", "y")?.let { control.point(it.first, it.second, screen) } ?: false
             else -> false
         }
         if (!ok) send(JSONObject().put("t", "refused"))
