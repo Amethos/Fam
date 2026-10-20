@@ -16,6 +16,7 @@ import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 import { watchShare, closeWatch } from "./watch.js";
+import { qrSvg } from "./qr.js";
 import { thisDevice, helpMethod, deviceLabel } from "./device.js";
 
 const root = document.getElementById("app");
@@ -462,7 +463,7 @@ function viewAdd() {
   return `${header()}
   <a href="#/">← Back</a>
   <h1>Add Mom or Dad</h1>
-  <p class="muted">You'll get a link to text them. It works once and expires after an hour.</p>
+  <p class="muted">You'll get a link to text them, or a code to scan if you're together. It works once and expires after an hour.</p>
   <form data-form="invite" class="card">
     <div class="field"><label for="forName">What do you call them?</label><input id="forName" name="forName" value="Mom" required></div>
     <button type="submit" ${state.busy ? "disabled" : ""}>Create invite link</button>
@@ -502,18 +503,27 @@ function viewInvite(id) {
     body = `<div class="card"><h1>This invite expired</h1><a class="button" href="#/add">Make a new one</a></div>`;
   } else if (invite.status === "open") {
     const url = inviteUrl(invite);
-    body = url
-      ? `<h1>Text this link to ${name}</h1>
+    const together = state.inPerson === invite.id;
+    body = !url
+      ? ""
+      : together
+      ? `<h1>Scan this with ${name}'s phone</h1>
+        <p class="muted">On ${name}'s phone, open the Camera and point it at this code, then tap the link that pops up.</p>
+        <div class="card qr-card">${qrSvg(url, `Setup code for ${name}`)}</div>
+        <button class="secondary full" data-action="in-person" data-id="">Send a link instead</button>
+        <div class="alert blue"><p>Waiting for ${name}'s phone… Then you'll both see three pictures: check they match.</p></div>`
+      : `<h1>Text this link to ${name}</h1>
         <p class="muted">Send it from your own phone number so ${name} knows it's you. Then stay on this screen.</p>
         <div class="card"><p class="link-box">${esc(url)}</p>
           <button data-action="share" data-url="${esc(url)}" data-name="${name}">Share link</button>
           <button class="secondary" data-action="copy" data-url="${esc(url)}">Copy link</button></div>
-        <div class="alert blue"><p>Waiting for ${name} to open it… When they do, you'll both see three pictures. Call ${name} to check they match.</p></div>`
-      : `<div class="card"><h1>Open this on the phone that made it</h1><p>The link for this invite was made on another device. You can also make a new one.</p>
+        <button class="secondary full" data-action="in-person" data-id="${esc(invite.id)}">With ${name} now? Show a code to scan</button>
+        <div class="alert blue"><p>Waiting for ${name} to open it… When they do, you'll both see three pictures. Call ${name} to check they match.</p></div>`;
+    body = body || `<div class="card"><h1>Open this on the phone that made it</h1><p>The link for this invite was made on another device. You can also make a new one.</p>
         <a class="button" href="#/add">Make a new invite</a></div>`;
   } else if (invite.status === "claimed" && !invite.helperConfirmed) {
-    body = `<h1>Call ${name} now</h1>
-      <p>Ask: <strong>"Which three pictures do you see?"</strong> They should be:</p>
+    body = `<h1>${state.inPerson === invite.id ? `Check ${name}'s phone` : `Call ${name} now`}</h1>
+      <p>${state.inPerson === invite.id ? `${name}'s phone should show these three pictures:` : `Ask: <strong>"Which three pictures do you see?"</strong> They should be:`}</p>
       ${picturesHtml(invite.pictures)}
       <button class="good full" data-action="confirm" data-id="${esc(invite.id)}" data-match="yes">They match</button>
       <button class="secondary full" data-action="confirm" data-id="${esc(invite.id)}" data-match="no">They don't match — stop</button>`;
@@ -689,6 +699,7 @@ const actions = {
     state.ringing[parentId] = true;
     setTimeout(() => { delete state.ringing[parentId]; render(); }, 30_000);
   }),
+  "in-person": (el) => { state.inPerson = el.dataset.id || null; render(); },
   "show-remove": (el) => { state.removing = el.dataset.id; render(); },
   "hide-remove": () => { state.removing = null; render(); },
   "remove-member": (el) => {

@@ -6,10 +6,11 @@
     "dev": "vite",
     "build": "vite build && node build-sw.mjs",
     "preview": "vite preview",
-    "test": "node --test src/device.test.js src/gesture.test.js"
+    "test": "node --test src/device.test.js src/gesture.test.js src/qr.test.js"
   },
   "dependencies": {
-    "firebase": "^13.0.0"
+    "firebase": "^13.0.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
