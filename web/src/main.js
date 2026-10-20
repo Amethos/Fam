@@ -373,11 +373,23 @@ function memberCards() {
         <p class="muted">${isPast(p.controlAllowedAt)
           ? `You can tap for ${esc(p.name)} while they show you their screen, once they say yes on their phone.`
           : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
-        <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
-          ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
+        ${removeControls(p)}</div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+// Removing a phone is rare (lost, replaced, given away), so it hides behind a
+// quiet link and takes two deliberate taps plus a confirmation.
+function removeControls(p) {
+  if (state.removing !== p.id) {
+    return `<button class="text-link" data-action="show-remove" data-id="${esc(p.id)}">Phone lost or replaced?</button>`;
+  }
+  return `<div class="remove-box"><p>If ${esc(p.name)}'s phone was lost, replaced or given away, remove it.
+      ${esc(p.name)} will need a new invite to reach you again.</p>
+    <div class="row"><button class="secondary small" data-action="hide-remove">Cancel</button>
+      <button class="danger small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
+        ${state.busy ? "disabled" : ""}>Remove ${esc(p.name)}'s phone</button></div></div>`;
 }
 
 // Only Mom's Android app can ring itself; iPhones have Find My for that.
@@ -677,9 +689,12 @@ const actions = {
     state.ringing[parentId] = true;
     setTimeout(() => { delete state.ringing[parentId]; render(); }, 30_000);
   }),
+  "show-remove": (el) => { state.removing = el.dataset.id; render(); },
+  "hide-remove": () => { state.removing = null; render(); },
   "remove-member": (el) => {
     const name = el.dataset.name || "this person";
     if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;
+    state.removing = null;
     run(() => call("removeMember", { circleId, memberId: el.dataset.id }));
   },
   "done-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
@@ -765,3 +780,19 @@ root.addEventListener("submit", (event) => {
 });
 
 render();
+
+// A home-screen app on iPhone can stay open for days on an old version. When
+// it comes back to the front (and every 15 minutes), check whether a newer
+// version is published and reload, unless a screen share or typing is under way.
+const myBuild = document.querySelector('script[src*="/assets/main-"]')?.getAttribute("src");
+async function reloadIfUpdated() {
+  if (!myBuild || document.hidden || location.hash.startsWith("#/watch/")) return;
+  if (root.contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  try {
+    const html = await (await fetch("/", { cache: "no-store" })).text();
+    const latest = html.match(/\/assets\/main-[\w-]+\.js/)?.[0];
+    if (latest && !myBuild.endsWith(latest)) location.reload();
+  } catch { /* offline: try again later */ }
+}
+document.addEventListener("visibilitychange", reloadIfUpdated);
+setInterval(reloadIfUpdated, 15 * 60 * 1000);
