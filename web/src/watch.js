@@ -60,46 +60,72 @@ function show(name, message, { video = false } = {}) {
   el.hidden = false;
   document.body.classList.add("watching");
   if (!el.querySelector("video")) {
-    const icon = (d) => `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const icon = (d, size = 20) => `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     el.innerHTML = `
       <div class="watch-stage">
         <video autoplay playsinline muted></video>
         <p class="watch-note"></p>
       </div>
-      <div class="watch-control" hidden>
-        <p class="watch-control-note" role="status"></p>
-        <div class="watch-keys" hidden>
-          <button class="secondary small" data-key="back">${icon('<path d="M15 6l-6 6 6 6"/>')}Back</button>
-          <button class="secondary small" data-key="home">${icon('<circle cx="12" cy="12" r="7"/>')}Home</button>
-          <button class="secondary small" data-key="recents">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>')}Apps</button>
-          <button class="secondary small" data-key="notifications">${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Alerts</button>
-        </div>
+      <div class="watch-top">
+        <a class="watch-float watch-exit" href="#/" aria-label="Back (ends sharing)">${icon('<path d="M15 5l-7 7 7 7"/>', 22)}</a>
+        <div class="watch-banner" role="status"><span class="watch-dot"></span>
+          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span></div>
+        <button class="watch-float watch-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="watch-menu">
+          ${icon('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>', 22)}<span class="watch-dot"></span></button>
       </div>
-      <div class="watch-bar">
+      <div class="watch-scrim" hidden></div>
+      <div class="watch-menu" id="watch-menu" hidden>
         <div class="watch-status">
           <span class="watch-state"><span class="watch-dot"></span><span class="watch-connecting">Connecting</span><span class="watch-live">Live</span><span class="watch-tapping">You're tapping</span></span>
           <strong class="watch-title"></strong>
         </div>
-        <button data-watch-ask>${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}<span class="watch-ask-label"></span></button>
-        <span class="watch-on" aria-hidden="true">${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}On</span>
-        <button class="danger" data-watch-stop><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg>Stop</button>
-        <a class="button secondary watch-back" href="#/">Done</a>
-      </div>`;
+        <div class="watch-control" hidden>
+          <button data-watch-ask>${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}<span class="watch-ask-label"></span></button>
+          <p class="watch-control-note" role="status"></p>
+          <div class="watch-keys" hidden>
+            <button data-key="back">${icon('<path d="M19 12H6M11 6l-6 6 6 6"/>')}Back</button>
+            <button data-key="home">${icon('<circle cx="12" cy="12" r="7"/>')}Home</button>
+            <button data-key="recents">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>')}Apps</button>
+            <button data-key="notifications">${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Alerts</button>
+          </div>
+        </div>
+        <button class="danger" data-watch-stop><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/></svg>Stop sharing</button>
+      </div>
+      <p class="watch-toast" role="status" hidden></p>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
       send({ t: "ask" });
       setControl({ state: "sent" });
     });
     el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => send({ t: "key", name: b.dataset.key })));
+    el.querySelector(".watch-menu-btn").addEventListener("click", () => setMenu(el.querySelector(".watch-menu").hidden));
+    el.querySelector(".watch-scrim").addEventListener("click", () => setMenu(false));
     addGestures(el.querySelector("video"));
   }
   el.querySelector(".watch-title").textContent = `${name}'s screen`;
+  el.querySelector(".watch-banner .watch-connecting").textContent = `Connecting to ${name}…`;
+  el.querySelector(".watch-banner .watch-live").textContent = `You're on ${name}'s screen`;
+  el.querySelector(".watch-banner .watch-tapping").textContent = `Tapping on ${name}'s phone`;
   el.querySelector(".watch-note").innerHTML = message ? esc(message) : "";
   el.querySelector("video").hidden = !video;
   el.classList.toggle("live", video);
-  // While watching, Stop is the only way out (it ends the share on Mom's phone too).
+  // The back button always leaves (and ends the share); the menu, with Stop
+  // in it, is only there while watching.
   el.querySelector("[data-watch-stop]").hidden = !session;
-  el.querySelector(".watch-back").hidden = !!session;
+  el.querySelector(".watch-menu-btn").hidden = !session;
+  el.querySelector(".watch-banner").hidden = !session;
+  if (!session) setMenu(false);
+}
+
+// The pop-out menu: everything besides Back lives here, so her screen can
+// fill the helper's.
+function setMenu(open) {
+  const el = document.getElementById("watch");
+  if (!el?.querySelector(".watch-menu")) return;
+  el.querySelector(".watch-menu").hidden = !open;
+  el.querySelector(".watch-scrim").hidden = !open;
+  el.querySelector(".watch-menu-btn").setAttribute("aria-expanded", String(open));
+  el.classList.toggle("menu-open", open);
 }
 
 // Opens the watch page for one share: joins it if it's still waiting, then
@@ -259,6 +285,7 @@ function setControl(msg) {
   const wait = msg?.state === "declined" && msg.until ? msg.until - Date.now() : 0;
   ask.disabled = wait > 0;
   if (wait > 0) askTimer = setTimeout(() => { ask.disabled = false; }, Math.min(wait, 60_000));
+  if (controlOn && !el.classList.contains("controlling")) setMenu(false);
   el.classList.toggle("controlling", controlOn);
   const notes = {
     ready: "",
@@ -277,11 +304,16 @@ function setControl(msg) {
 let flashTimer;
 function flashNote(text) {
   const note = document.querySelector("#watch .watch-control-note");
+  const toast = document.querySelector("#watch .watch-toast");
   if (!note) return;
   const before = note.textContent;
   note.textContent = text;
+  if (toast) { toast.textContent = text; toast.hidden = false; }
   clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { note.textContent = before; }, 3000);
+  flashTimer = setTimeout(() => {
+    note.textContent = before;
+    if (toast) toast.hidden = true;
+  }, 3000);
 }
 
 function pointOn(video, e) {
