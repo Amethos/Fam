@@ -72,6 +72,8 @@ These are requirements, not nice-to-haves:
 - Replace the committed beta signing key with a private one. (Until then,
   anyone who can read this repo could sign an update; the self-updater only
   downloads from our own site, but the key must not stay public.)
+- Move the relay key (`CLOUDFLARE_TURN_*`) from deploy-time settings into
+  Firebase Secret Manager.
 - Turn on **Firebase App Check** (only our real apps can call the backend).
 - Firebase Authentication settings: **email enumeration protection** on and a
   **password policy** (8+ characters).

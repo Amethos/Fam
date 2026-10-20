@@ -18,10 +18,29 @@ import {
 import { esc } from "./util.js";
 import { gestureFor, pointOnVideo } from "./gesture.js";
 
-// Public STUN servers find a direct path between the phones. A TURN relay for
-// networks that block direct paths comes later (docs/STAGE2.md).
-const ICE_SERVERS = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] }];
+// Public STUN servers find a direct path between the phones. The backend adds
+// a short-lived relay pass for networks that block direct paths, once the
+// relay is set up (docs/STAGE2.md); without it, these are used.
+const ICE_SERVERS = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+const ICE_WAIT_MS = 4000;
 
+// The relay pass, or plain STUN if the backend is slow or says no.
+async function iceServersFrom(fetchServers) {
+  if (!fetchServers) return ICE_SERVERS;
+  let timer;
+  const slow = new Promise((resolve) => { timer = setTimeout(() => resolve(null), ICE_WAIT_MS); });
+  try {
+    const got = await Promise.race([fetchServers(), slow]);
+    return Array.isArray(got?.iceServers) && got.iceServers.length ? got.iceServers : ICE_SERVERS;
+  } catch (err) {
+    console.warn("relay pass", err);
+    return ICE_SERVERS;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const FALLBACK_NAME = "Your family member";
 let session = null;
 let current = null; // the share this page is open for, so re-renders don't re-join
 
@@ -48,7 +67,7 @@ function show(name, message, { video = false } = {}) {
       <p class="watch-note"></p>
       <div class="watch-control" hidden>
         <p class="watch-control-note muted" role="status"></p>
-        <button data-watch-ask>Ask to tap for Mom</button>
+        <button data-watch-ask>Ask to tap for them</button>
         <div class="watch-keys" hidden>
           <button class="secondary small" data-key="back">Back</button>
           <button class="secondary small" data-key="home">Home</button>
@@ -75,44 +94,61 @@ function show(name, message, { video = false } = {}) {
 
 // Opens the watch page for one share: joins it if it's still waiting, then
 // answers Mom's phone and shows her screen.
-export async function watchShare({ db, uid, myName, circleId, shareId }) {
+export async function watchShare({ db, uid, myName, circleId, shareId, parentName, iceServers }) {
   if (current === shareId) return;
   current = shareId;
   await stop({ end: false });
   const shareRef = doc(db, `circles/${circleId}/screenShares/${shareId}`);
-  const s = { shareId, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
+  const s = { shareId, openedAt: Date.now(), name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
   session = s;
-  show("Mom", "Connecting…");
+  show(s.name, "Connecting…");
 
+  let rejoin = false;
   try {
-    await runTransaction(db, async (tx) => {
+    rejoin = await runTransaction(db, async (tx) => {
       const snap = await tx.get(shareRef);
       const share = snap.data();
       if (!share) throw new Error("This screen share isn't available.");
-      if (share.status === "live" && share.helperId === uid) return; // re-opened the page
+      // Already watching it (this page reloaded, or was opened again): ask
+      // Mom's phone for a fresh connection instead of joining.
+      if (share.status === "live" && share.helperId === uid) return true;
       if (share.status !== "waiting") throw new Error("This screen share has ended.");
       tx.update(shareRef, { status: "live", helperId: uid, helperName: myName, startedAt: serverTimestamp() });
+      return false;
     });
   } catch (err) {
     if (session === s) session = null;
     const ended = /ended|isn't available/.test(err.message);
-    show("Mom", ended ? err.message : "Couldn't join. It may have timed out: ask Mom to tap Show my screen again.");
+    show(s.name, ended ? err.message : `Couldn't join. It may have timed out: ask ${s.name} to tap Show my screen again.`);
     return;
   }
   if (session !== s) return;
+  // Which connection this page is on. Mom's phone labels its first offer
+  // "first" (older versions of her app send no label); a reloaded page picks
+  // a new label and only listens to messages carrying it.
+  const gen = rejoin ? crypto.randomUUID() : "first";
+  const ours = (payload) => (payload.gen ?? "first") === gen;
 
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const servers = await iceServersFrom(iceServers);
+  if (session !== s) return;
+  const pc = new RTCPeerConnection({ iceServers: servers });
   s.pc = pc;
   const signals = collection(db, `circles/${circleId}/screenShares/${shareId}/signals`);
   const send = (type, payload) => addDoc(signals, { from: uid, type, payload: JSON.stringify(payload), createdAt: serverTimestamp() });
 
   pc.onicecandidate = (e) => {
-    if (e.candidate) send("candidate", { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex });
+    if (e.candidate) send("candidate", { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex, gen });
   };
   pc.ontrack = (e) => {
+    // Show each picture as soon as it arrives instead of buffering for
+    // smoothness: taps feel quicker when the screen keeps up.
+    try {
+      if ("jitterBufferTarget" in e.receiver) e.receiver.jitterBufferTarget = 0;
+      else if ("playoutDelayHint" in e.receiver) e.receiver.playoutDelayHint = 0;
+    } catch { /* older browsers: keep the default */ }
     const video = overlay().querySelector("video");
     video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
-    show(s.name ?? "Mom", "", { video: true });
+    show(s.name, "", { video: true });
   };
   // Mom's phone opens this channel; older versions of her app don't have it.
   pc.ondatachannel = (e) => {
@@ -122,19 +158,22 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
       let msg;
       try { msg = JSON.parse(m.data); } catch { return; }
       if (msg.t === "control") setControl(msg);
-      if (msg.t === "refused") flashNote("That spot is under Mom's Stop button, or Mom is answering a question. Try again.");
+      if (msg.t === "refused") flashNote(`That spot is under ${s.name}'s Stop button, or ${s.name} is answering a question. Try again.`);
     };
     e.channel.onclose = () => { if (session === s) setControl(null); };
   };
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed") show(s.name ?? "Mom", "The connection dropped. Ask Mom to tap Stop, then Show my screen again.");
+    // Mom's phone ends it too when the connection fails, so nothing stays shared.
+    if (pc.connectionState === "failed") {
+      stop({ end: true, message: `The connection dropped. Ask ${s.name} to tap Show my screen again.` });
+    }
   };
 
   s.unsubs.push(onSnapshot(shareRef, (snap) => {
     const share = snap.data();
-    s.name = share?.parentName ?? "Mom";
+    s.name = share?.parentName || s.name;
     if (!share || share.status === "ended") {
-      stop({ end: false, message: `${s.name} stopped sharing.` });
+      stop({ end: false, message: `${s.name}'s screen share ended.` });
     } else if (!pc.remoteDescription) {
       show(s.name, `Waiting for ${s.name}'s phone…`);
     }
@@ -144,17 +183,25 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
     snap.docChanges().forEach(async ({ type, doc: d }) => {
       if (type !== "added" || s.seen.has(d.id)) return;
       const m = d.data();
-      if (m.from === uid) return;
       s.seen.add(d.id);
       try {
         const payload = JSON.parse(m.payload);
+        // This share was opened again in a newer window, which takes over.
+        if (m.from === uid) {
+          if (m.type === "hello" && payload.gen !== gen && payload.at > s.openedAt && session === s) {
+            current = null;
+            stop({ end: false, message: `${s.name}'s screen is open in another window now.` });
+          }
+          return;
+        }
+        if (!ours(payload)) return; // for an earlier connection
         if (m.type === "offer") {
           await pc.setRemoteDescription({ type: "offer", sdp: payload.sdp });
           s.remoteSet = true;
           for (const c of s.pending.splice(0)) await pc.addIceCandidate(c);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          await send("answer", { sdp: answer.sdp });
+          await send("answer", { sdp: answer.sdp, gen });
         } else if (m.type === "candidate") {
           if (s.remoteSet) await pc.addIceCandidate(payload);
           else s.pending.push(payload);
@@ -164,6 +211,8 @@ export async function watchShare({ db, uid, myName, circleId, shareId }) {
       }
     });
   }));
+
+  if (rejoin) send("hello", { gen, at: s.openedAt }).catch((err) => console.warn("screen share hello", err));
 
   // Ending the share is how we tell Mom's phone to stop.
   s.end = () => updateDoc(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});
@@ -177,6 +226,7 @@ function send(msg) {
 }
 
 let controlOn = false;
+let askTimer;
 
 // What Mom's phone says about tapping. null = not available (no channel).
 function setControl(msg) {
@@ -186,19 +236,24 @@ function setControl(msg) {
   const note = el.querySelector(".watch-control-note");
   const ask = el.querySelector("[data-watch-ask]");
   const keys = el.querySelector(".watch-keys");
-  const name = session?.name ?? "Mom";
+  const name = session?.name ?? FALLBACK_NAME;
   controlOn = msg?.state === "on";
   box.hidden = !msg;
   keys.hidden = !controlOn;
   ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
   ask.textContent = `Ask to tap for ${name}`;
+  // Just said no: asking again works after a short pause, so wait it out here.
+  clearTimeout(askTimer);
+  const wait = msg?.state === "declined" && msg.until ? msg.until - Date.now() : 0;
+  ask.disabled = wait > 0;
+  if (wait > 0) askTimer = setTimeout(() => { ask.disabled = false; }, Math.min(wait, 60_000));
   el.classList.toggle("controlling", controlOn);
   const notes = {
     ready: "",
     sent: `Asking ${name}'s phone…`,
     asking: `${name}'s phone is asking them to say yes. Tell them it's you.`,
     on: "Tap, hold or swipe on the screen. Stop on either phone ends it.",
-    declined: `${name} said no, or didn't answer in time. You can ask again.`,
+    declined: `${name} said no, or didn't answer in time. You can ask again in a few seconds.`,
     off: `${name} needs to turn on tapping once. On their phone, open My Tech Kid and tap Agree and turn it on, then turn on "My Tech Kid: let family tap for me". On a Samsung, if it says Restricted setting, go to Settings, Apps, My Tech Kid, tap ⋮ at the top, then Allow restricted settings, and try again. Then tap Ask again here.`,
     waiting: msg?.until
       ? `For safety, tapping for ${name} unlocks ${new Date(msg.until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
@@ -219,6 +274,16 @@ function flashNote(text) {
 
 function pointOn(video, e) {
   return pointOnVideo(video.getBoundingClientRect(), video.videoWidth, video.videoHeight, e.clientX, e.clientY);
+}
+
+// Instant feedback on the helper's phone, before Mom's screen catches up.
+function ripple(x, y) {
+  const dot = document.createElement("span");
+  dot.className = "watch-ripple";
+  dot.style.left = `${x}px`;
+  dot.style.top = `${y}px`;
+  document.getElementById("watch")?.append(dot);
+  setTimeout(() => dot.remove(), 450);
 }
 
 function addGestures(video) {
@@ -243,7 +308,10 @@ function addGestures(video) {
     const g = gestureFor(start, last ?? start, performance.now() - start.time);
     start = null;
     last = null;
-    if (e.type === "pointerup" && controlOn) send(g);
+    if (e.type === "pointerup" && controlOn) {
+      send(g);
+      ripple(e.clientX, e.clientY);
+    }
   };
   video.addEventListener("pointerup", finish);
   video.addEventListener("pointercancel", finish);
@@ -262,7 +330,7 @@ export async function stop({ end = true, message = "" } = {}) {
   const el = document.getElementById("watch");
   if (!el) return;
   if (message) {
-    show(s?.name ?? "Mom", message);
+    show(s?.name ?? FALLBACK_NAME, message);
   } else {
     el.hidden = true;
     el.innerHTML = "";

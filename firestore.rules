@@ -127,7 +127,8 @@ service cloud.firestore {
             && request.resource.data.endedBy == request.auth.uid
             && request.resource.data.endedAt == request.time);
 
-        // Connection setup messages (WebRTC offer/answer/candidates), only
+        // Connection setup messages (WebRTC offer/answer/candidates, and a
+        // "hello" when the helper's page (re)joins), only
         // between the two people on a live share. The video itself never
         // passes through here.
         match /signals/{sigid} {
@@ -144,7 +145,7 @@ service cloud.firestore {
             && parentShare().status == 'live'
             && request.resource.data.keys().hasOnly(['from', 'type', 'payload', 'createdAt'])
             && request.resource.data.from == request.auth.uid
-            && request.resource.data.type in ['offer', 'answer', 'candidate']
+            && request.resource.data.type in ['offer', 'answer', 'candidate', 'hello']
             && request.resource.data.payload is string
             && request.resource.data.payload.size() <= 20000
             && request.resource.data.createdAt == request.time;

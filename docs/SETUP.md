@@ -80,6 +80,22 @@ When it's green:
 
 Next: [TESTING.md](TESTING.md).
 
+## 9. Turn on the screen-sharing relay (optional, free)
+
+Some networks block a direct connection between the phones. The relay fixes
+that. It is free up to 1,000 GB a month, far more than a family uses.
+
+1. Go to **dash.cloudflare.com** and sign up or log in.
+2. In the left menu open **Realtime** (it may be called **Calls**) → **TURN Server** → **Create**.
+   Name it `My Tech Kid`.
+3. Cloudflare shows a **Turn Token ID** and an **API Token**. Keep that page open. Don't paste them
+   into chat.
+4. On GitHub, open your **fam** repo → **Settings → Secrets and variables → Actions → New repository secret**.
+   Add two secrets:
+   - Name `CLOUDFLARE_TURN_KEY_ID`, secret: the Turn Token ID.
+   - Name `CLOUDFLARE_TURN_API_TOKEN`, secret: the API Token.
+5. Tell Claude. The next publish turns the relay on.
+
 ## Keep the repo private
 
 The repo contains the beta signing key for Mom's app. Keep the GitHub repo

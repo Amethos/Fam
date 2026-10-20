@@ -229,6 +229,8 @@ test("connection messages flow only between the two people on a live share", asy
   const signals = (uid, id) => collection(db(uid), `circles/c1/screenShares/${id}/signals`);
   await assertSucceeds(addDoc(signals("mom", "live"), signal("mom")));
   await assertSucceeds(addDoc(signals("josh", "live"), signal("josh", { type: "answer" })));
+  // The helper's page says hello when it (re)joins, so Mom's phone reconnects.
+  await assertSucceeds(addDoc(signals("josh", "live"), signal("josh", { type: "hello" })));
   // Another helper in the family can't listen in.
   await assertFails(addDoc(signals("amy", "live"), signal("amy")));
   await assertFails(addDoc(signals("stranger", "live"), signal("stranger")));

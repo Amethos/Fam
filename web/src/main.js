@@ -17,6 +17,7 @@ import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 import { watchShare, closeWatch } from "./watch.js";
+import { qrSvg } from "./qr.js";
 import { thisDevice, helpMethod, deviceLabel } from "./device.js";
 
 const root = document.getElementById("app");
@@ -438,11 +439,23 @@ function memberCards() {
           ? `You can tap for ${esc(p.name)} while they show you their screen, once they say yes on their phone.`
           : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
         ${phoneSettingsHtml(p)}
-        <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
-          ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
+        ${removeControls(p)}</div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+// Removing a phone is rare (lost, replaced, given away), so it hides behind a
+// quiet link and takes two deliberate taps plus a confirmation.
+function removeControls(p) {
+  if (state.removing !== p.id) {
+    return `<button class="text-link" data-action="show-remove" data-id="${esc(p.id)}">Phone lost or replaced?</button>`;
+  }
+  return `<div class="remove-box"><p>If ${esc(p.name)}'s phone was lost, replaced or given away, remove it.
+      ${esc(p.name)} will need a new invite to reach you again.</p>
+    <div class="row"><button class="secondary small" data-action="hide-remove">Cancel</button>
+      <button class="danger small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
+        ${state.busy ? "disabled" : ""}>Remove ${esc(p.name)}'s phone</button></div></div>`;
 }
 
 // Only Mom's Android app can ring itself; iPhones have Find My for that.
@@ -515,7 +528,7 @@ function viewAdd() {
   return `${header()}
   <a href="#/">← Back</a>
   <h1>Add Mom or Dad</h1>
-  <p class="muted">You'll get a link to text them. It works once and expires after an hour.</p>
+  <p class="muted">You'll get a link to text them, or a code to scan if you're together. It works once and expires after an hour.</p>
   <form data-form="invite" class="card">
     <div class="field"><label for="forName">What do you call them?</label><input id="forName" name="forName" value="Mom" required></div>
     <button type="submit" ${state.busy ? "disabled" : ""}>Create invite link</button>
@@ -555,18 +568,27 @@ function viewInvite(id) {
     body = `<div class="card"><h1>This invite expired</h1><a class="button" href="#/add">Make a new one</a></div>`;
   } else if (invite.status === "open") {
     const url = inviteUrl(invite);
-    body = url
-      ? `<h1>Text this link to ${name}</h1>
+    const together = state.inPerson === invite.id;
+    body = !url
+      ? ""
+      : together
+      ? `<h1>Scan this with ${name}'s phone</h1>
+        <p class="muted">On ${name}'s phone, open the Camera and point it at this code, then tap the link that pops up.</p>
+        <div class="card qr-card">${qrSvg(url, `Setup code for ${name}`)}</div>
+        <button class="secondary full" data-action="in-person" data-id="">Send a link instead</button>
+        <div class="alert blue"><p>Waiting for ${name}'s phone… Then you'll both see three pictures: check they match.</p></div>`
+      : `<h1>Text this link to ${name}</h1>
         <p class="muted">Send it from your own phone number so ${name} knows it's you. Then stay on this screen.</p>
         <div class="card"><p class="link-box">${esc(url)}</p>
           <button data-action="share" data-url="${esc(url)}" data-name="${name}">Share link</button>
           <button class="secondary" data-action="copy" data-url="${esc(url)}">Copy link</button></div>
-        <div class="alert blue"><p>Waiting for ${name} to open it… When they do, you'll both see three pictures. Call ${name} to check they match.</p></div>`
-      : `<div class="card"><h1>Open this on the phone that made it</h1><p>The link for this invite was made on another device. You can also make a new one.</p>
+        <button class="secondary full" data-action="in-person" data-id="${esc(invite.id)}">With ${name} now? Show a code to scan</button>
+        <div class="alert blue"><p>Waiting for ${name} to open it… When they do, you'll both see three pictures. Call ${name} to check they match.</p></div>`;
+    body = body || `<div class="card"><h1>Open this on the phone that made it</h1><p>The link for this invite was made on another device. You can also make a new one.</p>
         <a class="button" href="#/add">Make a new invite</a></div>`;
   } else if (invite.status === "claimed" && !invite.helperConfirmed) {
-    body = `<h1>Call ${name} now</h1>
-      <p>Ask: <strong>"Which three pictures do you see?"</strong> They should be:</p>
+    body = `<h1>${state.inPerson === invite.id ? `Check ${name}'s phone` : `Call ${name} now`}</h1>
+      <p>${state.inPerson === invite.id ? `${name}'s phone should show these three pictures:` : `Ask: <strong>"Which three pictures do you see?"</strong> They should be:`}</p>
       ${picturesHtml(invite.pictures)}
       <button class="good full" data-action="confirm" data-id="${esc(invite.id)}" data-match="yes">They match</button>
       <button class="secondary full" data-action="confirm" data-id="${esc(invite.id)}" data-match="no">They don't match — stop</button>`;
@@ -661,7 +683,9 @@ function render() {
   root.innerHTML = html;
 
   if (page === "watch" && id && state.circle) {
-    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id });
+    watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id,
+      parentName: state.shares.find((sh) => sh.id === id)?.parentName,
+      iceServers: () => call("shareIceServers", { circleId, shareId: id }) });
   } else {
     closeWatch();
   }
@@ -742,9 +766,13 @@ const actions = {
     state.ringing[parentId] = true;
     setTimeout(() => { delete state.ringing[parentId]; render(); }, 30_000);
   }),
+  "in-person": (el) => { state.inPerson = el.dataset.id || null; render(); },
+  "show-remove": (el) => { state.removing = el.dataset.id; render(); },
+  "hide-remove": () => { state.removing = null; render(); },
   "remove-member": (el) => {
     const name = el.dataset.name || "this person";
     if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;
+    state.removing = null;
     run(() => call("removeMember", { circleId, memberId: el.dataset.id }));
   },
   "done-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
@@ -844,3 +872,19 @@ root.addEventListener("submit", (event) => {
 });
 
 render();
+
+// A home-screen app on iPhone can stay open for days on an old version. When
+// it comes back to the front (and every 15 minutes), check whether a newer
+// version is published and reload, unless a screen share or typing is under way.
+const myBuild = document.querySelector('script[src*="/assets/main-"]')?.getAttribute("src");
+async function reloadIfUpdated() {
+  if (!myBuild || document.hidden || location.hash.startsWith("#/watch/")) return;
+  if (root.contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  try {
+    const html = await (await fetch("/", { cache: "no-store" })).text();
+    const latest = html.match(/\/assets\/main-[\w-]+\.js/)?.[0];
+    if (latest && !myBuild.endsWith(latest)) location.reload();
+  } catch { /* offline: try again later */ }
+}
+document.addEventListener("visibilitychange", reloadIfUpdated);
+setInterval(reloadIfUpdated, 15 * 60 * 1000);

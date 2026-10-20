@@ -36,16 +36,31 @@ over a data channel in the same WebRTC connection and `RemoteControlService`
 performs them, with a Stop bar on top. The beta turns the safety wait off on the
 real project (`functions/.env.my-tech-kid`).
 
+If the helper's page reloads, it sends a `hello` signal with a new connection
+id (`gen`); Mom's phone replaces the old connection with a fresh one and ignores
+setup messages for the old one. Tapping always ends with the old connection and
+needs Mom's Yes again. A newer window of the same helper takes over from an
+older one, which shows a note instead of ending the share.
+
 ## Still to build
 
 | Piece | Where | Needs from the owner |
 |---|---|---|
-| Short-lived relay passes, only for the two people on a live share | `functions/` | A free Cloudflare account and a TURN key, saved as Firebase secrets (steps to be added to `docs/SETUP.md`) |
 | On-phone check | Samsung test phone | Mom's or a test Android phone |
 
-Until the relay exists, the phones connect directly (STUN). That works on
-most home Wi-Fi and phone networks; some strict networks will fail to
-connect, and the watch page then says so.
+## The relay (TURN)
 
-The relay passes are left out for now on purpose: a function that needs a
-secret would stop every deploy until that secret exists.
+Some networks (mobile carriers, offices, hotel Wi-Fi) block a direct
+connection between the phones. Then the encrypted stream goes through
+Cloudflare's relay, which passes it along without being able to see it.
+
+- `shareIceServers` (`functions/index.js`, `functions/relay.js`) hands out a
+  2-hour relay pass, only to the parent of an open share and to the helper
+  who joined it. The Cloudflare key stays in the backend.
+- Mom's phone asks for it as soon as she starts sharing, so it's ready when
+  the helper joins; the helper's page asks right after joining. Neither waits
+  more than 4 seconds: without an answer they use direct connections only.
+- The key comes from the GitHub secrets `CLOUDFLARE_TURN_KEY_ID` and
+  `CLOUDFLARE_TURN_API_TOKEN` (`docs/SETUP.md`, step 9), which the deploy adds
+  to `functions/.env.my-tech-kid`. Without them, deploys still work and
+  sharing uses direct connections only.
