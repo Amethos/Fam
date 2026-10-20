@@ -316,6 +316,14 @@ body.watching { overflow: hidden; }
 #watch .watch-banner { min-width: 0; height: 36px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 14px;
   border-radius: 999px; font-size: 0.8125rem; font-weight: 800; white-space: nowrap; overflow: hidden; }
 #watch .watch-banner > span:not(.watch-dot) { overflow: hidden; text-overflow: ellipsis; }
+#watch .watch-banner { cursor: pointer; transition: height 0.25s ease, padding 0.25s ease, font-size 0.25s ease; }
+#watch .watch-short { display: none; }
+/* After a few seconds the banner shrinks to a small pill with just the name. */
+#watch .watch-banner.compact { height: 26px; padding: 0 10px; gap: 6px; font-size: 0.75rem; }
+#watch .watch-banner.compact > span:not(.watch-dot):not(.watch-short) { display: none; }
+#watch .watch-banner.compact .watch-short { display: inline; }
+#watch .watch-menu-btn { touch-action: none; }
+#watch .watch-menu-btn.dragging { transform: scale(1.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
 
 /* Status: Connecting / Live / You're tapping, in the banner and the menu */
 #watch .watch-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
@@ -352,6 +360,9 @@ body.watching { overflow: hidden; }
 #watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #watch .watch-menu .watch-keys button { flex-direction: column; gap: 4px; min-height: 62px; padding: 0 4px;
   background: rgba(255, 255, 255, 0.1); color: #FFFFFF; font-size: 0.75rem; font-weight: 700; }
+/* Each press flashes amber, so it's clear it was sent. */
+#watch .watch-keys button.pressed { animation: watch-pressed 500ms ease-out; }
+@keyframes watch-pressed { from { background: var(--amber); color: var(--navy); transform: scale(0.94); } }
 
 /* Short notes (e.g. a tap that didn't go through) while the menu is closed */
 #watch .watch-toast { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%);
@@ -364,6 +375,7 @@ body.watching { overflow: hidden; }
 @keyframes watch-ripple { to { transform: scale(1.8); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   #watch .watch-ripple, #watch.live .watch-banner .watch-dot, #watch .watch-menu { animation: none; }
+  #watch .watch-banner { transition: none; }
 }
 /* While tapping, her screen takes every touch (no scrolling, zooming or
    callouts) and an amber glow runs round the edge so it's clear taps reach her phone. */

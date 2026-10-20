@@ -69,7 +69,7 @@ function show(name, message, { video = false } = {}) {
       <div class="watch-top">
         <a class="watch-float watch-exit" href="#/" aria-label="Back (ends sharing)">${icon('<path d="M15 5l-7 7 7 7"/>', 22)}</a>
         <div class="watch-banner" role="status"><span class="watch-dot"></span>
-          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span></div>
+          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-short"></span></div>
         <button class="watch-float watch-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="watch-menu">
           ${icon('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>', 22)}<span class="watch-dot"></span></button>
       </div>
@@ -97,8 +97,16 @@ function show(name, message, { video = false } = {}) {
       send({ t: "ask" });
       setControl({ state: "sent" });
     });
-    el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => send({ t: "key", name: b.dataset.key })));
-    el.querySelector(".watch-menu-btn").addEventListener("click", () => setMenu(el.querySelector(".watch-menu").hidden));
+    el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => {
+      send({ t: "key", name: b.dataset.key });
+      // A flash, so a press never seems to do nothing while her screen catches up.
+      b.classList.remove("pressed");
+      void b.offsetWidth;
+      b.classList.add("pressed");
+    }));
+    el.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("animationend", () => b.classList.remove("pressed")));
+    el.querySelector(".watch-banner").addEventListener("click", () => bannerPulse());
+    addMenuButton(el.querySelector(".watch-menu-btn"));
     el.querySelector(".watch-scrim").addEventListener("click", () => setMenu(false));
     addGestures(el.querySelector("video"));
   }
@@ -108,7 +116,10 @@ function show(name, message, { video = false } = {}) {
   el.querySelector(".watch-banner .watch-tapping").textContent = `Tapping on ${name}'s phone`;
   el.querySelector(".watch-note").innerHTML = message ? esc(message) : "";
   el.querySelector("video").hidden = !video;
-  el.classList.toggle("live", video);
+  if (video !== el.classList.contains("live")) {
+    el.classList.toggle("live", video);
+    bannerPulse();
+  }
   // The back button always leaves (and ends the share); the menu, with Stop
   // in it, is only there while watching.
   el.querySelector("[data-watch-stop]").hidden = !session;
@@ -126,6 +137,82 @@ function setMenu(open) {
   el.querySelector(".watch-scrim").hidden = !open;
   el.querySelector(".watch-menu-btn").setAttribute("aria-expanded", String(open));
   el.classList.toggle("menu-open", open);
+  if (open) placeMenu(el);
+}
+
+// The banner says whose screen this is, then shrinks to a small pill after a
+// few seconds so it covers less of her screen. A change of state (or a tap on
+// it) shows it in full again.
+let bannerTimer;
+function bannerPulse() {
+  const el = document.getElementById("watch");
+  const banner = el?.querySelector(".watch-banner");
+  if (!banner) return;
+  banner.querySelector(".watch-short").textContent = el.classList.contains("controlling") ? "Tapping" : (session?.name ?? FALLBACK_NAME);
+  banner.classList.remove("compact");
+  clearTimeout(bannerTimer);
+  if (el.classList.contains("live")) bannerTimer = setTimeout(() => banner.classList.add("compact"), 4000);
+}
+
+// The menu button can be dragged out of the way; a short press opens the menu.
+const MENU_SPOT = "watch-menu-spot";
+function addMenuButton(btn) {
+  let start = null;
+  let dragged = false;
+  const put = (x, y) => {
+    const size = btn.offsetWidth || 48;
+    btn.style.position = "fixed";
+    btn.style.left = `${Math.min(Math.max(8, x - size / 2), innerWidth - size - 8)}px`;
+    btn.style.top = `${Math.min(Math.max(8, y - size / 2), innerHeight - size - 8)}px`;
+  };
+  try {
+    const spot = JSON.parse(localStorage.getItem(MENU_SPOT) ?? "null");
+    if (spot) put(spot.x * innerWidth, spot.y * innerHeight);
+  } catch { /* no saved spot */ }
+  btn.addEventListener("pointerdown", (e) => {
+    start = { x: e.clientX, y: e.clientY };
+    dragged = false;
+    btn.setPointerCapture?.(e.pointerId);
+  });
+  btn.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    if (!dragged && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 8) return;
+    dragged = true;
+    btn.classList.add("dragging");
+    put(e.clientX, e.clientY);
+    if (!document.querySelector("#watch .watch-menu").hidden) placeMenu(document.getElementById("watch"));
+  });
+  const end = (e) => {
+    if (!start) return;
+    start = null;
+    btn.classList.remove("dragging");
+    if (dragged) {
+      const r = btn.getBoundingClientRect();
+      try { localStorage.setItem(MENU_SPOT, JSON.stringify({ x: (r.left + r.width / 2) / innerWidth, y: (r.top + r.height / 2) / innerHeight })); } catch { /* fine */ }
+    } else if (e.type === "pointerup") {
+      setMenu(document.querySelector("#watch .watch-menu").hidden);
+    }
+  };
+  btn.addEventListener("pointerup", end);
+  btn.addEventListener("pointercancel", end);
+  // Keyboard and screen readers still open it with a click.
+  btn.addEventListener("click", (e) => { if (e.detail === 0) setMenu(document.querySelector("#watch .watch-menu").hidden); });
+}
+
+// Opens the menu next to the menu button, wherever it has been dragged.
+function placeMenu(el) {
+  const btn = el.querySelector(".watch-menu-btn");
+  const menu = el.querySelector(".watch-menu");
+  menu.style.cssText = "";
+  if (btn.style.position !== "fixed") return;
+  const r = btn.getBoundingClientRect();
+  const below = r.top + r.height / 2 < innerHeight / 2;
+  const onLeft = r.left + r.width / 2 < innerWidth / 2;
+  menu.style.top = below ? `${r.bottom + 10}px` : "auto";
+  menu.style.bottom = below ? "auto" : `${innerHeight - r.top + 10}px`;
+  menu.style.left = onLeft ? `${Math.max(14, r.left)}px` : "auto";
+  menu.style.right = onLeft ? "auto" : `${Math.max(14, innerWidth - r.right)}px`;
+  menu.style.transformOrigin = `${below ? "top" : "bottom"} ${onLeft ? "left" : "right"}`;
 }
 
 // Opens the watch page for one share: joins it if it's still waiting, then
@@ -285,8 +372,10 @@ function setControl(msg) {
   const wait = msg?.state === "declined" && msg.until ? msg.until - Date.now() : 0;
   ask.disabled = wait > 0;
   if (wait > 0) askTimer = setTimeout(() => { ask.disabled = false; }, Math.min(wait, 60_000));
-  if (controlOn && !el.classList.contains("controlling")) setMenu(false);
+  const changed = controlOn !== el.classList.contains("controlling");
+  if (controlOn && changed) setMenu(false);
   el.classList.toggle("controlling", controlOn);
+  if (changed) bannerPulse();
   const notes = {
     ready: "",
     sent: `Asking ${name}'s phone…`,
