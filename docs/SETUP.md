@@ -29,6 +29,9 @@ free allowance, so expect $0, but Google asks for a card.
    - Turn on **Anonymous** (Mom's phone signs in by itself, without a password).
 2. Left menu → **Build → Firestore Database** → **Create database**.
    - Pick a location near you (for the US, `nam5` or `us-central1`). Start in **production mode**.
+3. Left menu → **Build → Storage** → **Get started** (holds the pictures for picture scam checks).
+   - Keep **production mode**, pick the **same location** as the database, then **Done**.
+   - If it asks to let Storage read the database (for the family-only rules), tap **Allow**.
 
 ## 4. Add the web app (your side)
 

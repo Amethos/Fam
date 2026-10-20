@@ -12,6 +12,7 @@ import {
   setDoc, updateDoc, serverTimestamp, arrayUnion,
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
+import { getStorage, connectStorageEmulator, ref as storageRef, getBlob } from "firebase/storage";
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
@@ -41,14 +42,16 @@ if (!isConfigured && !useEmulators) {
 }
 
 const fbApp = initializeApp(useEmulators
-  ? { apiKey: "demo", projectId: "demo-fam", authDomain: "demo-fam.firebaseapp.com" }
+  ? { apiKey: "demo", projectId: "demo-fam", authDomain: "demo-fam.firebaseapp.com", storageBucket: "demo-fam.appspot.com" }
   : firebaseConfig);
 // Email + password only. initializeAuth (instead of getAuth) skips loading
 // Google's sign-in pop-up code, so the page runs only our own scripts.
 const auth = initializeAuth(fbApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
 const db = getFirestore(fbApp);
 const functions = getFunctions(fbApp);
+const files = getStorage(fbApp);
 if (useEmulators) {
+  connectStorageEmulator(files, "127.0.0.1", 9199);
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);
@@ -62,6 +65,7 @@ const state = {
   help: [],
   scams: [],
   invites: [],
+  phoneSettings: {}, // per parent phone: what the helper switched on (see PHONE_DEFAULTS)
   authMode: "signin",
   storyIndex: 0,
   verdicts: {},
@@ -80,7 +84,7 @@ onAuthStateChanged(auth, (user) => {
   clear(userUnsubs);
   clear(circleUnsubs);
   circleId = null;
-  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [] });
+  Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [], phoneSettings: {} });
   if (user) {
     userUnsubs.push(onSnapshot(doc(db, "users", user.uid), (snap) => {
       state.profile = snap.data() ?? {};
@@ -98,7 +102,7 @@ function watchCircle(id) {
   circleId = id;
   if (!id) {
     // Unlinked (or removed from the family): forget what we were showing.
-    Object.assign(state, { circle: null, help: [], scams: [], invites: [] });
+    Object.assign(state, { circle: null, help: [], scams: [], invites: [], phoneSettings: {} });
     return;
   }
   const base = `circles/${id}`;
@@ -111,6 +115,8 @@ function watchCircle(id) {
       (s) => { state.scams = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
       (s) => { state.invites = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
+    onSnapshot(collection(db, base, "phoneSettings"),
+      (s) => { state.phoneSettings = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); render(); }, fail),
   );
 }
 
@@ -309,11 +315,69 @@ function helpCards() {
   }).join("");
 }
 
+// ---------- Pictures of the parent's screen ----------
+// Loaded only for the family (storage.rules), kept in memory as blob: URLs.
+const pictures = new Map(); // scam check id -> blob URL, "loading" or "gone"
+
+function pictureFor(s) {
+  if (!s.imagePath) return null;
+  if (!pictures.has(s.id)) {
+    pictures.set(s.id, "loading");
+    getBlob(storageRef(files, s.imagePath))
+      .then((blob) => pictures.set(s.id, URL.createObjectURL(blob)))
+      .catch(() => pictures.set(s.id, "gone")) // deleted after 30 days, or not allowed
+      .finally(render);
+  }
+  return pictures.get(s.id);
+}
+
+function pictureHtml(s, { big = false } = {}) {
+  const url = pictureFor(s);
+  if (url === "loading") return `<div class="shot loading" aria-label="Loading the picture"></div>`;
+  if (url === "gone") return `<p class="muted">The picture of the screen was removed after 30 days.</p>`;
+  const img = `<img src="${esc(url)}" alt="${esc(s.parentName)}'s screen">`;
+  return big
+    ? `<button type="button" class="shot${state.zoomed ? " zoomed" : ""}" data-action="zoom" aria-label="${state.zoomed ? "Fit to screen" : "Zoom in"}">${img}</button>`
+    : `<div class="shot thumb">${img}</div>`;
+}
+
+function scamSummary(s, max) {
+  if (!s.text) return s.imagePath ? "Sent a picture of their screen" : "";
+  return s.text.length > max ? `${s.text.slice(0, max)}…` : s.text;
+}
+
 function scamCards() {
   return state.scams.filter((s) => !s.verdict).map((s) => `
     <div ${popAttrs(s.id, "card")}><p class="eyebrow">Scam check</p><h2>${esc(s.parentName)} asks: is this a scam?</h2>
-      <p class="quote">${esc(s.text.slice(0, 160))}${s.text.length > 160 ? "…" : ""}</p>
+      ${s.imagePath ? pictureHtml(s) : ""}
+      ${s.text ? `<p class="quote">${esc(scamSummary(s, 160))}</p>` : ""}
       <a class="button secondary" href="#/scam/${esc(s.id)}">Review and answer</a></div>`).join("");
+}
+
+// ---------- What's on a parent's phone (the parent's app has no settings) ----------
+const PHONE_DEFAULTS = { askTab: false, askTabSide: "right", blurSecrets: true };
+const openSettings = new Set(); // stays open across live updates
+
+function phoneSettingsHtml(p) {
+  const set = { ...PHONE_DEFAULTS, ...state.phoneSettings[p.id] };
+  const name = esc(p.name);
+  const choice = (key, value, label) =>
+    `<button type="button" data-action="phone-setting" data-id="${esc(p.id)}" data-key="${key}" data-value="${value}"
+      aria-pressed="${String(set[key]) === value}" ${state.busy ? "disabled" : ""}>${label}</button>`;
+  return `<details class="phone-settings" data-phone="${esc(p.id)}" ${openSettings.has(p.id) ? "open" : ""}><summary>On ${name}'s phone</summary>
+    <div class="setting"><div class="grow"><strong>Ask button at the edge of the screen</strong>
+      <p class="muted">${name} taps it to send you a picture of their screen when something looks like a scam.</p></div>
+      <div class="choices" role="group" aria-label="Ask button">${choice("askTab", "true", "On")}${choice("askTab", "false", "Off")}</div></div>
+    ${set.askTab ? `<div class="setting"><div class="grow"><strong>Which side</strong></div>
+      <div class="choices" role="group" aria-label="Which side">${choice("askTabSide", "left", "Left")}${choice("askTabSide", "right", "Right")}</div></div>
+      <p class="muted">The first time, ${name}'s phone shows a card to set it up. Do it together on a call: they tap
+        <strong>See what it does</strong>, then <strong>I agree, turn it on</strong>, then turn on My Tech Kid.
+        On Samsung, if the switch is grey, they tap <strong>The switch is grey</strong>, then the three dots, then
+        <strong>Allow restricted settings</strong>. Needs Android 11 or newer.</p>` : ""}
+    <div class="setting"><div class="grow"><strong>Always hide passwords and codes</strong>
+      <p class="muted">Covers password boxes, one-time codes and card numbers before a picture leaves ${name}'s phone.</p></div>
+      <div class="choices" role="group" aria-label="Hide passwords and codes">${choice("blurSecrets", "true", "On")}${choice("blurSecrets", "false", "Off")}</div></div>
+  </details>`;
 }
 
 function memberCards() {
@@ -327,6 +391,7 @@ function memberCards() {
         <p class="muted">${isPast(p.controlAllowedAt)
           ? "Safety wait is over — remote control can be used once it arrives in a My Tech Kid update."
           : `For safety, remote control unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
+        ${phoneSettingsHtml(p)}
         <button class="secondary small" data-action="remove-member" data-id="${esc(p.id)}" data-name="${esc(p.name)}"
           ${state.busy ? "disabled" : ""}>Remove this phone</button></div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
@@ -363,7 +428,7 @@ function viewDashboard() {
   ${answered.length ? `<h2>Recent scam checks</h2>${answered.map((s) => `
     <a class="card" style="text-decoration:none;color:inherit" href="#/scam/${esc(s.id)}">
       <strong>${esc(s.parentName)}: ${esc(VERDICTS[s.verdict])}</strong>
-      <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}
+      <span class="muted">${esc(scamSummary(s, 80))}</span></a>`).join("")}` : ""}
   ${appearance()}`;
 }
 
@@ -457,7 +522,9 @@ function viewScam(id) {
   const s = state.scams.find((x) => x.id === id);
   if (!s) return `${header()}<a href="#/">← Back</a><p class="muted">Loading…</p>`;
   const top = `${header()}<a href="#/">← Back</a><h1>${esc(s.parentName)}'s scam check</h1>
-    <p class="muted">Sent ${esc(timeAgo(s.createdAt))}</p><p class="quote">${esc(s.text)}</p>`;
+    <p class="muted">Sent ${esc(timeAgo(s.createdAt))}</p>
+    ${s.imagePath ? `${pictureHtml(s, { big: true })}<p class="muted">Tap the picture to zoom.</p>` : ""}
+    ${s.text ? `<p class="quote">${esc(s.text)}</p>` : ""}`;
   if (s.verdict) {
     return `${top}<div class="alert ${s.verdict === "safe" ? "green" : "red"}">
       <h2>${esc(s.answeredByName)} answered: ${esc(VERDICTS[s.verdict])}</h2>${s.note ? `<p>${esc(s.note)}</p>` : ""}</div>`;
@@ -533,7 +600,7 @@ function render() {
   if (focused) document.getElementById(focused)?.focus();
 }
 
-window.addEventListener("hashchange", () => { state.error = ""; render(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => { state.error = ""; state.zoomed = false; render(); window.scrollTo(0, 0); });
 
 // ---------- Actions ----------
 
@@ -627,6 +694,14 @@ const actions = {
     render();
   },
   verdict: (el) => { state.verdicts[el.dataset.id] = el.dataset.verdict; render(); },
+  zoom: () => { state.zoomed = !state.zoomed; render(); },
+  "phone-setting": (el) => run(() => {
+    const id = el.dataset.id;
+    const value = el.dataset.key === "askTabSide" ? el.dataset.value : el.dataset.value === "true";
+    return setDoc(doc(db, `circles/${circleId}/phoneSettings/${id}`), {
+      ...PHONE_DEFAULTS, ...state.phoneSettings[id], [el.dataset.key]: value, updatedBy: state.user.uid, updatedAt: serverTimestamp(),
+    });
+  }),
 };
 
 // Read form fields by name (form.name would be the form's own name attribute).
@@ -666,6 +741,12 @@ root.addEventListener("click", (event) => {
     actions[el.dataset.action](el);
   }
 });
+
+root.addEventListener("toggle", (event) => {
+  const id = event.target.dataset?.phone;
+  if (!id) return;
+  if (event.target.open) openSettings.add(id); else openSettings.delete(id);
+}, true);
 
 root.addEventListener("submit", (event) => {
   const form = event.target.closest("form[data-form]");
