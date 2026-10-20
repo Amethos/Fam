@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Beta updates: lets the app hand a newer My Tech Kid to Android's installer (Updater.kt). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Screen sharing (ScreenShareService.kt): only while Mom has tapped "Show my screen". -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- "Ring Mom's phone" (RingService.kt): plays for 30 seconds so she can find it. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".TechKidApp"
@@ -52,6 +58,26 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".ScreenShareService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- Tapping for Mom (RemoteControlService.kt): Android's accessibility switch.
+             Acts only on her helper's taps during a screen share she started and said yes to. -->
+        <service
+            android:name=".RemoteControlService"
+            android:exported="true"
+            android:label="@string/control_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/remote_control" />
+        </service>
+
         <!-- The ask button at the edge of the screen (ask/AskService.kt). Only the
              phone's owner can turn it on, in Android's Accessibility settings,
              after an Agree tap in the app. It takes a picture only when tapped. -->
@@ -67,6 +93,11 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/ask_service" />
         </service>
+
+        <service
+            android:name=".RingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Shares only the downloaded update with Android's installer. -->
         <provider

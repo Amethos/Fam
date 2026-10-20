@@ -34,6 +34,28 @@ phone, before Mom tries it on her own.
 
 - **Help button:** Mom taps **Get help from *you***. You should get an alert. Tap **I'm on it**:
   Mom's screen says you're coming and she gets a notification. When done, tap **All fixed**.
+- **See Mom's screen:** after you tap **I'm on it**, Mom taps **Show *you* my screen**, then **Start now** on
+  Android's prompt. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a
+  big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
+  **Stop** ends it on both phones.
+- **Tap for Mom:** while you watch, tap **Ask to tap for Mom**.
+  - The first time, her phone needs a one-time switch. Your page tells you; on her phone she opens My Tech Kid
+    and taps **Agree and turn it on**. Android's Accessibility page opens: tap **Installed apps** (Samsung) →
+    **My Tech Kid: let family tap for me** → turn it on → **Allow**.
+  - If it says **Restricted setting**: open **Settings → Apps → My Tech Kid**, tap **⋮** (top right) →
+    **Allow restricted settings**, confirm, then go back and turn the switch on. (Only for apps installed from a
+    link; it goes away once we're on Google Play.)
+  - Her phone then asks **"*You* wants to tap on your phone for you"**. She taps **Yes**. A dark bar with your
+    name and **Stop** stays at the top of her screen.
+  - On your phone, tap, press and hold, or swipe on her screen; use **Back**, **Home**, **Apps** and **Alerts**
+    below it. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
+  - **Stop** on her bar, in her notification, in her app, or on your page ends seeing and tapping at once.
+  - Keep her phone upright for now: turning it sideways may put your taps in the wrong spot.
+- **Ring Mom's phone:** put Mom's phone on silent somewhere nearby. On your dashboard, tap **Ring Mom's phone**.
+  It should play loudly for 30 seconds and say *you* are ringing it. Mom taps **Found it** (on the screen or in the
+  notification) to stop it. Her normal volume should come back afterwards.
+- **Phone type:** Mom's card on your dashboard should show her phone (for example "Samsung SM-S911U · Android 14")
+  and say she can show you her screen from the app.
 - **Scam check (typed):** Mom taps **Is this a scam?**, types or pastes a message, taps **Send**.
   You get an alert → **Answer** → pick Scam / Not sure / Safe, add a note → **Send to Mom**.
   Mom sees your answer.
@@ -77,8 +99,8 @@ Phones with a version from before this feature need one last manual install from
 
 ## What's not in this version yet
 
-Seeing Mom's screen, talking in the app, and remote control come in stages 2 and 3.
-For now, "I'm on it" means you give her a regular phone call.
+Talking in the app and drawing arrows on her screen come later. For now, talk on a regular phone call
+while you see and tap her screen. There's no relay server yet, so some strict work or hotel Wi-Fi may not connect.
 
 ## Report back
 

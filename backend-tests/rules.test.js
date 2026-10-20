@@ -57,6 +57,23 @@ test("users can only set their name, alert tokens and platform", async () => {
   await assertFails(setDoc(doc(db("mom"), "users/mom"), { displayName: "x".repeat(61) }, { merge: true }));
 });
 
+test("a phone can say what kind of phone it is, and nothing else rides along", async () => {
+  const set = (device) => setDoc(doc(db("mom"), "users/mom"), { device }, { merge: true });
+  await assertSucceeds(set({ platform: "android", model: "Samsung SM-S911U", osVersion: 14 }));
+  await assertSucceeds(set({ platform: "ios", osVersion: 18 }));
+  await assertSucceeds(setDoc(doc(db("newhelper"), "users/newhelper"), { device: { platform: "computer" } }));
+  // A brand-new phone, so nothing already saved fills in the gaps.
+  const fresh = (device) => setDoc(doc(db("fresh"), "users/fresh"), { device });
+  await assertFails(fresh({ platform: "toaster" }));
+  await assertFails(fresh({ model: "No platform" }));
+  await assertFails(fresh({ platform: "android", circleId: "c2" }));
+  await assertFails(fresh({ platform: "android", model: "x".repeat(61) }));
+  await assertFails(fresh({ platform: "android", osVersion: "14" }));
+  await assertFails(fresh("android"));
+  await assertFails(set({ platform: "toaster" }));
+  await assertFails(setDoc(doc(db("stranger"), "users/mom"), { device: { platform: "android" } }, { merge: true }));
+});
+
 test("invites are readable only by helpers and the phone that claimed them", async () => {
   await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/invites/i1")));
   await assertSucceeds(getDoc(doc(db("newphone"), "circles/c1/invites/i1")));
@@ -222,4 +239,16 @@ test("connection messages flow only between the two people on a live share", asy
   await assertFails(addDoc(signals("mom", "over"), signal("mom")));
   await assertSucceeds(getDoc(doc(db("josh"), "circles/c1/screenShares/live/signals/x")));
   await assertFails(getDoc(doc(db("amy"), "circles/c1/screenShares/live/signals/x")));
+});
+
+test("only a helper can ring a parent's phone, in their own name", async () => {
+  const ring = (uid, extra = {}) => addDoc(collection(db(uid), "circles/c1/rings"),
+    { parentId: "mom", helperId: uid, helperName: "Josh", createdAt: serverTimestamp(), ...extra });
+  await assertSucceeds(ring("josh"));
+  await assertFails(ring("mom"));
+  await assertFails(ring("stranger"));
+  await assertFails(ring("josh", { parentId: "someone-else" }));
+  await assertFails(ring("josh", { helperId: "mom" }));
+  await assertFails(ring("josh", { loud: "forever" }));
+  await assertFails(ring("josh", { helperName: "x".repeat(61) }));
 });

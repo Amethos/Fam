@@ -45,6 +45,7 @@ jobs:
       - run: npm ci
       - name: No known vulnerabilities in shipped code
         run: npm audit --omit=dev --audit-level=high
+      - run: npm test
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:

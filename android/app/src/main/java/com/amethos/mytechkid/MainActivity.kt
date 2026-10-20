@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.provider.Settings
 import android.os.Bundle
@@ -37,6 +38,12 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
         },
     )
+    // Android's own "Start sharing?" prompt. Mom must say yes every time.
+    private val askToShareScreen =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val data = result.data
+            if (result.resultCode == RESULT_OK && data != null) vm.startScreenShare(this, data)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,10 +52,19 @@ class MainActivity : ComponentActivity() {
         if (vm.introSeen()) askForNotificationsIfNeeded()
         setContent {
             TechKidTheme {
-                TechKidScreens(vm, phoneActions, onIntroDone = {
-                    askForNotificationsIfNeeded()
-                    vm.finishIntro()
-                })
+                TechKidScreens(
+                    vm,
+                    phoneActions,
+                    onIntroDone = {
+                        askForNotificationsIfNeeded()
+                        vm.finishIntro()
+                    },
+                    onShowScreen = {
+                        val projection = getSystemService(MediaProjectionManager::class.java)
+                        askToShareScreen.launch(projection.createScreenCaptureIntent())
+                    },
+                    onStopScreen = { ScreenShareService.stop(this) },
+                )
             }
         }
     }
