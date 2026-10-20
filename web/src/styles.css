@@ -283,26 +283,58 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
   }
 }
 
-/* Watching Mom's screen (watch.js): full screen, above everything else. */
-#watch { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column;
-  gap: 12px; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+/* Watching Mom's screen (watch.js): full screen, above everything else, and
+   always dark so her screen stands out. Her picture fills the space it has;
+   one dock at the bottom says what's happening and holds Tap and Stop. */
+#watch {
+  --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
+  --fg: #EEF2F8; --muted: #B3BFD0; --red: #E5484D; --green: #3FB27F;
+  position: fixed; inset: 0; z-index: 50; background: var(--bg); color: var(--fg); display: flex; flex-direction: column;
+  gap: 10px; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
 #watch[hidden] { display: none; }
-#watch .watch-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#watch .watch-title { font-size: 1.125rem; }
-#watch video { flex: 1; min-height: 0; width: 100%; object-fit: contain; background: #000; border-radius: 16px; }
-#watch video[hidden] { display: none; }
-#watch .watch-note { margin: 0; text-align: center; }
-#watch .watch-note:empty { display: none; }
 body.watching { overflow: hidden; }
+#watch .watch-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* The video hugs her picture (no black bars), as big as fits. */
+#watch video { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; width: auto; height: auto;
+  border-radius: 18px; background: #000; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45); }
+#watch video[hidden] { display: none; }
+#watch .watch-note { margin: 0; padding: 0 12px; text-align: center; font-size: 1.125rem; font-weight: 600; color: var(--muted); }
+#watch .watch-note:empty { display: none; }
 #watch .watch-control { display: flex; flex-direction: column; gap: 8px; }
-#watch .watch-control[hidden], #watch .watch-keys[hidden], #watch [data-watch-ask][hidden], #watch .watch-back[hidden] { display: none; }
-#watch .watch-control-note { margin: 0; text-align: center; }
+#watch .watch-control[hidden], #watch .watch-keys[hidden], #watch [data-watch-ask][hidden], #watch .watch-back[hidden],
+#watch [data-watch-stop][hidden] { display: none; }
+#watch .watch-control-note { margin: 0; text-align: center; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
 #watch .watch-control-note:empty { display: none; }
-#watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#watch .watch-keys button { padding: 0 6px; gap: 4px; border-radius: 12px; font-size: 0.8125rem; font-weight: 700; }
+
+/* The dock */
+#watch .watch-bar { display: flex; align-items: center; gap: 8px; min-height: 72px; box-sizing: border-box;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 10px 10px 10px 16px; }
+#watch .watch-status { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#watch .watch-title { font-size: 1rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+#watch .watch-state { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#watch .watch-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+#watch .watch-live, #watch .watch-tapping { display: none; }
+#watch.live .watch-state { color: var(--green); }
+#watch.live .watch-connecting { display: none; }
+#watch.live .watch-live { display: inline; }
+#watch.live .watch-dot { animation: watch-pulse 1.8s ease-out infinite; }
+#watch.controlling .watch-state { color: var(--amber); }
+#watch.controlling .watch-live, #watch.controlling .watch-connecting { display: none; }
+#watch.controlling .watch-tapping { display: inline; }
+#watch .watch-bar button, #watch .watch-bar .button, #watch .watch-on { gap: 6px; padding: 0 14px; border-radius: 15px; font-size: 1rem; font-weight: 800; }
+#watch [data-watch-ask].locked { background: var(--surface-2); color: var(--muted); }
+#watch .watch-on { display: none; align-items: center; min-height: 50px; background: var(--amber); color: var(--navy); }
+#watch.controlling .watch-on { display: inline-flex; }
+@keyframes watch-pulse { from { box-shadow: 0 0 0 0 currentColor; } to { box-shadow: 0 0 0 7px transparent; } }
+
 #watch .watch-ripple { position: fixed; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
   background: var(--amber); opacity: 0.7; pointer-events: none; animation: watch-ripple 450ms ease-out forwards; }
 @keyframes watch-ripple { to { transform: scale(1.8); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { #watch .watch-ripple { animation: none; } }
-/* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
+@media (prefers-reduced-motion: reduce) { #watch .watch-ripple, #watch.live .watch-dot { animation: none; } }
+/* While tapping for Mom, the video takes every touch (no scrolling, zooming or
+   callouts) and glows amber so it's clear taps reach her phone. */
 #watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  outline: 3px solid var(--amber); }
+  outline: 3px solid var(--amber); outline-offset: 3px; box-shadow: 0 0 36px rgba(242, 179, 61, 0.35); }

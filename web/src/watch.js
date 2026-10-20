@@ -60,22 +60,31 @@ function show(name, message, { video = false } = {}) {
   el.hidden = false;
   document.body.classList.add("watching");
   if (!el.querySelector("video")) {
+    const icon = (d) => `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     el.innerHTML = `
-      <div class="watch-bar"><strong class="watch-title"></strong>
-        <button class="danger small" data-watch-stop>Stop</button></div>
-      <video autoplay playsinline muted></video>
-      <p class="watch-note"></p>
+      <div class="watch-stage">
+        <video autoplay playsinline muted></video>
+        <p class="watch-note"></p>
+      </div>
       <div class="watch-control" hidden>
-        <p class="watch-control-note muted" role="status"></p>
-        <button data-watch-ask>Ask to tap for them</button>
+        <p class="watch-control-note" role="status"></p>
         <div class="watch-keys" hidden>
-          <button class="secondary small" data-key="back">Back</button>
-          <button class="secondary small" data-key="home">Home</button>
-          <button class="secondary small" data-key="recents">Apps</button>
-          <button class="secondary small" data-key="notifications">Alerts</button>
+          <button class="secondary small" data-key="back">${icon('<path d="M15 6l-6 6 6 6"/>')}Back</button>
+          <button class="secondary small" data-key="home">${icon('<circle cx="12" cy="12" r="7"/>')}Home</button>
+          <button class="secondary small" data-key="recents">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>')}Apps</button>
+          <button class="secondary small" data-key="notifications">${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Alerts</button>
         </div>
       </div>
-      <a class="button secondary watch-back" href="#/">Back to dashboard</a>`;
+      <div class="watch-bar">
+        <div class="watch-status">
+          <span class="watch-state"><span class="watch-dot"></span><span class="watch-connecting">Connecting</span><span class="watch-live">Live</span><span class="watch-tapping">You're tapping</span></span>
+          <strong class="watch-title"></strong>
+        </div>
+        <button data-watch-ask>${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}<span class="watch-ask-label"></span></button>
+        <span class="watch-on" aria-hidden="true">${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}On</span>
+        <button class="danger" data-watch-stop><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg>Stop</button>
+        <a class="button secondary watch-back" href="#/">Done</a>
+      </div>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
       send({ t: "ask" });
@@ -87,6 +96,7 @@ function show(name, message, { video = false } = {}) {
   el.querySelector(".watch-title").textContent = `${name}'s screen`;
   el.querySelector(".watch-note").innerHTML = message ? esc(message) : "";
   el.querySelector("video").hidden = !video;
+  el.classList.toggle("live", video);
   // While watching, Stop is the only way out (it ends the share on Mom's phone too).
   el.querySelector("[data-watch-stop]").hidden = !session;
   el.querySelector(".watch-back").hidden = !!session;
@@ -241,7 +251,9 @@ function setControl(msg) {
   box.hidden = !msg;
   keys.hidden = !controlOn;
   ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
-  ask.textContent = `Ask to tap for ${name}`;
+  ask.querySelector(".watch-ask-label").textContent = "Ask to tap";
+  ask.setAttribute("aria-label", `Ask to tap for ${name}`);
+  ask.classList.toggle("locked", msg?.state === "waiting");
   // Just said no: asking again works after a short pause, so wait it out here.
   clearTimeout(askTimer);
   const wait = msg?.state === "declined" && msg.until ? msg.until - Date.now() : 0;
