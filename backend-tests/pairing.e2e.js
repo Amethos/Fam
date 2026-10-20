@@ -103,6 +103,24 @@ assert.equal((await bob.call("confirmInvite", { circleId, inviteId: halfDone.inv
 await rejects(josh.call("confirmInvite", { circleId, inviteId: halfDone.inviteId, match: true }), /isn't waiting/);
 assert.ok(!(await getDoc(doc(josh.db, `circles/${circleId}`))).data().parentIds.includes(bob.auth.currentUser.uid));
 
+// Relay passes for a screen share: only the two people on it, only while it's open.
+{
+  const { addDoc, collection, serverTimestamp, updateDoc } = await import("firebase/firestore");
+  const share = await addDoc(collection(mom.db, `circles/${circleId}/screenShares`),
+    { parentId: mom.auth.currentUser.uid, parentName: "Mom", status: "waiting", createdAt: serverTimestamp() });
+  const ask = (who) => who.call("shareIceServers", { circleId, shareId: share.id });
+  const servers = (await ask(mom)).iceServers;
+  assert.ok(servers.length && servers.every((s) => s.urls.length), "Mom gets addresses while waiting");
+  await rejects(ask(josh), /isn't open/); // not joined yet
+  await rejects(ask(scammer), /isn't open/);
+  await rejects(scammer.call("shareIceServers", { circleId: "../x", shareId: share.id }), /Missing share/);
+  await updateDoc(doc(josh.db, share.path), { status: "live", helperId: josh.auth.currentUser.uid, helperName: "Josh", startedAt: serverTimestamp() });
+  assert.ok((await ask(josh)).iceServers.length, "the joined helper gets them too");
+  await updateDoc(doc(josh.db, share.path), { status: "ended", endedBy: josh.auth.currentUser.uid, endedAt: serverTimestamp() });
+  await rejects(ask(mom), /isn't open/);
+  await rejects(ask(josh), /isn't open/);
+}
+
 // Only helpers can invite.
 await rejects(mom.call("createInvite", { circleId, forName: "Stranger" }), /Only helpers/);
 

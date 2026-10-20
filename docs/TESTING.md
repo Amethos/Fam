@@ -18,6 +18,9 @@ phone, before Mom tries it on her own.
 
 1. In My Tech Kid, tap **Add Mom or Dad**, type what you call her (e.g. "Mom"), tap **Create invite link**.
 2. Tap **Share link** and send it to Mom by text message. Stay on that screen.
+   - Together in person? Tap **With Mom now? Show a code to scan** instead. On Mom's phone, open the
+     **Camera**, point it at the code and tap the link that pops up. Then carry on from step 3 (where the
+     steps say "the link", scan the code again).
 3. On Mom's phone: tap the link → **Download My Tech Kid** → open the download → **Install**.
    - Samsung may ask to allow Chrome or Samsung Internet to **install unknown apps**: allow it.
    - Samsung may warn the app is unknown (because it's not from the Play Store): choose **Install anyway**.

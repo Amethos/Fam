@@ -41,7 +41,7 @@ rules or pairing change needs a test in `backend-tests/`.
 - **Pairing from far away:** helper texts a single-use link (expires in 1 hour)
   → parent's phone shows "<helper> wants to help — only continue if this is
   family" → both phones show the same 3 pictures → on a phone call both tap
-  "They match" → linked. A QR code option for in-person setup is planned.
+  "They match" → linked. For in-person setup the helper can show the link as a QR code (`web/src/qr.js`) that the parent scans with the camera; the picture check still applies.
 - **A linked phone can't be moved** to another circle by a new invite
   (`requireUnlinked` in `functions/index.js`). Adding more helpers later must
   require approval from an existing helper, never the parent alone.
@@ -67,7 +67,7 @@ rules or pairing change needs a test in `backend-tests/`.
 ## Layout
 
 - `functions/` — Firebase Cloud Functions (Node 22): `createCircle`,
-  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`, and push
+  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`, `shareIceServers` (relay passes for screen sharing), and push
   notification triggers. Unit tests: `npm test` (pure helpers in `pairing.js`).
 - `backend-tests/` — `npm test` checks `firestore.rules`; `npm run e2e` runs the
   whole pairing flow against local emulators (in the Claude container, unset the
