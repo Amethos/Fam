@@ -41,7 +41,7 @@ phone, before Mom tries it on her own.
   Android's prompt. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a
   big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
   **Stop** ends it on both phones.
-- **Tap for Mom:** while you watch, tap **Ask to tap for Mom**.
+- **Tap for Mom:** while you watch, tap the menu button (top right), then **Ask to tap**.
   - The first time, her phone needs a one-time switch. Your page tells you; on her phone she opens My Tech Kid
     and taps **Agree and turn it on**. Android opens its Accessibility list: on a Samsung tap **Installed apps**
     (other phones: **Downloaded apps**), then **My Tech Kid: let family tap for me**, turn it on → **Allow**.

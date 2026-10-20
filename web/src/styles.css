@@ -283,26 +283,109 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
   }
 }
 
-/* Watching Mom's screen (watch.js): full screen, above everything else. */
-#watch { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column;
-  gap: 12px; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
-#watch[hidden] { display: none; }
-#watch .watch-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#watch .watch-title { font-size: 1.125rem; }
-#watch video { flex: 1; min-height: 0; width: 100%; object-fit: contain; background: #000; border-radius: 16px; }
-#watch video[hidden] { display: none; }
-#watch .watch-note { margin: 0; text-align: center; }
-#watch .watch-note:empty { display: none; }
+/* Watching Mom's screen (watch.js): her screen fills the helper's, edge to
+   edge, with a floating back button, a banner saying whose screen this is,
+   and a pop-out menu for everything else. Always dark. */
+#watch {
+  --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
+  --fg: #EEF2F8; --muted: #B3BFD0; --red: #E5484D; --green: #3FB27F;
+  --glass: rgba(14, 23, 38, 0.6);
+  position: fixed; inset: 0; z-index: 50; background: #000; color: var(--fg); overflow: hidden; }
+#watch[hidden], #watch [hidden] { display: none !important; }
 body.watching { overflow: hidden; }
-#watch .watch-control { display: flex; flex-direction: column; gap: 8px; }
-#watch .watch-control[hidden], #watch .watch-keys[hidden], #watch [data-watch-ask][hidden], #watch .watch-back[hidden] { display: none; }
-#watch .watch-control-note { margin: 0; text-align: center; }
+#watch .watch-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+/* Fills the screen; her picture keeps its shape (gesture.js maps taps
+   through any thin bars left over). */
+#watch video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+#watch .watch-note { margin: 0; padding: 0 24px; text-align: center; font-size: 1.125rem; font-weight: 600; color: var(--muted); }
+#watch .watch-note:empty { display: none; }
+
+/* Floating glass controls */
+#watch .watch-float, #watch .watch-banner, #watch .watch-menu, #watch .watch-toast {
+  background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); color: #FFFFFF; }
+#watch .watch-top { position: absolute; z-index: 3; left: 0; right: 0; top: max(12px, env(safe-area-inset-top));
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; padding: 0 14px; pointer-events: none; }
+#watch .watch-top > * { pointer-events: auto; }
+#watch .watch-float { position: relative; flex: none; width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+#watch .watch-top .watch-banner { justify-self: center; max-width: 100%; }
+#watch .watch-menu-btn { grid-column: 3; }
+#watch .watch-menu-btn .watch-dot { position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border: 2px solid var(--bg); }
+#watch.menu-open .watch-menu-btn { background: var(--fg); color: var(--bg); }
+#watch .watch-banner { min-width: 0; height: 36px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+  border-radius: 999px; font-size: 0.8125rem; font-weight: 800; white-space: nowrap; overflow: hidden; }
+#watch .watch-banner > span:not(.watch-dot) { overflow: hidden; text-overflow: ellipsis; }
+#watch .watch-banner { cursor: pointer; transition: height 0.25s ease, padding 0.25s ease, font-size 0.25s ease; }
+#watch .watch-short { display: none; }
+/* After a few seconds the banner shrinks to a small pill with just the name. */
+#watch .watch-banner.compact { height: 26px; padding: 0 10px; gap: 6px; font-size: 0.75rem; }
+#watch .watch-banner.compact > span:not(.watch-dot):not(.watch-short) { display: none; }
+#watch .watch-banner.compact .watch-short { display: inline; }
+#watch .watch-menu-btn { touch-action: none; }
+#watch .watch-menu-btn.dragging { transform: scale(1.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+
+/* Status: Connecting / Live / You're tapping, in the banner and the menu */
+#watch .watch-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+#watch .watch-live, #watch .watch-tapping { display: none; }
+#watch.live .watch-connecting { display: none; }
+#watch.live .watch-live { display: inline; }
+#watch.live .watch-dot { background: var(--green); }
+#watch.live .watch-banner .watch-dot { animation: watch-pulse 1.8s ease-out infinite; color: var(--green); }
+#watch.controlling .watch-live, #watch.controlling .watch-connecting { display: none; }
+#watch.controlling .watch-tapping { display: inline; }
+#watch .watch-pointing { display: none; }
+#watch.controlling.pointing .watch-tapping { display: none; }
+#watch.controlling.pointing .watch-pointing { display: inline; }
+#watch.controlling .watch-dot { background: var(--amber); }
+#watch.controlling .watch-banner { background: var(--amber); color: var(--navy); border-color: var(--amber); }
+#watch.controlling .watch-banner .watch-dot { background: var(--navy); animation: none; }
+@keyframes watch-pulse { from { box-shadow: 0 0 0 0 currentColor; } to { box-shadow: 0 0 0 7px transparent; } }
+
+/* The pop-out menu */
+#watch .watch-scrim { position: absolute; z-index: 2; inset: 0; background: rgba(0, 0, 0, 0.35); }
+#watch .watch-menu { position: absolute; z-index: 3; right: 14px; top: calc(max(12px, env(safe-area-inset-top)) + 58px);
+  width: min(300px, calc(100% - 28px)); box-sizing: border-box; padding: 16px; border-radius: 26px;
+  background: rgba(14, 23, 38, 0.85); display: flex; flex-direction: column; gap: 12px; transform-origin: top right;
+  animation: watch-menu-in 180ms ease-out; }
+@keyframes watch-menu-in { from { opacity: 0; transform: scale(0.92); } }
+#watch .watch-status { display: flex; flex-direction: column; gap: 2px; }
+#watch .watch-state { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#watch.live .watch-state { color: var(--green); }
+#watch.controlling .watch-state { color: var(--amber); }
+#watch .watch-title { font-size: 1.125rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+#watch .watch-control { display: flex; flex-direction: column; gap: 10px; }
+#watch .watch-control-note { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
 #watch .watch-control-note:empty { display: none; }
-#watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-#watch .watch-ripple { position: fixed; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+#watch .watch-menu button { gap: 8px; border-radius: 16px; font-size: 1rem; font-weight: 800; }
+#watch [data-watch-ask].locked { background: rgba(255, 255, 255, 0.1); color: var(--muted); }
+#watch .watch-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#watch .watch-menu .watch-keys button { flex-direction: column; gap: 4px; min-height: 62px; padding: 0 4px;
+  background: rgba(255, 255, 255, 0.1); color: #FFFFFF; font-size: 0.75rem; font-weight: 700; }
+/* "Show Mom where": only while tapping is on. */
+#watch:not(.controlling) [data-watch-point] { display: none; }
+#watch .watch-menu [data-watch-point] { background: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
+#watch .watch-menu [data-watch-point][aria-pressed="true"] { background: var(--amber); color: var(--navy); box-shadow: none; }
+/* Each press flashes amber, so it's clear it was sent. */
+#watch .watch-keys button.pressed { animation: watch-pressed 500ms ease-out; }
+@keyframes watch-pressed { from { background: var(--amber); color: var(--navy); transform: scale(0.94); } }
+
+/* Short notes (e.g. a tap that didn't go through) while the menu is closed */
+#watch .watch-toast { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%);
+  bottom: max(20px, env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 28px); box-sizing: border-box;
+  margin: 0; padding: 10px 16px; border-radius: 18px; text-align: center; font-size: 0.875rem; font-weight: 600; }
+#watch.menu-open .watch-toast { display: none; }
+
+#watch .watch-ripple { position: fixed; z-index: 1; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
   background: var(--amber); opacity: 0.7; pointer-events: none; animation: watch-ripple 450ms ease-out forwards; }
 @keyframes watch-ripple { to { transform: scale(1.8); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { #watch .watch-ripple { animation: none; } }
-/* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
-#watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  outline: 3px solid var(--amber); }
+@media (prefers-reduced-motion: reduce) {
+  #watch .watch-ripple, #watch.live .watch-banner .watch-dot, #watch .watch-menu { animation: none; }
+  #watch .watch-banner { transition: none; }
+}
+/* While tapping, her screen takes every touch (no scrolling, zooming or
+   callouts) and an amber glow runs round the edge so it's clear taps reach her phone. */
+#watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#watch.controlling .watch-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 4px var(--amber), inset 0 0 40px rgba(242, 179, 61, 0.35); }
