@@ -306,3 +306,22 @@ body.watching { overflow: hidden; }
 /* While tapping for Mom, the video takes every touch (no scrolling, zooming or callouts). */
 #watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   outline: 3px solid var(--amber); }
+/* ---------- Pictures of the parent's screen ---------- */
+.shot { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--bg); min-height: 0; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot.thumb { max-height: 220px; }
+.shot.thumb img { object-fit: cover; object-position: top; max-height: 220px; }
+.shot.loading { height: 180px; }
+button.shot { cursor: zoom-in; color: inherit; }
+button.shot.zoomed { overflow: auto; max-height: 80vh; cursor: zoom-out; }
+button.shot.zoomed img { width: 200%; max-width: none; }
+
+/* ---------- Switches for a parent's phone ---------- */
+.phone-settings { border-top: 1px solid var(--line); padding-top: 10px; }
+.phone-settings summary { font-weight: 700; cursor: pointer; }
+.phone-settings[open] { display: flex; flex-direction: column; gap: 12px; }
+.setting { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.setting .grow { flex: 1; min-width: 12rem; }
+.choices { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 4px; }
+.choices button { min-height: 36px; padding: 0 14px; border-radius: 999px; background: transparent; color: var(--fg); font-weight: 600; font-size: 0.9375rem; box-shadow: none; }
+.choices button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.18); }

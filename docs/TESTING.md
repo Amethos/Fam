@@ -68,6 +68,21 @@ phone, before Mom tries it on her own.
   You get an alert → **Answer** → pick Scam / Not sure / Safe, add a note → **Send to Mom**.
   Mom sees your answer.
 - **Scam check (shared):** In Samsung Messages, Mom presses and holds a text → **Share** → **My Tech Kid**.
+- **Scam check (screenshot):** Mom takes a screenshot, taps **Share** on the little preview → **My Tech Kid** →
+  **Send to *you***. Or: **Is this a scam?** → **Send a picture instead** → pick the screenshot.
+  You see the picture full size; tap it to zoom.
+- **Ask button at the edge of the screen** (Android 11 or newer), best done on a call:
+  1. On your dashboard, under Mom → **On Mom's phone** → Ask button **On**, pick Left or Right.
+  2. Mom opens My Tech Kid: a card says you set up a new button. She taps **See what it does**, reads it with you,
+     then **I agree, turn it on**.
+  3. Android opens a settings page. She turns on **My Tech Kid ask button**, then **Allow**.
+     If the switch is grey (Samsung does this for apps installed from a link): go back, tap **The switch is grey**,
+     tap **⋮** at the top right → **Allow restricted settings**, confirm, then go back and tap **I agree, turn it on** again.
+  4. A small navy tab with your initial appears at the screen edge in every app (not inside My Tech Kid).
+     It fades after a few seconds. Open a text with a code in it, tap the tab → My Tech Kid shows the picture
+     with the code covered and asks **Send to *you*?** → **Send**.
+  5. Try **Off** on your dashboard: the tab disappears from Mom's phone right away.
+  6. Try **Always hide passwords and codes** Off, then On, and compare the pictures you get.
 
 ## Updating Mom's app
 

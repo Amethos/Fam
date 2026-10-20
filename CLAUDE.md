@@ -75,8 +75,13 @@ rules or pairing change needs a test in `backend-tests/`.
 - `firestore.rules` — who can read/write what. Data model:
   `users/{uid}` (displayName, role, circleId, fcmTokens, device),
   `circles/{cid}` (name, helperIds, parentIds, members map; `members.<uid>.device` is copied from the user doc by `onUserDevice` so helpers know whether to use in-app sharing or FaceTime),
-  `circles/{cid}/invites`, `/helpRequests`, `/scamChecks`, `/rings` (helper rings a parent's phone), `/screenShares` (+ `/signals`;
+  `circles/{cid}/invites`, `/helpRequests`, `/scamChecks` (text and/or `imagePath`), `/rings` (helper rings a parent's phone),
+  `/phoneSettings/{parentUid}` (helper-set switches: ask button, side, hide secrets), `/screenShares` (+ `/signals`;
   stage 2, see `docs/STAGE2.md`).
+- `storage.rules` — pictures of the parent's screen (`circles/{cid}/scamShots/{uid}/{checkId}.jpg`):
+  only the parent's phone adds, only helpers (and the sender) read, deleted after 30 days (`cleanupScamShots`).
+- `android/.../ask/` — the ask button: an AccessibilityService that shows a small tab at the screen
+  edge and, only when tapped, takes a screenshot with passwords/codes covered (`Secrets.kt`).
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.
   Config in `web/src/config.js`. All person-supplied text goes through `esc()`.
 - `android/` — parent app, Kotlin + Jetpack Compose, package `com.amethos.mytechkid`.

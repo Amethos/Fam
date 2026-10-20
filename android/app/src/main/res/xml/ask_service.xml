@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ask button (ask/AskService.kt). It listens only for which app is in
+     front (to hide over My Tech Kid itself), and reads the screen only at the
+     moment the button is tapped: to take the picture and cover up passwords
+     and codes. Not marked as an accessibility tool (see
+     plans/app-store-compliance.md). -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/ask_service_description"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:notificationTimeout="300" />

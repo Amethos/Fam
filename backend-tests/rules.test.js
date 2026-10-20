@@ -128,6 +128,38 @@ test("only the parent sends scam checks, unanswered", async () => {
   await assertFails(addDoc(collection(db("josh"), "circles/c1/scamChecks"), scam({ parentId: "josh" })));
 });
 
+test("a scam check can carry a picture, but only its own picture", async () => {
+  const mom = db("mom");
+  const ref = doc(collection(mom, "circles/c1/scamChecks"));
+  const own = `circles/c1/scamShots/mom/${ref.id}.jpg`;
+  // A picture alone is enough; no text needed.
+  await assertSucceeds(setDoc(ref, scam({ text: "", imagePath: own })));
+  const other = doc(collection(mom, "circles/c1/scamChecks"));
+  // Pointing at someone else's picture, another family, or another check is refused.
+  await assertFails(setDoc(other, scam({ text: "", imagePath: `circles/c1/scamShots/josh/${other.id}.jpg` })));
+  await assertFails(setDoc(other, scam({ text: "", imagePath: `circles/c2/scamShots/mom/${other.id}.jpg` })));
+  await assertFails(setDoc(other, scam({ text: "", imagePath: own })));
+  await assertFails(setDoc(other, scam({ imagePath: 42 })));
+  // Without a picture, text is still required.
+  await assertFails(setDoc(other, scam({ text: "" })));
+});
+
+const settings = (uid, extra = {}) => ({ askTab: true, askTabSide: "right", blurSecrets: true, updatedBy: uid, updatedAt: serverTimestamp(), ...extra });
+
+test("only helpers set what's on a parent's phone; the parent can read it", async () => {
+  await assertSucceeds(setDoc(doc(db("josh"), "circles/c1/phoneSettings/mom"), settings("josh")));
+  await assertSucceeds(getDoc(doc(db("mom"), "circles/c1/phoneSettings/mom")));
+  await assertFails(getDoc(doc(db("stranger"), "circles/c1/phoneSettings/mom")));
+  // The parent's app has no settings: it can't change them, even to turn hiding off.
+  await assertFails(setDoc(doc(db("mom"), "circles/c1/phoneSettings/mom"), settings("mom", { blurSecrets: false })));
+  await assertFails(setDoc(doc(db("stranger"), "circles/c1/phoneSettings/mom"), settings("stranger")));
+  // Only for a parent's phone in this family, with known switches.
+  await assertFails(setDoc(doc(db("josh"), "circles/c1/phoneSettings/someone"), settings("josh")));
+  await assertFails(setDoc(doc(db("josh"), "circles/c1/phoneSettings/mom"), settings("josh", { askTabSide: "top" })));
+  await assertFails(setDoc(doc(db("josh"), "circles/c1/phoneSettings/mom"), settings("josh", { watchAlways: true })));
+  await assertFails(setDoc(doc(db("josh"), "circles/c1/phoneSettings/mom"), settings("mom")));
+});
+
 test("only a helper answers a scam check, once", async () => {
   await assertFails(updateDoc(doc(db("mom"), "circles/c1/scamChecks/s1"), answer("mom", { verdict: "safe" })));
   await assertFails(updateDoc(doc(db("stranger"), "circles/c1/scamChecks/s1"), answer("stranger", { verdict: "safe" })));

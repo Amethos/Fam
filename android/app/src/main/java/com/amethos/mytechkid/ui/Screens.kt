@@ -11,6 +11,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +51,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -59,7 +65,8 @@ import androidx.compose.ui.unit.sp
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
-import androidx.compose.ui.platform.LocalContext
+import com.amethos.mytechkid.ask.Pictures
+import android.graphics.BitmapFactory
 import com.amethos.mytechkid.RingService
 import com.amethos.mytechkid.RingState
 import com.amethos.mytechkid.RemoteControlService
@@ -96,9 +103,17 @@ fun TechKidTheme(content: @Composable () -> Unit) {
     )
 }
 
+/** Things only the activity can do: open Android's photo picker and settings pages. */
+class PhoneActions(
+    val pickPicture: () -> Unit,
+    val openAccessibility: () -> Unit,
+    val openAppInfo: () -> Unit,
+)
+
 @Composable
 fun TechKidScreens(
     vm: TechKidViewModel,
+    actions: PhoneActions,
     onIntroDone: () -> Unit,
     onShowScreen: () -> Unit = {},
     onStopScreen: () -> Unit = {},
@@ -120,7 +135,9 @@ fun TechKidScreens(
             is Screen.Pictures -> PicturesScreen(vm, s)
             Screen.Intro -> IntroScreen(vm, onIntroDone)
             Screen.Home -> HomeScreen(vm, onShowScreen, onStopScreen)
-            is Screen.Scam -> ScamScreen(vm, s.draft)
+            is Screen.Scam -> ScamScreen(vm, actions, s.draft)
+            is Screen.SendPicture -> SendPictureScreen(vm, s)
+            Screen.AskSetup -> AskSetupScreen(vm, actions)
         }
     }
 }
@@ -143,6 +160,14 @@ private fun Modifier.popIn(delayMillis: Long = 0): Modifier {
         scaleY = scale.value
         alpha = fade.value
     }
+}
+
+// Mom's side: a slow, gentle fade, never a bounce. Also off with "Remove animations".
+@Composable
+private fun Modifier.fadeIn(): Modifier {
+    val fade = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { fade.animateTo(1f, tween(700)) }
+    return this.graphicsLayer { alpha = fade.value }
 }
 
 // A slowly breathing dot: shows Mom her request is still going out.
@@ -426,6 +451,7 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
         if (ringer != null) RingingPanel(ringer)
         val watcher = ShareState.watcher
         if (watcher != null) SharingPanel(watcher, onStopScreen)
+        if (vm.askSetupWanted) AskSetupPanel(vm, first)
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -546,8 +572,85 @@ private fun UpdatePanel(vm: TechKidViewModel) {
     }
 }
 
+// The helper turned on the ask button; Mom agrees on her own phone (plans/app-store-compliance.md 2.4).
 @Composable
-private fun ScamScreen(vm: TechKidViewModel, draft: String) {
+private fun AskSetupPanel(vm: TechKidViewModel, first: String) {
+    Box(Modifier.fadeIn()) {
+        Panel(AmberSoft) {
+            Text("$first set up a new button for you", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AmberInk)
+            Body("Best done together on a call with $first.", AmberInk)
+            BigButton("See what it does", color = AmberDeep) { vm.openAskSetup() }
+            QuietButton("Not now") { vm.dismissAskSetup() }
+        }
+    }
+}
+
+@Composable
+private fun AskSetupScreen(vm: TechKidViewModel, actions: PhoneActions) {
+    BackHandler { vm.goHome() }
+    val first = vm.helperNames.firstOrNull() ?: "your family"
+    Page {
+        Title("A small button to ask $first")
+        Body("It sits at the edge of your screen, in every app. If a message, email or pop-up looks wrong, tap it.", Ink)
+        Panel(Color.White) {
+            Body("1. My Tech Kid takes a picture of your screen.", Ink)
+            Body("2. You see the picture and choose whether to send it to $first.", Ink)
+            Body("3. $first tells you if it's a scam.", Ink)
+        }
+        Panel(InfoSoft) {
+            Body("Only $first sees the pictures. Passwords and codes are covered up first.", Ink)
+            Body("My Tech Kid never looks at your screen at any other time, and it never taps anything for you.", Ink)
+        }
+        if (vm.askButtonOn) {
+            Panel(GreenSoft) { Text("It's on. Look for it at the edge of your screen.", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Green) }
+            BigButton("Done") { vm.goHome() }
+        } else {
+            Body("Next, your phone opens a settings page. Turn on My Tech Kid there. $first can tell you what to tap.")
+            BigButton("I agree, turn it on") { actions.openAccessibility() }
+            // Samsung and newer Android phones grey out the switch for apps installed from a link.
+            Body("Is the switch grey? Tap below, then the three dots at the top, then \"Allow restricted settings\". Then come back and tap \"I agree\" again.")
+            QuietButton("The switch is grey") { actions.openAppInfo() }
+            QuietButton("Not now") { vm.dismissAskSetup() }
+        }
+    }
+}
+
+@Composable
+private fun SendPictureScreen(vm: TechKidViewModel, s: Screen.SendPicture) {
+    BackHandler { vm.discardPicture() }
+    val context = LocalContext.current
+    val picture = remember(s.file) {
+        Pictures.file(context, s.file)?.let { BitmapFactory.decodeFile(it.path)?.asImageBitmap() }
+    }
+    val helpers = names(vm.helperNames)
+    val first = vm.helperNames.firstOrNull() ?: "your family"
+    Page {
+        Title("Send this to $helpers?")
+        if (picture != null) {
+            Image(
+                picture,
+                contentDescription = "The picture of your screen",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fadeIn()
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(2.dp, Line, RoundedCornerShape(20.dp)),
+            )
+        }
+        Panel(InfoSoft) {
+            Body("Only $helpers will see this.", Ink)
+            if (s.covered) Body("Passwords and codes are covered up.", Ink)
+        }
+        ErrorText(vm)
+        BigButton(if (vm.busy) "Sending…" else "Send to $first", enabled = !vm.busy && picture != null) { vm.sendPicture() }
+        QuietButton("Don't send", enabled = !vm.busy) { vm.discardPicture() }
+    }
+}
+
+@Composable
+private fun ScamScreen(vm: TechKidViewModel, actions: PhoneActions, draft: String) {
     BackHandler { vm.goHome() }
     var text by remember(draft) { mutableStateOf(draft) }
     val latest: ScamCheck? = vm.scamChecks.firstOrNull()
@@ -557,7 +660,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
         if (latest != null && draft.isEmpty()) {
             LatestAnswer(latest, helpers)
         }
-        Body("Paste or type the message you got. Tip: in Messages, press and hold a text, tap Share, then choose My Tech Kid.")
+        Body("Paste or type the message you got, or send a picture of your screen. Tip: in Messages, press and hold a text, tap Share, then choose My Tech Kid.")
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
@@ -572,6 +675,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
             vm.sendScamCheck(text)
             text = ""
         }
+        QuietButton("Send a picture instead", enabled = !vm.busy) { actions.pickPicture() }
         QuietButton("Back to home") { vm.goHome() }
     }
 }
@@ -582,26 +686,26 @@ private fun LatestAnswer(check: ScamCheck, helpers: String) {
         null -> Panel(InfoSoft) {
             Text("Waiting for $helpers to answer…", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
             Body("Don't tap any links or pay anything until they do.", Ink)
-            Quote(check.text)
+            Quote(check)
         }
         "safe" -> Panel(GreenSoft) {
             Text("${check.answeredByName}: It's safe", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Green)
             if (!check.note.isNullOrBlank()) Body("\"${check.note}\"", Ink)
-            Quote(check.text)
+            Quote(check)
         }
         else -> Panel(RedSoft) {
             val headline = if (check.verdict == "scam") "Scam — don't tap it" else "Not sure — don't tap it yet"
             Text("${check.answeredByName}: $headline", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = RedInk)
             if (!check.note.isNullOrBlank()) Body("\"${check.note}\"", RedInk)
-            Quote(check.text)
+            Quote(check)
         }
     }
 }
 
 @Composable
-private fun Quote(text: String) {
+private fun Quote(check: ScamCheck) {
     Text(
-        text.take(300),
+        check.text.take(300).ifBlank { if (check.hasPicture) "Your picture of the screen" else "" },
         fontSize = 17.sp,
         color = Muted,
         modifier = Modifier

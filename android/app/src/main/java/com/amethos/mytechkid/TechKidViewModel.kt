@@ -16,7 +16,13 @@ import com.google.firebase.firestore.SetOptions
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import com.amethos.mytechkid.ask.Pictures
+import android.net.Uri
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 
 /** "Josh Smith" -> "Josh": Mom's screens use first names only. */
@@ -28,11 +34,15 @@ data class HelpRequest(val id: String, val status: String, val helperName: Strin
 data class ScamCheck(
     val id: String,
     val text: String,
+    val hasPicture: Boolean,
     val verdict: String?,
     val note: String?,
     val answeredByName: String?,
     val createdAt: Long,
 )
+
+/** What the helper switched on for this phone. Mom's app only reads it. */
+data class PhoneSettings(val askTab: Boolean = false, val updatedAt: Long = 0)
 
 sealed interface Screen {
     data object Loading : Screen
@@ -48,13 +58,23 @@ sealed interface Screen {
     data object Intro : Screen
     data object Home : Screen
     data class Scam(val draft: String) : Screen
+    /** "Send this to Josh?" with a picture of the screen. covered: passwords and codes were covered up. */
+    data class SendPicture(val file: String, val covered: Boolean) : Screen
+    /** Explains the ask button before Android's settings page (needs an Agree tap). */
+    data object AskSetup : Screen
 }
+
+/** Screens that belong to a linked phone. */
+private val Screen.linked: Boolean
+    get() = this is Screen.Home || this is Screen.Scam || this is Screen.Intro ||
+        this is Screen.SendPicture || this is Screen.AskSetup
 
 /** Everything Mom's phone knows and can do. The UI in ui/Screens.kt only reads and calls this. */
 class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val functions = FirebaseFunctions.getInstance()
+    private val storage = FirebaseStorage.getInstance()
     private val prefs = app.getSharedPreferences("mytechkid", android.content.Context.MODE_PRIVATE)
 
     var screen by mutableStateOf<Screen>(Screen.Loading)
@@ -73,6 +93,11 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var scamChecks by mutableStateOf(listOf<ScamCheck>())
         private set
+    var phoneSettings by mutableStateOf(PhoneSettings())
+        private set
+    /** Whether the ask button is turned on in Android's settings; refreshed when the app comes to the front. */
+    var askButtonOn by mutableStateOf(false)
+        private set
     var updateReady by mutableStateOf(false)
         private set
     var updating by mutableStateOf(false)
@@ -84,6 +109,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     private var userLoaded = false
     private var pendingInvite: InviteLink? = null
     private var pendingScamText: String? = null
+    private var pendingPicture: Screen.SendPicture? = null
     private var userListener: ListenerRegistration? = null
     private var inviteListener: ListenerRegistration? = null
     private val circleListeners = mutableListOf<ListenerRegistration>()
@@ -150,11 +176,14 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                 watchCircle(newCircle)
             }
             when {
-                newCircle != null && screen !is Screen.Home && screen !is Screen.Scam && screen !is Screen.Intro -> {
+                newCircle != null && !screen.linked -> {
                     inviteListener?.remove()
                     val shared = pendingScamText
+                    val picture = pendingPicture
                     pendingScamText = null
+                    pendingPicture = null
                     screen = when {
+                        picture != null -> picture
                         shared != null -> Screen.Scam(shared)
                         !introSeen() -> Screen.Intro
                         else -> Screen.Home
@@ -165,7 +194,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 // A helper removed this phone from the family (lost or replaced).
-                newCircle == null && (screen is Screen.Home || screen is Screen.Scam || screen is Screen.Intro) -> {
+                newCircle == null && screen.linked -> {
                     activeHelp = null
                     practiceHelp = null
                     scamChecks = emptyList()
@@ -214,6 +243,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     ScamCheck(
                         id = it.id,
                         text = it.getString("text") ?: "",
+                        hasPicture = it.getString("imagePath") != null,
                         verdict = it.getString("verdict"),
                         note = it.getString("note"),
                         answeredByName = it.getString("answeredByName"),
@@ -221,6 +251,12 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }.sortedByDescending { it.createdAt }
             }
+        circleListeners += db.document("circles/$id/phoneSettings/$me").addSnapshotListener { snap, _ ->
+            phoneSettings = PhoneSettings(
+                askTab = snap?.getBoolean("askTab") == true,
+                updatedAt = snap?.getTimestamp("updatedAt")?.toDate()?.time ?: 0,
+            )
+        }
     }
 
     // ---------- Intents from outside the app ----------
@@ -238,6 +274,29 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             circleId != null -> screen = Screen.Scam(text)
             !userLoaded -> pendingScamText = text
             else -> error = "My Tech Kid isn't set up yet. Ask your family to send you an invite link."
+        }
+    }
+
+    /** A screenshot shared to My Tech Kid, or picked in the photo picker. */
+    fun handleSharedImage(uri: Uri) = act {
+        val file = withContext(Dispatchers.IO) { Pictures.fromUri(getApplication<Application>(), uri) }
+        if (file == null) {
+            error = "Couldn't open that picture. Try another one."
+            return@act
+        }
+        when {
+            circleId != null -> screen = Screen.SendPicture(file.name, covered = false)
+            !userLoaded -> pendingPicture = Screen.SendPicture(file.name, covered = false)
+            else -> error = "My Tech Kid isn't set up yet. Ask your family to send you an invite link."
+        }
+    }
+
+    /** A picture from the ask button at the edge of the screen. */
+    fun handleAskPicture(name: String, covered: Boolean) {
+        if (Pictures.file(getApplication<Application>(), name) == null) return
+        when {
+            circleId != null -> screen = Screen.SendPicture(name, covered)
+            !userLoaded -> pendingPicture = Screen.SendPicture(name, covered)
         }
     }
 
@@ -363,6 +422,64 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             ),
         ).await()
         screen = Screen.Scam("")
+    }
+
+    /** Mom tapped Send: the picture goes to the family's folder, then the scam check that points at it. */
+    fun sendPicture() = act {
+        val id = circleId ?: return@act
+        val me = uid ?: return@act
+        val current = screen as? Screen.SendPicture ?: return@act
+        val file = Pictures.file(getApplication<Application>(), current.file)
+        if (file == null) {
+            screen = Screen.Scam("")
+            return@act
+        }
+        val check = db.collection("circles/$id/scamChecks").document()
+        val path = "circles/$id/scamShots/$me/${check.id}.jpg"
+        storage.reference.child(path).putFile(
+            Uri.fromFile(file),
+            StorageMetadata.Builder().setContentType("image/jpeg").build(),
+        ).await()
+        check.set(
+            mapOf(
+                "parentId" to me,
+                "parentName" to myCircleName(),
+                "text" to "",
+                "imagePath" to path,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "verdict" to null,
+            ),
+        ).await()
+        file.delete()
+        screen = Screen.Scam("")
+    }
+
+    fun discardPicture() {
+        (screen as? Screen.SendPicture)?.let { Pictures.file(getApplication<Application>(), it.file)?.delete() }
+        goHome()
+    }
+
+    // ---------- The ask button (helper turns it on; Mom agrees once) ----------
+
+    fun refreshAskButton() {
+        askButtonOn = Pictures.isAskButtonOn(getApplication<Application>())
+    }
+
+    private var askSetupDismissedAt by mutableStateOf(prefs.getLong("askSetupDismissed", 0))
+
+    /** The helper turned the button on, and Mom hasn't set it up or said "Not now" to this request. */
+    val askSetupWanted: Boolean
+        get() = Pictures.supported && phoneSettings.askTab && !askButtonOn &&
+            askSetupDismissedAt < phoneSettings.updatedAt
+
+    fun openAskSetup() {
+        screen = Screen.AskSetup
+    }
+
+    fun dismissAskSetup() {
+        askSetupDismissedAt = phoneSettings.updatedAt
+        prefs.edit().putLong("askSetupDismissed", askSetupDismissedAt).apply()
+        goHome()
     }
 
     // ---------- First-time intro (after linking) ----------

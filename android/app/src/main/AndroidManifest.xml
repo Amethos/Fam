@@ -42,6 +42,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- "Is this a scam?": share a screenshot or picture to My Tech Kid -->
+            <intent-filter android:label="@string/share_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
         <service
@@ -70,6 +76,22 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/remote_control" />
+        </service>
+
+        <!-- The ask button at the edge of the screen (ask/AskService.kt). Only the
+             phone's owner can turn it on, in Android's Accessibility settings,
+             after an Agree tap in the app. It takes a picture only when tapped. -->
+        <service
+            android:name=".ask.AskService"
+            android:exported="false"
+            android:label="@string/ask_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/ask_service" />
         </service>
 
         <service

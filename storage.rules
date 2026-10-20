@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Pictures of a parent's screen, sent for a scam check. Only the parent's own
+// phone can add one, only into its own family's folder, and only the family's
+// helpers (and the phone that sent it) can look at it. Nobody can change or replace a picture once it's sent;
+// the backend deletes them after 30 days (cleanupScamShots).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function circle(cid) {
+      return firestore.get(/databases/(default)/documents/circles/$(cid)).data;
+    }
+    function isHelper(cid) {
+      return request.auth != null && request.auth.uid in circle(cid).helperIds;
+    }
+
+    match /circles/{cid}/scamShots/{uid}/{file} {
+      // The helpers, and the phone that sent it. Not other parents in the family.
+      allow read: if isHelper(cid) || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null
+        && resource == null
+        && request.auth.uid == uid
+        && uid in circle(cid).parentIds
+        && file.matches('[A-Za-z0-9]{1,40}[.]jpg')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 3 * 1024 * 1024;
+    }
+
+    // Everything else stays closed.
+    match /{everything=**} {
+      allow read, write: if false;
+    }
+  }
+}
