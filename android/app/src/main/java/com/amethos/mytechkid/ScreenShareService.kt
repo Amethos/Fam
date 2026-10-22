@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.os.Build
+import android.provider.Settings
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -276,6 +277,7 @@ class ScreenShareService : Service() {
                                 sendControl("ready")
                                 // What this version can do, so the helper's page uses it.
                                 send(JSONObject().put("t", "caps").put("ping", true).put("drag", true))
+                                sendScreenBars()
                             }
                             // The helper's page went away: stop tapping at once.
                             DataChannel.State.CLOSING, DataChannel.State.CLOSED -> endControl()
@@ -651,6 +653,24 @@ class ScreenShareService : Service() {
         }
         // A drag that reaches her Stop bar just ends there; only say so when it starts on it.
         if (!ok && m.optString("t") != "move" && m.optString("t") != "up") send(JSONObject().put("t", "refused"))
+    }
+
+    /**
+     * How tall her top bar (clock, Wi-Fi) and Android's own buttons are, as
+     * parts of the screen's height, so her helper's page can cut them off and
+     * show only our button bar. Gesture navigation has no buttons to cut, and
+     * sideways there's nothing to cut either.
+     */
+    private fun sendScreenBars() {
+        val (w, h) = realScreenSize(this)
+        fun dimen(name: String): Int {
+            val id = resources.getIdentifier(name, "dimen", "android")
+            return if (id > 0) resources.getDimensionPixelSize(id) else 0
+        }
+        val gestures = runCatching { Settings.Secure.getInt(contentResolver, "navigation_mode") == 2 }.getOrDefault(false)
+        val top = if (w < h) dimen("status_bar_height") else 0
+        val bottom = if (w < h && !gestures) dimen("navigation_bar_height") else 0
+        send(JSONObject().put("t", "screen").put("top", top.toDouble() / h).put("bottom", bottom.toDouble() / h))
     }
 
     private fun sendControl(state: String, until: Long? = null) {

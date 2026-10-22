@@ -16,7 +16,7 @@ import {
   doc, collection, query, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, runTransaction,
 } from "firebase/firestore";
 import { esc } from "./util.js";
-import { gestureFor, pointOnVideo } from "./gesture.js";
+import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
 import { preferH264, summarize } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
@@ -131,6 +131,11 @@ function show(name, message, { video = false } = {}) {
     el.querySelector(".watch-scrim").addEventListener("click", () => setMenu(false));
     el.querySelector(".watch-guide-hide").addEventListener("click", () => { el.querySelector(".watch-guide").hidden = true; });
     addGestures(el.querySelector("video"));
+    // Keep her picture filling the screen as it or the screen changes size.
+    el.querySelector("video").addEventListener("resize", layoutVideo);
+    el.querySelector("video").addEventListener("loadedmetadata", layoutVideo);
+    if (window.ResizeObserver) new ResizeObserver(layoutVideo).observe(el.querySelector(".watch-stage"));
+    else window.addEventListener("resize", layoutVideo);
   }
   el.querySelector(".watch-title").textContent = `${name}'s screen`;
   el.querySelector(".watch-banner .watch-connecting").textContent = `Connecting to ${name}…`;
@@ -315,6 +320,12 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       // What her app can do (older versions say nothing): answer pings, live drags.
       if (msg.t === "caps") { s.caps = msg; s.lastPong = Date.now(); }
       if (msg.t === "pong") s.lastPong = Date.now();
+      // How tall her top bar and her own phone buttons are, to cut them off.
+      if (msg.t === "screen") {
+        const part = (v) => (Number.isFinite(v) ? Math.min(Math.max(v, 0), 0.15) : 0);
+        s.bars = { top: part(msg.top), bottom: part(msg.bottom) };
+        layoutVideo();
+      }
       if (msg.t === "refused") flashNote(`That spot is under ${s.name}'s Stop button, or ${s.name} is answering a question. Try again.`);
     };
     e.channel.onclose = () => { if (session === s) setControl(null); };
@@ -573,6 +584,22 @@ function flashNote(text) {
     note.textContent = before;
     if (toast) toast.hidden = true;
   }, 3000);
+}
+
+// Her picture: her top bar (clock, Wi-Fi) and her own phone buttons cut off,
+// filling the screen (our bar has the buttons). The video element is the
+// whole picture, so pointOnVideo maps taps and drags on it exactly.
+function layoutVideo() {
+  const el = document.getElementById("watch");
+  const video = el?.querySelector("video");
+  const stage = el?.querySelector(".watch-stage");
+  if (!video || !stage) return;
+  const bars = session?.bars ?? { top: 0, bottom: 0 };
+  const box = fitVideo(stage.clientWidth, stage.clientHeight, video.videoWidth, video.videoHeight, bars.top, bars.bottom);
+  if (!box) { video.removeAttribute("style"); return; }
+  Object.assign(video.style, {
+    left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, right: "auto", bottom: "auto",
+  });
 }
 
 function pointOn(video, e) {

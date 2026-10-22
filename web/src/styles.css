@@ -329,14 +329,14 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
   position: fixed; inset: 0; z-index: 50; background: #000; color: var(--fg); overflow: hidden; }
 #watch[hidden], #watch [hidden] { display: none !important; }
 body.watching { overflow: hidden; }
-#watch .watch-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+#watch .watch-stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
   background:
     radial-gradient(closest-side, #1E3A8A, transparent) -30vw -20vh / 110vw 70vh no-repeat,
     radial-gradient(closest-side, #7C2D12, transparent) 45vw 30vh / 90vw 60vh no-repeat,
     radial-gradient(closest-side, #134E4A, transparent) -20vw 70vh / 100vw 60vh no-repeat,
     var(--bg); }
-/* Fills the screen; her picture keeps its shape (gesture.js maps taps
-   through any thin bars left over). */
+/* Fills the screen with her top bar and phone buttons cut off: watch.js
+   (layoutVideo) sizes it; gesture.js maps taps through any thin bars left. */
 #watch video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 #watch .watch-note { margin: 0; padding: 0 24px; text-align: center; font-size: 1.125rem; font-weight: 600; color: var(--muted); }
 #watch .watch-note:empty { display: none; }
@@ -414,9 +414,8 @@ body.watching { overflow: hidden; }
 #watch .watch-keys button { justify-self: center; width: 64px; min-height: 40px; padding: 0; border-radius: 999px;
   background: transparent; color: #FFFFFF; }
 #watch .watch-keys svg { width: 20px; height: 20px; }
-/* Her screen ends where the bar starts. (A video's height doesn't stretch
-   between top and bottom like a div's, so set it outright.) */
-#watch.controlling video { bottom: auto; height: calc(100% - var(--keys-h)); }
+/* Her screen ends where the bar starts. */
+#watch.controlling .watch-stage { bottom: var(--keys-h); }
 #watch.controlling .watch-toast { bottom: calc(var(--keys-h) + 12px); }
 #watch .watch-menu .watch-alerts { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
 /* "Show Mom where": only while tapping is on. */
