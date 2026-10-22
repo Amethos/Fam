@@ -36,3 +36,12 @@ test("the menu's connection line says delay, format, path and smoothness", () =>
   assert.equal(liveLine(stats), "82 ms · H264 · direct · 24 fps");
   assert.equal(liveLine([]), "direct · 0 fps");
 });
+
+test("a relay reached over TCP says so, since it freezes on loss", () => {
+  const stats = [
+    { id: "p", type: "candidate-pair", nominated: true, state: "succeeded", currentRoundTripTime: 0.12, localCandidateId: "l", remoteCandidateId: "r" },
+    { id: "l", type: "local-candidate", candidateType: "relay", relayProtocol: "tls" },
+    { id: "r", type: "remote-candidate", candidateType: "srflx" },
+  ];
+  assert.equal(liveLine(stats), "120 ms · relay tcp · 0 fps");
+});

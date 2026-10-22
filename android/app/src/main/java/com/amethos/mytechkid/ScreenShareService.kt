@@ -222,7 +222,10 @@ class ScreenShareService : Service() {
             }
         }).also { this.capturer = it }
         val textures = SurfaceTextureHelper.create("screen", egl.eglBaseContext).also { this.textures = it }
-        val source = factory.createVideoSource(true).also { this.source = it }
+        // Treated as live video, not a slide show: when a lot changes at once
+        // (an app opening, a fast scroll), pictures that can't keep up are
+        // skipped instead of queued, so the helper's view never stalls behind.
+        val source = factory.createVideoSource(false).also { this.source = it }
         capturer.initialize(textures, applicationContext, source.capturerObserver)
         val (w, h) = captureSize()
         captureW = w
@@ -303,18 +306,19 @@ class ScreenShareService : Service() {
     }
 
     /**
-     * Up to 30 pictures a second. On a slow connection, keep words sharp and
-     * show fewer pictures a second, since the helper is mostly reading Mom's
-     * screen to her. While the helper taps, lean back toward smoothness so
-     * scrolling keeps up with their finger.
+     * Up to 30 pictures a second. On a slow connection, trade a little
+     * sharpness and a few pictures a second evenly; while the helper taps,
+     * keep the pictures a second up and let words soften for a moment, so
+     * scrolling and opening apps keep up with their finger (sharp but at
+     * 5 pictures a second felt stuck in testing).
      */
     private fun tuneVideo() {
         val sender = sender ?: return
         val params = sender.parameters
         params.degradationPreference = if (controlOn) {
-            RtpParameters.DegradationPreference.BALANCED
+            RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
         } else {
-            RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION
+            RtpParameters.DegradationPreference.BALANCED
         }
         params.encodings.forEach {
             it.maxFramerate = FPS
