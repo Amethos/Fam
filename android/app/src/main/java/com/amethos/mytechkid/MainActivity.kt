@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.checkForUpdate()
+        vm.resumes++
         // Back from turning on the tapping switch: if it's still off, show how to fix it.
         ScreenShareService.active?.onBackFromSwitch()
     }

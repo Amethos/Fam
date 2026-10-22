@@ -71,6 +71,15 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     /** The one-time practice run on the intro screen. */
     var practiceHelp by mutableStateOf<HelpRequest?>(null)
         private set
+
+    /** Counts each time the app comes back on screen (MainActivity.onResume). */
+    var resumes by mutableStateOf(0)
+
+    // Help requests whose "show your screen" question already came up once.
+    private val shareAsked = mutableSetOf<String>()
+
+    /** True the first time only: their helper said "I'm on it", so offer to share right away. */
+    fun firstShareAsk(helpId: String): Boolean = shareAsked.add(helpId)
     var scamChecks by mutableStateOf(listOf<ScamCheck>())
         private set
     var updateReady by mutableStateOf(false)

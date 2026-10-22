@@ -37,8 +37,9 @@ phone, before Mom tries it on her own.
 
 - **Help button:** Mom taps **Get help from *you***. You should get an alert. Tap **I'm on it**:
   Mom's screen says you're coming and she gets a notification. When done, tap **All fixed**.
-- **See Mom's screen:** after you tap **I'm on it**, Mom taps **Show *you* my screen**, then **Start now** on
-  Android's prompt. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a
+- **See Mom's screen:** after you tap **I'm on it**, Android's "share your screen" prompt comes up on Mom's
+  phone by itself (once, a couple of seconds later) and she taps **Start**. If she cancels, **Show *you* my
+  screen** is still there. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a
   big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
   **Stop** ends it on both phones.
 - **Tap for Mom:** while you watch, tap the menu button (top right), then **Ask to tap**.

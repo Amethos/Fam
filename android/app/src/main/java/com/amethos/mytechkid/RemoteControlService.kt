@@ -23,6 +23,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.res.ResourcesCompat
 
 /**
  * Lets the helper tap and swipe on Mom's phone (stage 3), only while she is
@@ -79,15 +80,15 @@ class RemoteControlService : AccessibilityService() {
             hideAsk()
             onAnswer(yes)
         }
-        val box = column(Color.WHITE, 28f).apply {
+        val box = column(CARD, 28f).apply {
             setPadding(dp(24), dp(24), dp(24), dp(24))
-            addView(text("$helper wants to tap on your phone for you", 26f, bold = true))
+            addView(text("$helper wants to tap on your phone for you", 26f).apply { typeface = roundedFont() })
             addView(text("Say yes only if you are on the phone with $helper right now. You can stop any time.", 19f, color = MUTED), gap())
             addView(button("Yes, let $helper tap", GREEN) { answer(true) }, gap())
-            addView(button("No", Color.parseColor("#E8ECF3"), Color.parseColor("#0F172A")) { answer(false) }, gap(12))
+            addView(button("No", Color.parseColor("#E8DCC4"), INK) { answer(false) }, gap(12))
         }
         val dim = LinearLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#990F172A"))
+            setBackgroundColor(Color.parseColor("#993B2A20"))
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(16), dp(16), dp(16))
             addView(box, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
@@ -103,7 +104,7 @@ class RemoteControlService : AccessibilityService() {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = rounded(Color.parseColor("#0F172A"), 40f)
+            background = rounded(INK, 40f)
             setPadding(dp(16), dp(6), dp(6), dp(6))
             addView(text("$helper is tapping for you", 17f, bold = true, color = Color.WHITE))
             addView(
@@ -372,6 +373,9 @@ class RemoteControlService : AccessibilityService() {
         cornerRadius = if (raw) radius else dp(radius.toInt()).toFloat()
     }
 
+    // Varela Round, as in the rest of their app (Warm Home).
+    private fun roundedFont() = runCatching { ResourcesCompat.getFont(this, R.font.varela_round) }.getOrNull()
+
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private fun statusBarHeight(): Int {
@@ -387,10 +391,11 @@ class RemoteControlService : AccessibilityService() {
         /** The helper's page sends a move at least every 300 ms while their finger is down. */
         private const val DRAG_IDLE_MS = 1_000L
         private const val POINTER_MS = 3_000L
-        private val INK = Color.parseColor("#0F172A")
-        private val MUTED = Color.parseColor("#475569")
-        private val GREEN = Color.parseColor("#15803D")
-        private val RED = Color.parseColor("#B91C1C")
+        private val INK = Color.parseColor("#3B2A20")
+        private val MUTED = Color.parseColor("#6B5444")
+        private val GREEN = Color.parseColor("#1F6B45")
+        private val RED = Color.parseColor("#9C2F1E")
+        private val CARD = Color.parseColor("#FFFBF3")
 
         /** Set while Mom's accessibility switch for My Tech Kid is on. */
         var instance: RemoteControlService? = null

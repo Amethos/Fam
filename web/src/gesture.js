@@ -19,3 +19,24 @@ export function pointOnVideo(rect, videoW, videoH, clientX, clientY) {
   const y = (clientY - rect.top - (rect.height - h) / 2) / h;
   return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : null;
 }
+
+// Where to put her picture so it fills the area: her top bar (clock, Wi-Fi)
+// and her own phone buttons are cut off (top and bottom are parts of her
+// screen's height), and a little extra zoom (up to `zoom`) takes away thin
+// black bars at the sides. The box it returns is the whole video, so
+// pointOnVideo still maps touches on it exactly.
+export function fitVideo(areaW, areaH, videoW, videoH, top = 0, bottom = 0, zoom = 1.06) {
+  if (!videoW || !videoH || !areaW || !areaH) return null;
+  const shownH = videoH * (1 - top - bottom);
+  const contain = Math.min(areaW / videoW, areaH / shownH);
+  const cover = Math.max(areaW / videoW, areaH / shownH);
+  const scale = Math.min(cover, contain * zoom);
+  const width = videoW * scale;
+  const height = videoH * scale;
+  return {
+    left: (areaW - width) / 2,
+    top: (areaH - shownH * scale) / 2 - top * height,
+    width,
+    height,
+  };
+}

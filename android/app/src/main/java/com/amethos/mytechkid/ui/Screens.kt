@@ -1,5 +1,6 @@
 package com.amethos.mytechkid.ui
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
@@ -38,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -55,10 +56,14 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import com.amethos.mytechkid.R
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
@@ -76,27 +81,53 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// Midnight & Amber, light: design 9 ("Today's Date"), Mom's pick for now.
-private val Ink = Color(0xFF0E1726)
-private val Muted = Color(0xFF4A5568)
-private val Ground = Color(0xFFEEF2F8)
-private val Navy = Color(0xFF0E1726)
-private val Amber = Color(0xFFF2B33D)
-private val AmberSoft = Color(0xFFFFF1D6)
-private val AmberInk = Color(0xFF5C3A00)
-private val AmberDeep = Color(0xFF9A5B00)
-private val Line = Color(0xFFC9D3E3)
-private val InfoSoft = Color(0xFFE3E9F3)
-private val Red = Color(0xFFB3261E)
-private val RedSoft = Color(0xFFFCE8E6)
-private val RedInk = Color(0xFF5C1712)
+// Warm Home (Oct 2026): terracotta, cream and olive, with soft rounded type.
+// Mockups: docs/design/DESIGN.md. Calm and high-contrast; slow, gentle motion.
+private val Ink = Color(0xFF3B2A20)
+private val Muted = Color(0xFF6B5444)
+private val Ground = Color(0xFFF5F0E1)
+private val Card = Color(0xFFFFFBF3)
+private val Clay = Color(0xFFA3532F)
+private val OnClay = Color(0xFFFFF8EE)
+private val Olive = Color(0xFF5C6B30)
+private val Sand = Color(0xFFE8DCC4)
+private val ClaySoft = Color(0xFFF6E3D0)
+private val ClayInk = Color(0xFF6E3A1E)
+private val Line = Color(0xFFD9CBAE)
+private val InfoSoft = Color(0xFFEFE6D2)
+private val Red = Color(0xFF9C2F1E)
+private val RedSoft = Color(0xFFF6DDD6)
+private val RedInk = Color(0xFF5E1B12)
 private val Green = Color(0xFF1F6B45)
-private val GreenSoft = Color(0xFFDCEBDF)
+private val GreenSoft = Color(0xFFE1EBD9)
+
+// Varela Round for headings and the big buttons, Nunito Sans for everything
+// else. Bundled (res/font, licenses in android/third_party/fonts) so they
+// work offline. Sizes are in sp, so they grow with the phone's font size.
+private val Rounded = FontFamily(Font(R.font.varela_round))
+private val Sans = FontFamily(
+    Font(R.font.nunito_sans_400, FontWeight.Normal),
+    Font(R.font.nunito_sans_700, FontWeight.Bold),
+    Font(R.font.nunito_sans_800, FontWeight.ExtraBold),
+)
+private val WarmType = Typography().run {
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = Sans), displayMedium = displayMedium.copy(fontFamily = Sans),
+        displaySmall = displaySmall.copy(fontFamily = Sans), headlineLarge = headlineLarge.copy(fontFamily = Sans),
+        headlineMedium = headlineMedium.copy(fontFamily = Sans), headlineSmall = headlineSmall.copy(fontFamily = Sans),
+        titleLarge = titleLarge.copy(fontFamily = Sans), titleMedium = titleMedium.copy(fontFamily = Sans),
+        titleSmall = titleSmall.copy(fontFamily = Sans), bodyLarge = bodyLarge.copy(fontFamily = Sans),
+        bodyMedium = bodyMedium.copy(fontFamily = Sans), bodySmall = bodySmall.copy(fontFamily = Sans),
+        labelLarge = labelLarge.copy(fontFamily = Sans), labelMedium = labelMedium.copy(fontFamily = Sans),
+        labelSmall = labelSmall.copy(fontFamily = Sans),
+    )
+}
 
 @Composable
 fun TechKidTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = lightColorScheme(primary = Navy, background = Ground, surface = Color.White, onSurface = Ink),
+        colorScheme = lightColorScheme(primary = Clay, onPrimary = OnClay, background = Ground, surface = Card, onSurface = Ink),
+        typography = WarmType,
         content = content,
     )
 }
@@ -132,16 +163,17 @@ fun TechKidScreens(
 
 // ---------- Building blocks ----------
 
-// Grows in with a soft bounce the first time it appears. Turns itself off
-// when "Remove animations" is on, because Compose follows that setting.
+// Fades and settles in slowly the first time it appears: calm, no bounce,
+// on this side. Turns itself off when "Remove animations" is on, because
+// Compose follows that setting.
 @Composable
 private fun Modifier.popIn(delayMillis: Long = 0): Modifier {
-    val scale = remember { Animatable(0.82f) }
+    val scale = remember { Animatable(0.94f) }
     val fade = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay(delayMillis)
-        launch { fade.animateTo(1f, tween(200)) }
-        scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow))
+        launch { fade.animateTo(1f, tween(450)) }
+        scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow))
     }
     return this.graphicsLayer {
         scaleX = scale.value
@@ -186,7 +218,7 @@ private fun Centered(content: @Composable () -> Unit) {
 
 @Composable
 private fun Title(text: String) {
-    Text(text, fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+    Text(text, fontFamily = Rounded, fontSize = 32.sp, lineHeight = 38.sp, color = Ink)
 }
 
 @Composable
@@ -195,17 +227,17 @@ private fun Body(text: String, color: Color = Muted) {
 }
 
 @Composable
-private fun BigButton(text: String, color: Color = Navy, enabled: Boolean = true, onClick: () -> Unit) {
+private fun BigButton(text: String, color: Color = Clay, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 76.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
+        shape = RoundedCornerShape(38.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = OnClay),
     ) {
-        Text(text, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(text, fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
     }
 }
 
@@ -217,7 +249,8 @@ private fun QuietButton(text: String, enabled: Boolean = true, onClick: () -> Un
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(32.dp),
+        border = BorderStroke(2.dp, Line),
     ) {
         Text(text, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Ink, textAlign = TextAlign.Center)
     }
@@ -228,31 +261,42 @@ private fun Panel(background: Color, content: @Composable ColumnScope.() -> Unit
     Column(
         Modifier
             .fillMaxWidth()
-            .background(background, RoundedCornerShape(24.dp))
+            .background(background, RoundedCornerShape(28.dp))
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         content = content,
     )
 }
 
+// Their helper's initial. On the help button it sits cream on terracotta.
 @Composable
-private fun Avatar(name: String, size: Int) {
+private fun Avatar(name: String, size: Int, onClay: Boolean = false) {
     Box(
         Modifier
             .size(size.dp)
-            .background(Amber, CircleShape),
+            .background(if (onClay) Ground else Clay, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             name.trim().take(1).uppercase().ifEmpty { "?" },
-            fontSize = (size / 2.4).sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Navy,
+            fontFamily = Rounded,
+            fontSize = (size / 2.1).sp,
+            color = if (onClay) Clay else OnClay,
         )
     }
 }
 
-/** A shield with "!" drawn in code, so no icon library is needed. */
+// Inside the big help button: their helper's initial, "Get help", "from Josh".
+@Composable
+private fun HelpButtonLabel(helper: String, avatar: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Avatar(helper, avatar, onClay = true)
+        Text("Get help", fontFamily = Rounded, fontSize = 40.sp, lineHeight = 44.sp, textAlign = TextAlign.Center)
+        Text("from $helper", fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+    }
+}
+
+/** A shield with a check mark, drawn in code so no icon library is needed. */
 @Composable
 private fun Shield(color: Color, size: Int) {
     Canvas(Modifier.size(size.dp)) {
@@ -267,9 +311,13 @@ private fun Shield(color: Color, size: Int) {
             lineTo(w * 0.15f, h * 0.22f)
             close()
         }
-        drawPath(outline, color, style = Stroke(width = w * 0.09f, join = StrokeJoin.Round))
-        drawLine(color, Offset(w * 0.5f, h * 0.33f), Offset(w * 0.5f, h * 0.58f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
-        drawCircle(color, radius = w * 0.055f, center = Offset(w * 0.5f, h * 0.72f))
+        val check = Path().apply {
+            moveTo(w * 0.37f, h * 0.5f)
+            lineTo(w * 0.46f, h * 0.59f)
+            lineTo(w * 0.63f, h * 0.41f)
+        }
+        drawPath(outline, color, style = Stroke(width = w * 0.08f, join = StrokeJoin.Round))
+        drawPath(check, color, style = Stroke(width = w * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
@@ -291,7 +339,7 @@ private fun WelcomeScreen(message: String?) {
     Page {
         Spacer(Modifier.heightIn(min = 24.dp))
         Title("Welcome to My Tech Kid")
-        if (message != null) Panel(AmberSoft) { Body(message, AmberInk) }
+        if (message != null) Panel(ClaySoft) { Body(message, ClayInk) }
         Body("My Tech Kid puts a big button on your phone that reaches your family when you need help.")
         Body("To get started, ask your family to text you an invite link. Then tap the link in your messages.")
     }
@@ -304,12 +352,12 @@ private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
             Avatar(s.helperName, 120)
         }
         Title("${s.helperName} wants to help you with your phone")
-        Panel(AmberSoft) {
+        Panel(ClaySoft) {
             Text(
                 "Only continue if ${s.helperName} is family you know.",
-                fontSize = 21.sp, fontWeight = FontWeight.Bold, color = AmberInk,
+                fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ClayInk,
             )
-            Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", AmberInk)
+            Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", ClayInk)
         }
         ErrorText(vm)
         BigButton("Yes, ${s.helperName} is my family", enabled = !vm.busy) { vm.acceptInvite() }
@@ -331,7 +379,7 @@ private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .background(Card, RoundedCornerShape(20.dp))
                     .padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -365,13 +413,11 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
                         .popIn(250)
                         .fillMaxWidth()
                         .heightIn(min = 300.dp),
-                    shape = RoundedCornerShape(32.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Color.White),
+                    shape = RoundedCornerShape(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Clay, contentColor = OnClay),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Avatar(first, 104)
-                        Text("Get help from\n$first", fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    }
+                    HelpButtonLabel(first, avatar = 104)
                 }
                 ErrorText(vm)
                 QuietButton("Not now") { onDone() }
@@ -381,8 +427,8 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
                 Title("Asking $first…")
                 Panel(InfoSoft) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        LiveDot(AmberDeep)
-                        Text("$first's phone is buzzing", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        LiveDot(Clay)
+                        Text("$first's phone is buzzing", fontFamily = Rounded, fontSize = 24.sp, lineHeight = 30.sp, color = Ink)
                     }
                     Body("When $first taps Got it, you'll see it here.", Ink)
                 }
@@ -393,12 +439,12 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
                 Box(Modifier.popIn()) {
                     Panel(GreenSoft) {
                         Avatar(first, 72)
-                        Text("$first got it!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        Text("$first got it!", fontFamily = Rounded, fontSize = 32.sp, color = Ink)
                         Body("That's all there is to it. Whenever you're stuck on your phone, tap your button and $first will call you.", Ink)
                     }
                 }
-                Panel(AmberSoft) {
-                    Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", AmberInk)
+                Panel(ClaySoft) {
+                    Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", ClayInk)
                 }
                 BigButton("OK, got it") { onDone() }
             }
@@ -418,12 +464,14 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
             hour < 18 -> "Good afternoon"
             else -> "Good evening"
         }
+        val today = LocalDate.now()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(today.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Olive)
+            Text(today.format(DateTimeFormatter.ofPattern("MMMM d", Locale.getDefault())), fontFamily = Rounded, fontSize = 40.sp, lineHeight = 44.sp, color = Ink)
             Text(
-                LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())),
-                fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Muted,
+                if (vm.myName.isNotBlank()) "$greeting, ${vm.myName}" else greeting,
+                fontSize = 22.sp, lineHeight = 28.sp, color = Muted, modifier = Modifier.padding(top = 6.dp),
             )
-            Title(if (vm.myName.isNotBlank()) "$greeting, ${vm.myName}" else greeting)
         }
         ErrorText(vm)
         if (vm.updateReady) UpdatePanel(vm)
@@ -435,15 +483,31 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LiveDot(AmberDeep)
-                    Text("Asking $helpers for help…", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+                    LiveDot(Clay)
+                    Text("Asking $helpers for help…", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
                 }
                 Body("They're getting an alert on their phone right now.")
                 QuietButton("Never mind, I'm OK", enabled = !vm.busy) { vm.finishHelp("cancelled") }
             }
             "accepted" -> Box(Modifier.popIn()) { Panel(GreenSoft) {
-                Text("${help.helperName ?: first} is coming to help", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
-                Body("They'll call you in a moment.", Ink)
+                val helper = help.helperName ?: first
+                // "I'm on it" starts the help: Android's own "Share your screen?"
+                // comes up by itself once, a moment after this card, and only
+                // their tap on Start shares anything. Cancel leaves the button below.
+                val activity = LocalContext.current as? ComponentActivity
+                if (watcher == null) {
+                    LaunchedEffect(help.id, vm.resumes) {
+                        delay(2500)
+                        val onScreen = activity?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+                        if (onScreen && ShareState.watcher == null && vm.firstShareAsk(help.id)) onShowScreen()
+                    }
+                }
+                Text("$helper is coming to help", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+                Body(
+                    if (watcher == null) "They'll call you in a moment. To let $helper see your phone, tap Start on the next screen."
+                    else "They'll call you in a moment.",
+                    Ink,
+                )
                 if (watcher == null) BigButton("Show ${help.helperName ?: first} my screen", color = Green) { onShowScreen() }
                 QuietButton("All fixed, thank you", enabled = !vm.busy) { vm.finishHelp("done") }
             } }
@@ -454,13 +518,11 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
                     .popIn(120)
                     .fillMaxWidth()
                     .heightIn(min = 340.dp),
-                shape = RoundedCornerShape(32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Color.White),
+                shape = RoundedCornerShape(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Clay, contentColor = OnClay),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Avatar(first, 120)
-                    Text("Get help from\n$first", fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                }
+                HelpButtonLabel(first, avatar = 116)
             }
         }
         Button(
@@ -468,19 +530,17 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
             modifier = Modifier
                 .popIn(320)
                 .fillMaxWidth()
-                .heightIn(min = 100.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Ink),
-            border = BorderStroke(2.dp, Line),
+                .heightIn(min = 128.dp),
+            shape = RoundedCornerShape(40.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Ink),
         ) {
             Row(
-                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Shield(AmberDeep, 44)
+                Shield(Olive, 44)
                 Column {
-                    Text("Is this a scam?", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("Is this a scam?", fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.ExtraBold)
                     Text("Ask before you tap or pay", fontSize = 18.sp, color = Muted)
                 }
             }
@@ -491,19 +551,19 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
 // Always visible while the screen is shared: who can see it, and a big Stop.
 @Composable
 private fun SharingPanel(watcher: String, onStop: () -> Unit) {
-    Panel(AmberSoft) {
+    Panel(ClaySoft) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LiveDot(AmberDeep)
+            LiveDot(Clay)
             Text(
                 when {
                     watcher.isBlank() -> "Getting your screen ready…"
                     ShareState.controlling -> "$watcher can see and tap your screen"
                     else -> "$watcher can see your screen"
                 },
-                fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink,
+                fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink,
             )
         }
-        Body("Banking and password screens stay hidden. Nothing is recorded.", AmberInk)
+        Body("Banking and password screens stay hidden. Nothing is recorded.", ClayInk)
         BigButton("Stop showing my screen", color = Red) { onStop() }
     }
 }
@@ -516,9 +576,9 @@ private fun TapSetupPanel(watcher: String) {
     val context = LocalContext.current
     val share = ScreenShareService.active
     Box(Modifier.popIn()) {
-        Panel(Color.White) {
+        Panel(Card) {
             if (ShareState.setupBlocked) {
-                Text("Did your phone say \"Restricted setting\"?", fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                Text("Did your phone say \"Restricted setting\"?", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
                 RestrictedPicture()
                 Body("That's normal for apps from a link. It takes three taps to fix:", Ink)
                 SetupStep(1, "Tap Take me there below")
@@ -530,7 +590,7 @@ private fun TapSetupPanel(watcher: String) {
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Avatar(watcher, 56)
-                    Text("$watcher wants to tap on your phone for you", fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                    Text("$watcher wants to tap on your phone for you", fontFamily = Rounded, fontSize = 24.sp, lineHeight = 30.sp, color = Ink)
                 }
                 Body("You only do this once. $watcher will walk you through it on the phone.", Ink)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -559,8 +619,8 @@ private fun TapSetupPanel(watcher: String) {
 @Composable
 private fun SetupStep(number: Int, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(36.dp).background(Navy, CircleShape), contentAlignment = Alignment.Center) {
-            Text("$number", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Box(Modifier.size(36.dp).background(Clay, CircleShape), contentAlignment = Alignment.Center) {
+            Text("$number", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = OnClay)
         }
         Text(text, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
     }
@@ -590,7 +650,7 @@ private fun RowScope.SetupPicture(label: String, picture: @Composable () -> Unit
 private fun ListPicture() {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Box(Modifier.fillMaxWidth().height(12.dp).background(Line, RoundedCornerShape(4.dp)))
-        Box(Modifier.fillMaxWidth().height(18.dp).background(Amber, RoundedCornerShape(6.dp)))
+        Box(Modifier.fillMaxWidth().height(18.dp).background(Clay, RoundedCornerShape(6.dp)))
         Box(Modifier.fillMaxWidth().height(12.dp).background(Line, RoundedCornerShape(4.dp)))
     }
 }
@@ -598,10 +658,10 @@ private fun ListPicture() {
 @Composable
 private fun AppPicture() {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(34.dp).background(Navy, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-            Text("tk.", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Amber)
+        Box(Modifier.size(34.dp).background(Clay, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            Text("tk.", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = OnClay)
         }
-        Box(Modifier.width(48.dp).height(8.dp).background(Amber, RoundedCornerShape(4.dp)))
+        Box(Modifier.width(48.dp).height(8.dp).background(Clay, RoundedCornerShape(4.dp)))
     }
 }
 
@@ -631,10 +691,10 @@ private fun RestrictedPicture() {
 @Composable
 private fun RingingPanel(helper: String) {
     val context = LocalContext.current
-    Panel(AmberSoft) {
+    Panel(ClaySoft) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LiveDot(AmberDeep)
-            Text("$helper is ringing your phone", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+            LiveDot(Clay)
+            Text("$helper is ringing your phone", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
         }
         BigButton("Found it", color = Green) { RingService.stop(context) }
     }
@@ -644,16 +704,16 @@ private fun RingingPanel(helper: String) {
 @Composable
 private fun UpdatePanel(vm: TechKidViewModel) {
     Box(Modifier.popIn()) {
-        Panel(AmberSoft) {
-            Text("A new My Tech Kid is ready", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AmberInk)
+        Panel(ClaySoft) {
+            Text("A new My Tech Kid is ready", fontFamily = Rounded, fontSize = 24.sp, lineHeight = 30.sp, color = ClayInk)
             if (vm.updating) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(Modifier.size(24.dp), color = AmberInk, strokeWidth = 3.dp)
-                    Body("Getting it now…", AmberInk)
+                    CircularProgressIndicator(Modifier.size(24.dp), color = ClayInk, strokeWidth = 3.dp)
+                    Body("Getting it now…", ClayInk)
                 }
             } else {
-                Body("Tap Update, then tap Update again on the next screen.", AmberInk)
-                BigButton("Update", color = AmberDeep) { vm.startUpdate() }
+                Body("Tap Update, then tap Update again on the next screen.", ClayInk)
+                BigButton("Update", color = Clay) { vm.startUpdate() }
             }
         }
     }
@@ -693,7 +753,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
 private fun LatestAnswer(check: ScamCheck, helpers: String) {
     when (check.verdict) {
         null -> Panel(InfoSoft) {
-            Text("Waiting for $helpers to answer…", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Text("Waiting for $helpers to answer…", fontFamily = Rounded, fontSize = 24.sp, lineHeight = 30.sp, color = Ink)
             Body("Don't tap any links or pay anything until they do.", Ink)
             Quote(check.text)
         }
@@ -719,7 +779,7 @@ private fun Quote(text: String) {
         color = Muted,
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+            .background(Card, RoundedCornerShape(14.dp))
             .padding(12.dp),
     )
 }
