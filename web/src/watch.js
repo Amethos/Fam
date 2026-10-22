@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { gestureFor, pointOnVideo } from "./gesture.js";
-import { preferH264, summarize } from "./quality.js";
+import { preferH264, summarize, liveLine } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -85,6 +85,7 @@ function show(name, message, { video = false } = {}) {
         <div class="watch-status">
           <span class="watch-state"><span class="watch-dot"></span><span class="watch-connecting">Connecting</span><span class="watch-live">Live</span><span class="watch-tapping">You're tapping</span></span>
           <strong class="watch-title"></strong>
+          <span class="watch-stats"></span>
         </div>
         <div class="watch-control" hidden>
           <button data-watch-ask>${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}<span class="watch-ask-label"></span></button>
@@ -322,9 +323,11 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   // When the network path drops, Mom's phone looks for a new one for up to
   // 30 seconds (her Stop bar stays up); taps wait until the picture is back.
   pc.onconnectionstatechange = () => checkLink(s);
+  let ticks = 0;
   s.pingTimer = setInterval(() => {
     if (s.caps.ping) send({ t: "ping" });
     checkLink(s);
+    if (++ticks % 4 === 0) showStats(s);
   }, PING_EVERY_MS / 2);
 
   s.unsubs.push(onSnapshot(shareRef, (snap) => {
@@ -404,6 +407,15 @@ async function saveQuality(s) {
 }
 
 // ---------- How the connection is doing ----------
+
+// A small line in the menu: delay, video format, relay or direct, pictures a second.
+async function showStats(s) {
+  const el = document.querySelector("#watch .watch-stats");
+  if (!el || session !== s || s.pc?.connectionState !== "connected") return;
+  try {
+    el.textContent = liveLine([...(await s.pc.getStats()).values()]);
+  } catch { /* nice to have */ }
+}
 
 let link = "ok";
 

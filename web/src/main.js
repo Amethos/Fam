@@ -127,8 +127,32 @@ function watchCircle(id) {
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
       (s) => { state.invites = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "screenShares"), where("status", "in", ["waiting", "live"])),
-      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); openMyShare(); render(); }, fail),
+      (s) => { state.shares = s.docs.map((d) => ({ id: d.id, ...d.data() })); prefetchPasses(); openMyShare(); render(); }, fail),
   );
+}
+
+// Relay passes for screen sharing, asked for as soon as Mom's share shows up
+// (before joining), so watching never waits on the backend.
+const passes = new Map();
+function prefetchPasses() {
+  if (!state.circle?.helperIds?.includes(state.user?.uid)) return;
+  for (const sh of state.shares) {
+    if (sh.status === "waiting" && !passes.has(sh.id)) relayPass(sh.id);
+  }
+}
+function relayPass(shareId) {
+  const got = passes.get(shareId);
+  if (got) return got;
+  const asking = call("shareIceServers", { circleId, shareId })
+    .catch((err) => { passes.delete(shareId); throw err; });
+  passes.set(shareId, asking);
+  return asking;
+}
+// The backend sleeps when nobody uses it, and waking takes a few seconds.
+// "I'm on it" means Mom's screen is coming: wake it now. (Asking without a
+// share is refused, which is fine: only the waking matters.)
+function wakeRelay() {
+  call("shareIceServers", { circleId, shareId: "wake" }).catch(() => {});
 }
 
 // After "I'm on it", the helper is waiting for Mom's screen: open it as soon
@@ -618,7 +642,7 @@ function render() {
   if (page === "watch" && id && state.circle) {
     watchShare({ db, uid: state.user.uid, myName: myName(), circleId, shareId: id,
       parentName: state.shares.find((sh) => sh.id === id)?.parentName,
-      iceServers: () => call("shareIceServers", { circleId, shareId: id }) });
+      iceServers: () => relayPass(id) });
   } else {
     closeWatch();
   }
@@ -688,9 +712,12 @@ const actions = {
     state.error = "Check your email for a link to reset your password.";
   }),
   alerts: () => run(() => enableAlerts()),
-  "accept-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
-    status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
-  })),
+  "accept-help": (el) => run(() => {
+    wakeRelay();
+    return updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
+      status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
+    });
+  }),
   ring: (el) => run(async () => {
     const parentId = el.dataset.id;
     await addDoc(collection(db, `circles/${circleId}/rings`), {
