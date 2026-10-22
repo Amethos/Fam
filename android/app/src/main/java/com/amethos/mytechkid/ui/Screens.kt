@@ -1,5 +1,6 @@
 package com.amethos.mytechkid.ui
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
@@ -61,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
 import com.amethos.mytechkid.R
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
@@ -488,8 +490,24 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
                 QuietButton("Never mind, I'm OK", enabled = !vm.busy) { vm.finishHelp("cancelled") }
             }
             "accepted" -> Box(Modifier.popIn()) { Panel(GreenSoft) {
-                Text("${help.helperName ?: first} is coming to help", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
-                Body("They'll call you in a moment.", Ink)
+                val helper = help.helperName ?: first
+                // "I'm on it" starts the help: Android's own "Share your screen?"
+                // comes up by itself once, a moment after this card, and only
+                // their tap on Start shares anything. Cancel leaves the button below.
+                val activity = LocalContext.current as? ComponentActivity
+                if (watcher == null) {
+                    LaunchedEffect(help.id, vm.resumes) {
+                        delay(2500)
+                        val onScreen = activity?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+                        if (onScreen && ShareState.watcher == null && vm.firstShareAsk(help.id)) onShowScreen()
+                    }
+                }
+                Text("$helper is coming to help", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+                Body(
+                    if (watcher == null) "They'll call you in a moment. To let $helper see your phone, tap Start on the next screen."
+                    else "They'll call you in a moment.",
+                    Ink,
+                )
                 if (watcher == null) BigButton("Show ${help.helperName ?: first} my screen", color = Green) { onShowScreen() }
                 QuietButton("All fixed, thank you", enabled = !vm.busy) { vm.finishHelp("done") }
             } }

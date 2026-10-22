@@ -331,8 +331,7 @@ function helpCards() {
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
-        <p>Give them a call now. To see their phone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>.
-          It opens here by itself, and from there you can ask to tap for them.</p>
+        <p>${helpingNote(h)}</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
     return `<div class="alert blue"><p><strong>${esc(h.helperName)}</strong> is helping ${esc(h.parentName)}.</p></div>`;
@@ -401,6 +400,19 @@ function ringButton(p) {
   }
   return `<button class="secondary small" data-action="ring" data-id="${esc(p.id)}" ${state.busy ? "disabled" : ""}>
     Ring ${esc(p.name)}'s phone</button>`;
+}
+
+// After "I'm on it": an Android phone asks them to share right away (they
+// tap Start), and their screen opens here by itself.
+function helpingNote(h) {
+  const parent = state.circle?.members?.[h.parentId];
+  const name = esc(h.parentName);
+  if (parent?.device?.platform === "android") {
+    return `Give ${name} a call now. Their phone is asking them to share their screen: once they tap
+      <strong>Start</strong>, it opens here by itself, and from there you can ask to tap for them.`;
+  }
+  return `Give them a call now. To see their phone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>.
+    It opens here by itself, and from there you can ask to tap for them.`;
 }
 
 function howToHelp(p) {
