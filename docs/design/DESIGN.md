@@ -25,17 +25,34 @@ https://claude.ai/artifact/PGUQsN3VoS1sbJa2qThgqj ("Modern helper" page).
   border and glow.
 - Source of truth in code: `web/src/styles.css`. The remote screen
   (`#watch`) stays always dark.
-- Mom's side will move to **Warm Home** (terracotta, cream, olive; Varela
-  Round + Nunito Sans), same mockup canvas, "First looks" page. Not built yet.
+- The parent's side uses **Warm Home** (below).
 
-## Mom's app
+## The parent's app: Warm Home (Oct 2026)
 
-Same colors, but big, calm and high-contrast; no settings on her phone.
-**Current: design 9, "Today's Date"** from `mom-picks.html` (light ground
-`#EEF2F8`, day and date + "Good morning/afternoon/evening, Mom", big navy
-help button with an amber initial, white "Is this a scam?" button with an
-amber shield). Chosen by the owner for now; Mom's own feedback comes later.
-Code: `android/app/src/main/java/com/amethos/mytechkid/ui/Screens.kt`.
+Big, calm and high-contrast; no settings on their phone. Picked by the owner
+from the "First looks" page of the mockup canvas
+(https://claude.ai/artifact/PGUQsN3VoS1sbJa2qThgqj).
+
+| Token | Color | Used for |
+| --- | --- | --- |
+| Ground | `#F5F0E1` cream | background |
+| Card | `#FFFBF3` | cards, the "Yes" question |
+| Clay | `#A3532F` terracotta, text `#FFF8EE` | help button, main buttons, initials |
+| Olive | `#5C6B30` | day name, scam shield |
+| Sand | `#E8DCC4` | "Is this a scam?" button |
+| Ink / Muted | `#3B2A20` / `#6B5444` | text |
+| Green / Red | `#1F6B45` / `#9C2F1E` | yes and safe / stop |
+
+- Type: **Varela Round** for headings and the help button, **Nunito Sans**
+  (400/700/800) for the rest. Bundled in `android/app/src/main/res/font`
+  (Latin subset; licenses in `android/third_party/fonts`), sizes in sp so
+  they follow the phone's font size.
+- Home: day name (olive), big date, "Good morning, Pat", then the terracotta
+  "Get help / from Josh" button and the sand "Is this a scam?" button with an
+  olive shield and check mark.
+- Earlier look: design 9 "Today's Date" (navy and amber), in `mom-picks.html`.
+- Code: `android/app/src/main/java/com/amethos/mytechkid/ui/Screens.kt`, plus the
+  "Yes" question and Stop banner in `RemoteControlService.kt`.
 
 ## Motion
 
@@ -46,7 +63,7 @@ Small, warm, and only on first appearance; never in the way.
   bounces), staggered entrances on each new screen, help and scam cards
   bounce in when they arrive (the help card keeps a soft amber pulse), and
   confetti with a self-drawing check mark when a parent is linked.
-- Mom's app: the big help button bounces in, the scam button a beat later;
+- The parent's app: the big help button fades and settles in slowly (no bounce), the scam button a beat later;
   a breathing dot while her request goes out.
 - Everything respects the phone's "Reduce motion" / "Remove animations".
   Code: the Motion section at the end of `web/src/styles.css`, `popIn` in

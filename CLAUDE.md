@@ -62,8 +62,7 @@ rules or pairing change needs a test in `backend-tests/`.
   Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj (copies in `docs/design/`).
 - **Look: Liquid Glass** (frosted glass, Geist, orange accent), light and dark, for the
   helper app and website; see `docs/design/DESIGN.md`. Mom's app uses
-  design 9 ("Today's Date") for now; the owner picked "Warm Home" for it next
-  (not built yet, see DESIGN.md).
+  **Warm Home** (terracotta, cream and olive; Varela Round + Nunito Sans, bundled).
 
 ## Layout
 
