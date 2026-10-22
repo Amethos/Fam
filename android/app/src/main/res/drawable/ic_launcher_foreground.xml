@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon: a heart inside the big help button, on the terracotta background (colors.xml clay). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#B86640" android:pathData="M30.80,54 a23.20,23.20 0 1,0 46.41,0 a23.20,23.20 0 1,0 -46.41,0 Z" />
+    <path android:fillColor="#FFF8EE" android:pathData="M35.16,54 a18.84,18.84 0 1,0 37.69,0 a18.84,18.84 0 1,0 -37.69,0 Z" />
+    <path android:fillColor="#A3532F" android:pathData="M54.00,63.00 C43.31,55.97 44.72,46.12 49.78,46.12 C52.31,46.12 53.58,47.81 54.00,48.94 C54.42,47.81 55.69,46.12 58.22,46.12 C63.28,46.12 64.69,55.97 54.00,63.00 Z" />
+</vector>
