@@ -78,6 +78,15 @@ body::before {
   opacity: 0.85;
 }
 
+/* The app runs under the iPhone's clock and battery (black-translucent
+   status bar), which are always white: in light mode a soft shade keeps them readable. */
+body::after {
+  content: ""; position: fixed; z-index: 40; left: 0; right: 0; top: 0; height: env(safe-area-inset-top);
+  pointer-events: none; background: linear-gradient(rgba(11, 18, 32, 0.45), rgba(11, 18, 32, 0.15));
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body::after { display: none; } }
+:root[data-theme="dark"] body::after { display: none; }
+
 main {
   max-width: 520px;
   margin: 0 auto;
