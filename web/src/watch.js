@@ -334,12 +334,11 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   // When the network path drops, Mom's phone looks for a new one for up to
   // 30 seconds (her Stop bar stays up); taps wait until the picture is back.
   pc.onconnectionstatechange = () => checkLink(s);
-  let ticks = 0;
   s.pingTimer = setInterval(() => {
     if (s.caps.ping) send({ t: "ping" });
     checkLink(s);
-    if (++ticks % 4 === 0) showStats(s);
   }, PING_EVERY_MS / 2);
+  s.statsTimer = setInterval(() => showStats(s), 2000);
 
   s.unsubs.push(onSnapshot(shareRef, (snap) => {
     const share = snap.data();
@@ -422,10 +421,14 @@ async function saveQuality(s) {
 // A small line in the menu: delay, video format, relay or direct, pictures a second.
 async function showStats(s) {
   const el = document.querySelector("#watch .watch-stats");
-  if (!el || session !== s || s.pc?.connectionState !== "connected") return;
+  // Once her picture is showing (not every browser reports connectionState).
+  if (!el || session !== s || !s.pc || !(s.videoAt || s.pc.connectionState === "connected")) return;
   try {
-    el.textContent = liveLine([...(await s.pc.getStats()).values()]);
-  } catch { /* nice to have */ }
+    const report = await Promise.race([s.pc.getStats(), new Promise((_, no) => setTimeout(no, 1500))]);
+    el.textContent = liveLine([...report.values()]);
+  } catch {
+    el.textContent = "Connection numbers not available";
+  }
 }
 
 let link = "ok";
@@ -700,6 +703,7 @@ export async function stop({ end = true, message = "" } = {}) {
   setControl(null);
   if (s) {
     clearInterval(s.pingTimer);
+    clearInterval(s.statsTimer);
     s.unsubs.forEach((u) => u());
     await saveQuality(s);
     s.pc?.close();
