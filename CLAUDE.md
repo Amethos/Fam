@@ -63,6 +63,9 @@ rules or pairing change needs a test in `backend-tests/`.
 - **Look: Liquid Glass** (frosted glass, Geist, orange accent), light and dark, for the
   helper app and website; see `docs/design/DESIGN.md`. Mom's app uses
   **Warm Home** (terracotta, cream and olive; Varela Round + Nunito Sans, bundled).
+- **App icon** (chosen Oct 2026): a terracotta heart on a cream phone screen
+  on terracotta (so it reads "phone help", not health). Source `docs/design/app-icon.svg`; also the social media
+  profile picture. Android uses a vector adaptive icon (+ monochrome for themed icons).
 
 ## Layout
 

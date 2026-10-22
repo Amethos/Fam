@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon: a heart on a phone screen, on the terracotta background (colors.xml clay). Source: docs/design/app-icon.svg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#B86640" android:pathData="M45.84,28.55 H62.16 A7.31,7.31 0 0 1 69.47,35.86 V72.14 A7.31,7.31 0 0 1 62.16,79.45 H45.84 A7.31,7.31 0 0 1 38.53,72.14 V35.86 A7.31,7.31 0 0 1 45.84,28.55 Z" />
+    <path android:fillColor="#FFF8EE" android:pathData="M46.41,31.92 H61.59 A4.50,4.50 0 0 1 66.09,36.42 V71.58 A4.50,4.50 0 0 1 61.59,76.08 H46.41 A4.50,4.50 0 0 1 41.91,71.58 V36.42 A4.50,4.50 0 0 1 46.41,31.92 Z" />
+    <path android:fillColor="#A3532F" android:pathData="M54.00,56.84 C47.37,52.48 48.25,46.38 51.38,46.38 C52.95,46.38 53.74,47.42 54.00,48.12 C54.26,47.42 55.05,46.38 56.62,46.38 C59.75,46.38 60.63,52.48 54.00,56.84 Z" />
+    <path android:fillColor="#DDBFA8" android:pathData="M50.98,72.00 H57.02 A0.49,0.49 0 0 1 57.52,72.49 V72.49 A0.49,0.49 0 0 1 57.02,72.98 H50.98 A0.49,0.49 0 0 1 50.48,72.49 V72.49 A0.49,0.49 0 0 1 50.98,72.00 Z" />
+</vector>
