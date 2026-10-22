@@ -422,6 +422,7 @@ body.watching { overflow: hidden; }
   border-top: 1px solid rgba(255, 255, 255, 0.14); }
 #watch .watch-keys button { justify-self: center; width: 64px; min-height: 40px; padding: 0; border-radius: 999px;
   background: transparent; color: #FFFFFF; }
+#watch .watch-keys svg { width: 20px; height: 20px; }
 /* Her screen ends where the bar starts. (A video's height doesn't stretch
    between top and bottom like a div's, so set it outright.) */
 #watch.controlling video { bottom: auto; height: calc(100% - var(--keys-h)); }
