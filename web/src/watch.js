@@ -18,6 +18,7 @@ import {
 import { esc } from "./util.js";
 import { gestureFor, pointOnVideo } from "./gesture.js";
 import { preferH264, summarize } from "./quality.js";
+import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
 // a short-lived relay pass for networks that block direct paths, once the
@@ -75,7 +76,7 @@ function show(name, message, { video = false } = {}) {
       <div class="watch-top">
         <a class="watch-float watch-exit" href="#/" aria-label="Back (ends sharing)">${icon('<path d="M15 5l-7 7 7 7"/>', 22)}</a>
         <div class="watch-banner" role="status"><span class="watch-dot"></span>
-          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-pointing"></span><span class="watch-short"></span></div>
+          <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-pointing"></span><span class="watch-weak"></span><span class="watch-short"></span></div>
         <button class="watch-float watch-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="watch-menu">
           ${icon('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>', 22)}<span class="watch-dot"></span></button>
       </div>
@@ -105,6 +106,7 @@ function show(name, message, { video = false } = {}) {
         <ol class="watch-guide-steps"></ol>
         <p class="watch-guide-note"></p>
       </section>
+      <p class="watch-weak-note" role="status" hidden></p>
       <p class="watch-toast" role="status" hidden></p>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
@@ -170,7 +172,8 @@ function bannerPulse() {
   const el = document.getElementById("watch");
   const banner = el?.querySelector(".watch-banner");
   if (!banner) return;
-  banner.querySelector(".watch-short").textContent = pointing ? "Pointing" : el.classList.contains("controlling") ? "Tapping" : (session?.name ?? FALLBACK_NAME);
+  banner.querySelector(".watch-short").textContent = link === "reconnecting" ? "Reconnecting" : link === "slow" ? "Slow"
+    : pointing ? "Pointing" : el.classList.contains("controlling") ? "Tapping" : (session?.name ?? FALLBACK_NAME);
   banner.classList.remove("compact");
   clearTimeout(bannerTimer);
   if (el.classList.contains("live")) bannerTimer = setTimeout(() => banner.classList.add("compact"), 4000);
@@ -244,7 +247,8 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   current = shareId;
   await stop({ end: false });
   const shareRef = doc(db, `circles/${circleId}/screenShares/${shareId}`);
-  const s = { shareId, openedAt: Date.now(), name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false };
+  const s = { shareId, openedAt: Date.now(), name: parentName || FALLBACK_NAME, unsubs: [], pc: null, seen: new Set(), pending: [], remoteSet: false, ended: false,
+    caps: {}, lastPong: 0, downSince: 0 };
   session = s;
   show(s.name, "Connecting…");
 
@@ -308,16 +312,20 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       let msg;
       try { msg = JSON.parse(m.data); } catch { return; }
       if (msg.t === "control") setControl(msg);
+      // What her app can do (older versions say nothing): answer pings, live drags.
+      if (msg.t === "caps") { s.caps = msg; s.lastPong = Date.now(); }
+      if (msg.t === "pong") s.lastPong = Date.now();
       if (msg.t === "refused") flashNote(`That spot is under ${s.name}'s Stop button, or ${s.name} is answering a question. Try again.`);
     };
     e.channel.onclose = () => { if (session === s) setControl(null); };
   };
-  pc.onconnectionstatechange = () => {
-    // Mom's phone ends it too when the connection fails, so nothing stays shared.
-    if (pc.connectionState === "failed") {
-      stop({ end: true, message: `The connection dropped. Ask ${s.name} to tap Show my screen again.` });
-    }
-  };
+  // When the network path drops, Mom's phone looks for a new one for up to
+  // 30 seconds (her Stop bar stays up); taps wait until the picture is back.
+  pc.onconnectionstatechange = () => checkLink(s);
+  s.pingTimer = setInterval(() => {
+    if (s.caps.ping) send({ t: "ping" });
+    checkLink(s);
+  }, PING_EVERY_MS / 2);
 
   s.unsubs.push(onSnapshot(shareRef, (snap) => {
     const share = snap.data();
@@ -395,6 +403,45 @@ async function saveQuality(s) {
   } catch { /* nice to have, never in the way */ }
 }
 
+// ---------- How the connection is doing ----------
+
+let link = "ok";
+
+function checkLink(s) {
+  if (session !== s || !s.pc) return;
+  const now = Date.now();
+  const state = linkState({ connection: s.pc.connectionState, pings: !!s.caps.ping, lastPong: s.lastPong, now });
+  if (state === "reconnecting") {
+    s.downSince ||= now;
+    // Mom's phone has given up by now too, so nothing stays shared.
+    if (now - s.downSince > RECONNECT_GIVE_UP_MS + 5000) {
+      stop({ end: true, message: `The connection dropped. Ask ${s.name} to tap Show my screen again.` });
+      return;
+    }
+  } else {
+    s.downSince = 0;
+  }
+  setLink(state);
+}
+
+function setLink(state) {
+  const el = document.getElementById("watch");
+  const changed = state !== link;
+  link = state;
+  if (!el?.querySelector(".watch-weak")) return;
+  const name = session?.name ?? FALLBACK_NAME;
+  el.classList.toggle("weak", state !== "ok");
+  el.classList.toggle("reconnecting", state === "reconnecting");
+  el.querySelector(".watch-weak").textContent = state === "reconnecting" ? `Reconnecting to ${name}…`
+    : controlOn ? "Slow connection · taps paused" : "Slow connection";
+  const note = el.querySelector(".watch-weak-note");
+  note.textContent = state === "reconnecting"
+    ? `${name}'s signal blinked. Finding a better connection. Taps are paused until the picture is back.`
+    : `${name}'s screen is catching up. Your taps work again as soon as it does.`;
+  note.hidden = !(state === "reconnecting" || (state === "slow" && controlOn));
+  if (changed) bannerPulse();
+}
+
 // ---------- Tapping for Mom ----------
 
 function send(msg) {
@@ -440,6 +487,7 @@ function setControl(msg) {
   if (controlOn && changed) setMenu(false);
   el.classList.toggle("controlling", controlOn);
   if (changed) bannerPulse();
+  if (changed) setLink(link);
   const notes = {
     ready: "",
     sent: `Asking ${name}'s phone…`,
@@ -541,32 +589,65 @@ function ripple(x, y) {
   setTimeout(() => dot.remove(), 450);
 }
 
+// A drag (scrolling, moving something) goes to her phone live, as the finger
+// moves, when her app can do that; a short touch is still one tap or hold.
+// Moves go out at most every 50 ms, and every 300 ms while the finger rests,
+// so her phone knows the finger is still down.
+const MOVE_EVERY_MS = 50;
+const STILL_DOWN_MS = 300;
+
 function addGestures(video) {
   let start = null;
   let last = null;
+  let dragging = false;
+  let sentAt = 0;
+  let stillTimer;
+  const move = () => {
+    if (!dragging || link !== "ok") return;
+    send({ t: "move", x: last.x, y: last.y });
+    sentAt = performance.now();
+    clearTimeout(stillTimer);
+    stillTimer = setTimeout(move, STILL_DOWN_MS);
+  };
   video.addEventListener("pointerdown", (e) => {
     if (!controlOn) return;
     const p = pointOn(video, e);
     if (!p) return;
     e.preventDefault();
+    // The picture is behind: a tap now could land on something that changed.
+    if (link !== "ok") return;
     video.setPointerCapture?.(e.pointerId);
     start = { ...p, time: performance.now() };
     last = p;
+    dragging = false;
   });
   video.addEventListener("pointermove", (e) => {
     if (!start) return;
     const p = pointOn(video, e);
-    if (p) last = p;
+    if (!p) return;
+    last = p;
+    if (!dragging && !pointing && session?.caps?.drag && link === "ok" && isDrag(start, p)) {
+      dragging = true;
+      send({ t: "down", x: start.x, y: start.y });
+      sentAt = 0;
+    }
+    if (dragging && performance.now() - sentAt >= MOVE_EVERY_MS) move();
   });
   const finish = (e) => {
     if (!start) return;
+    clearTimeout(stillTimer);
+    const end = last ?? start;
     // Pointing shows her where to tap (a ring on her screen) instead of tapping.
-    const g = pointing ? { t: "point", x: (last ?? start).x, y: (last ?? start).y } : gestureFor(start, last ?? start, performance.now() - start.time);
+    const g = dragging ? { t: "up", x: end.x, y: end.y }
+      : pointing ? { t: "point", x: end.x, y: end.y } : gestureFor(start, end, performance.now() - start.time);
+    const wasDrag = dragging;
     start = null;
     last = null;
-    if (e.type === "pointerup" && controlOn) {
+    dragging = false;
+    // A drag always gets its "up", so her phone lifts the finger.
+    if ((e.type === "pointerup" || wasDrag) && controlOn && (link === "ok" || wasDrag)) {
       send(g);
-      ripple(e.clientX, e.clientY);
+      if (!wasDrag) ripple(e.clientX, e.clientY);
     }
   };
   video.addEventListener("pointerup", finish);
@@ -579,11 +660,13 @@ export async function stop({ end = true, message = "" } = {}) {
   session = null;
   setControl(null);
   if (s) {
+    clearInterval(s.pingTimer);
     s.unsubs.forEach((u) => u());
     await saveQuality(s);
     s.pc?.close();
     if (end) await s.end?.();
   }
+  setLink("ok");
   const el = document.getElementById("watch");
   if (!el) return;
   if (message) {

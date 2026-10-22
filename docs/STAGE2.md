@@ -64,6 +64,22 @@ Built so far:
   second, height, data rate, loss, freezes, video format). The rules allow it
   once, from the joined helper, numbers only.
 
+- **Riding out a dropped signal.** When the network path drops (walking
+  out of Wi-Fi range), Mom's phone restarts ICE on the same connection for
+  up to 30 seconds instead of ending the share; her notification says
+  "Reconnecting to <helper>…". Taps that arrive while it's down, or within a
+  second after, are dropped. The helper's banner says "Reconnecting to
+  <name>…" and dims her picture.
+- **No taps on a frozen picture.** The helper's page pings Mom's phone every
+  second over the control channel; no answer for 1.5 seconds shows "Slow
+  connection" and holds taps back until it answers again (`web/src/link.js`).
+- **Live drags.** A moving finger goes to Mom's phone as down / move / up
+  (moves at most every 50 ms, and every 300 ms while resting), and
+  `RemoteControlService.drag` continues the same touch with each piece, so
+  lists scroll as the helper's finger moves. No moves for a second lifts the
+  finger. Mom's app says what it supports (`caps`) when the channel opens;
+  older versions get the old one-swipe-at-the-end.
+
 ## Still to build
 
 | Piece | Where | Needs from the owner |

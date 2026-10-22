@@ -93,6 +93,11 @@ class ScreenShareService : Service() {
     private val outbox = mutableListOf<Pair<String, String>>()
     /** A late relay pass needs a fresh network path once the current offer is answered. */
     private var restartPending = false
+    /** The network path dropped; looking for a new one (taps wait). */
+    private var reconnecting = false
+    private var resumedAt = 0L
+    private val giveUp = Runnable { if (reconnecting) stopSharing(endShare = true) }
+    private val retryPath = Runnable { if (reconnecting) refreshPath() }
 
     private var egl: EglBase? = null
     private var factory: PeerConnectionFactory? = null
@@ -240,11 +245,7 @@ class ScreenShareService : Service() {
                 main.post { if (gen == myGen) sendSignal("candidate", candidateJson(candidate)) }
             }
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
-                // The network dropped for good and the helper's page didn't
-                // come back: end it, so nothing is left shared by accident.
-                if (state == PeerConnection.IceConnectionState.FAILED) {
-                    main.post { if (gen == myGen) stopSharing(endShare = true) }
-                }
+                main.post { if (gen == myGen) onPathChange(state) }
             }
             override fun onSignalingChange(state: PeerConnection.SignalingState) {}
             override fun onIceConnectionReceivingChange(receiving: Boolean) {}
@@ -271,7 +272,11 @@ class ScreenShareService : Service() {
                     main.post {
                         if (gen != myGen) return@post
                         when (state) {
-                            DataChannel.State.OPEN -> sendControl("ready")
+                            DataChannel.State.OPEN -> {
+                                sendControl("ready")
+                                // What this version can do, so the helper's page uses it.
+                                send(JSONObject().put("t", "caps").put("ping", true).put("drag", true))
+                            }
                             // The helper's page went away: stop tapping at once.
                             DataChannel.State.CLOSING, DataChannel.State.CLOSED -> endControl()
                             else -> {}
@@ -317,9 +322,53 @@ class ScreenShareService : Service() {
         sender.setParameters(params)
     }
 
+    /**
+     * The network path between the phones. When it drops (Wi-Fi to mobile
+     * data, a weak signal), look for a new one on the same connection for up
+     * to 30 seconds instead of ending the share; Mom's Stop bar and
+     * notification stay up the whole time, and taps wait until it's back.
+     */
+    private fun onPathChange(state: PeerConnection.IceConnectionState) {
+        when (state) {
+            PeerConnection.IceConnectionState.DISCONNECTED -> {
+                startReconnect()
+                // Often comes back by itself within a moment; if not, find a new path.
+                main.removeCallbacks(retryPath)
+                main.postDelayed(retryPath, RETRY_PATH_MS)
+            }
+            PeerConnection.IceConnectionState.FAILED -> {
+                startReconnect()
+                refreshPath()
+            }
+            PeerConnection.IceConnectionState.CONNECTED, PeerConnection.IceConnectionState.COMPLETED -> endReconnect()
+            else -> {}
+        }
+    }
+
+    private fun startReconnect() {
+        if (reconnecting || ShareState.watcher.isNullOrBlank()) return
+        reconnecting = true
+        RemoteControlService.instance?.endDrag()
+        notify("Reconnecting to $helperName…")
+        main.removeCallbacks(giveUp)
+        main.postDelayed(giveUp, RECONNECT_GRACE_MS)
+    }
+
+    private fun endReconnect() {
+        if (!reconnecting) return
+        reconnecting = false
+        resumedAt = System.currentTimeMillis()
+        main.removeCallbacks(giveUp)
+        main.removeCallbacks(retryPath)
+        notify(if (controlOn) "$helperName can see and tap your screen" else "$helperName can see your screen")
+    }
+
     /** Ends the current connection (not the share). Tapping stops with it. */
     private fun closeConnection() {
         endControl()
+        reconnecting = false
+        main.removeCallbacks(giveUp)
+        main.removeCallbacks(retryPath)
         pendingCandidates.clear()
         outbox.clear()
         restartPending = false
@@ -438,10 +487,17 @@ class ScreenShareService : Service() {
         recent.addLast(now)
 
         when (m.optString("t")) {
+            "ping" -> send(JSONObject().put("t", "pong"))
             "ask" -> askForControl()
-            "tap", "hold", "swipe", "key", "point" -> if (controlOn) doGesture(m)
+            "tap", "hold", "swipe", "key", "point", "down", "move", "up" -> if (controlOn && !stale()) doGesture(m)
         }
     }
+
+    /**
+     * Taps that waited out a dropped connection (or arrive in the moment
+     * after it's back) were aimed at a picture that's out of date: drop them.
+     */
+    private fun stale() = reconnecting || System.currentTimeMillis() - resumedAt < STALE_AFTER_RESUME_MS
 
     private fun askForControl() {
         if (controlOn) return sendControl("on")
@@ -586,12 +642,15 @@ class ScreenShareService : Service() {
                 val ms = m.optLong("ms", 300).coerceIn(80, 1500)
                 a != null && b != null && control.gesture(a.first, a.second, b.first, b.second, ms, screen)
             }
+            // A live drag: the helper's finger going down, moving and lifting.
+            "down", "move", "up" -> point("x", "y", clamp = true)?.let { control.drag(m.optString("t"), it.first, it.second, screen) } ?: false
             "key" -> control.button(m.optString("name"))
             // "Look here": a ring on her screen, nothing is tapped.
             "point" -> point("x", "y")?.let { control.point(it.first, it.second, screen) } ?: false
             else -> false
         }
-        if (!ok) send(JSONObject().put("t", "refused"))
+        // A drag that reaches her Stop bar just ends there; only say so when it starts on it.
+        if (!ok && m.optString("t") != "move" && m.optString("t") != "up") send(JSONObject().put("t", "refused"))
     }
 
     private fun sendControl(state: String, until: Long? = null) {
@@ -762,6 +821,9 @@ class ScreenShareService : Service() {
         private const val FIRST_GEN = "first"
         private const val MAX_RECONNECTS = 20
         private const val ICE_WAIT_MS = 4_000L
+        private const val RECONNECT_GRACE_MS = 30_000L
+        private const val RETRY_PATH_MS = 2_000L
+        private const val STALE_AFTER_RESUME_MS = 1_000L
         private val STUN_ONLY = listOf(
             PeerConnection.IceServer.builder(listOf("stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"))
                 .createIceServer(),

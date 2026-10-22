@@ -473,3 +473,25 @@ body.watching { overflow: hidden; }
 #watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #watch.controlling .watch-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   box-shadow: inset 0 0 0 4px var(--amber), inset 0 0 40px rgba(234, 88, 12, 0.35); }
+
+/* The connection is weak: the banner says so (glass, even while tapping),
+   taps and her phone's buttons wait, and while reconnecting her picture dims
+   behind a note. */
+#watch .watch-weak, #watch .watch-weak-note[hidden] { display: none; }
+#watch.weak .watch-banner > span:not(.watch-dot):not(.watch-short) { display: none; }
+#watch.weak .watch-banner:not(.compact) > span.watch-weak:not(.watch-short) { display: inline; }
+#watch.weak .watch-banner { background: var(--glass); color: #FFFFFF; border-color: rgba(255, 255, 255, 0.22); }
+#watch.weak .watch-banner .watch-dot { background: var(--amber); animation: none; }
+#watch.reconnecting .watch-banner .watch-dot { background: transparent; border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF; width: 10px; height: 10px; animation: watch-spin 1s linear infinite; }
+@keyframes watch-spin { to { transform: rotate(360deg); } }
+#watch.reconnecting video { opacity: 0.45; filter: saturate(0.5); transition: opacity 0.3s ease; }
+#watch.weak .watch-keys { opacity: 0.5; pointer-events: none; }
+#watch .watch-weak-note { position: absolute; z-index: 3; left: 24px; right: 24px; bottom: calc(var(--keys-h) + 24px); margin: 0;
+  padding: 14px 18px; border-radius: 18px; text-align: center; font-size: 0.9375rem; font-weight: 600; line-height: 1.45;
+  background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.22); color: #FFFFFF; }
+#watch.reconnecting .watch-weak-note { top: 40%; bottom: auto; }
+@media (prefers-reduced-motion: reduce) {
+  #watch.reconnecting .watch-banner .watch-dot { animation: none; }
+}
