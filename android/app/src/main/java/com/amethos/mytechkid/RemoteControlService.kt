@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
@@ -119,6 +120,7 @@ class RemoteControlService : AccessibilityService() {
     }
 
     fun hideAll() {
+        endDrag()
         main.removeCallbacksAndMessages(null)
         hideAsk()
         hideBanner()
@@ -167,6 +169,87 @@ class RemoteControlService : AccessibilityService() {
         if (sent) showDot(bx, by)
         return sent
     }
+
+    // ---------- Live drags (scrolling, moving things) ----------
+
+    private var drag: GestureDescription.StrokeDescription? = null
+    private var dragX = 0f
+    private var dragY = 0f
+    private var dragAt = 0L
+    /** Its own timer, so clearing the question's timers never leaves a finger down. */
+    private val dragTimer = Handler(Looper.getMainLooper())
+
+    /**
+     * The helper's finger, live: "down" puts it on Mom's screen, "move" slides
+     * it and "up" lifts it, each piece continuing the same touch, so a list
+     * scrolls while the helper's finger moves. Points are 0..1 of the screen.
+     * It never moves onto Mom's Stop bar or question, and if the helper's
+     * moves stop arriving (a bad connection) the finger lifts on its own.
+     */
+    fun drag(phase: String, x: Float, y: Float, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
+        val (w, h) = screen
+        val px = x * w
+        val py = y * h
+        val now = SystemClock.uptimeMillis()
+        if (phase == "down") {
+            endDrag()
+            if (!allowed(px, py)) return false
+            val stroke = GestureDescription.StrokeDescription(Path().apply { moveTo(px, py) }, 0, 1, true)
+            if (!dispatch(stroke)) return false
+            drag = stroke
+            dragX = px
+            dragY = py
+            dragAt = now
+            liftIfIdle()
+            return true
+        }
+        val prev = drag ?: return phase == "up"
+        val blocked = !allowed(px, py)
+        val lift = phase == "up" || blocked
+        // Stop where the finger was rather than slide onto her Stop bar.
+        val tx = if (blocked) dragX else px
+        val ty = if (blocked) dragY else py
+        if (!lift && tx == dragX && ty == dragY) {
+            // The helper's finger is resting: keep it down (a long press).
+            dragAt = now
+            liftIfIdle()
+            return true
+        }
+        val path = Path().apply { moveTo(dragX, dragY); if (tx != dragX || ty != dragY) lineTo(tx, ty) }
+        // Shorter than the gap between moves, so each piece ends before the next.
+        val next = prev.continueStroke(path, 0, (now - dragAt).coerceIn(MIN_SEGMENT_MS, MAX_SEGMENT_MS), !lift)
+        drag = if (lift) null else next
+        dragX = tx
+        dragY = ty
+        dragAt = now
+        if (!dispatch(next)) {
+            drag = null
+            return false
+        }
+        if (lift) {
+            dragTimer.removeCallbacksAndMessages(null)
+            showDot(tx, ty)
+        } else {
+            liftIfIdle()
+        }
+        return !blocked
+    }
+
+    /** Lifts the helper's finger where it is, if it's down. */
+    fun endDrag() {
+        dragTimer.removeCallbacksAndMessages(null)
+        val d = drag ?: return
+        drag = null
+        runCatching { dispatch(d.continueStroke(Path().apply { moveTo(dragX, dragY) }, 0, 1, false)) }
+    }
+
+    private fun liftIfIdle() {
+        dragTimer.removeCallbacksAndMessages(null)
+        dragTimer.postDelayed({ endDrag() }, DRAG_IDLE_MS)
+    }
+
+    private fun dispatch(stroke: GestureDescription.StrokeDescription) =
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
 
     /** Back, Home, recent apps and the notification shade. */
     fun button(name: String): Boolean {
@@ -303,6 +386,10 @@ class RemoteControlService : AccessibilityService() {
     companion object {
         private const val ASK_TIMEOUT_MS = 60_000L
         private const val MAX_GESTURE_MS = 3_000L
+        private const val MIN_SEGMENT_MS = 8L
+        private const val MAX_SEGMENT_MS = 40L
+        /** The helper's page sends a move at least every 300 ms while their finger is down. */
+        private const val DRAG_IDLE_MS = 1_000L
         private const val POINTER_MS = 3_000L
         private val INK = Color.parseColor("#3B2A20")
         private val MUTED = Color.parseColor("#6B5444")

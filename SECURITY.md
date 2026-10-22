@@ -55,6 +55,13 @@ These are requirements, not nice-to-haves:
   so only her finger can answer or stop. Taps travel in the same end-to-end
   encrypted connection as the video (a WebRTC data channel) and are rate-limited.
   The accessibility service reads nothing on the screen (`RemoteControlService.kt`).
+- **A dropped signal pauses, never guesses.** If the network path drops,
+  Mom's phone looks for a new one on the same connection for up to 30
+  seconds, with her Stop bar and notification up the whole time. Taps that
+  arrive while it's down, or in the second after it's back, are thrown away
+  (they were aimed at an old picture), and a dragging finger is lifted. Not
+  back in 30 seconds: the share ends. The helper's page also holds taps back
+  when Mom's phone stops answering its once-a-second check.
 - **Respect protected screens.** Apps that block screenshots (banking,
   passwords) stay black; we never try to get around that.
 - **Nothing recorded or stored.** Screens are streamed, not saved.
