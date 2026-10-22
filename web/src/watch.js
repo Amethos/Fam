@@ -82,16 +82,16 @@ function show(name, message, { video = false } = {}) {
         <div class="watch-control" hidden>
           <button data-watch-ask>${icon('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4 15a2 2 0 0 1 3.4-2L9 15"/>')}<span class="watch-ask-label"></span></button>
           <p class="watch-control-note" role="status"></p>
-          <div class="watch-keys" hidden>
-            <button data-key="back">${icon('<path d="M19 12H6M11 6l-6 6 6 6"/>')}Back</button>
-            <button data-key="home">${icon('<circle cx="12" cy="12" r="7"/>')}Home</button>
-            <button data-key="recents">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>')}Apps</button>
-            <button data-key="notifications">${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Alerts</button>
-          </div>
+          <button class="watch-alerts" data-key="notifications" hidden>${icon('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>')}Pull down alerts</button>
           <button data-watch-point aria-pressed="false">${icon('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/>')}<span class="watch-point-label"></span></button>
         </div>
         <button class="danger" data-watch-stop><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/></svg>Stop sharing</button>
       </div>
+      <nav class="watch-keys" aria-label="Phone buttons" hidden>
+        <button data-key="recents" aria-label="Recent apps">${icon('<path d="M7 6v12M12 6v12M17 6v12"/>', 24)}</button>
+        <button data-key="home" aria-label="Home">${icon('<rect x="5" y="5" width="14" height="14" rx="5"/>', 24)}</button>
+        <button data-key="back" aria-label="Back">${icon('<path d="M15 5l-7 7 7 7"/>', 24)}</button>
+      </nav>
       <p class="watch-toast" role="status" hidden></p>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
@@ -379,6 +379,7 @@ function setControl(msg) {
   controlOn = msg?.state === "on";
   box.hidden = !msg;
   keys.hidden = !controlOn;
+  el.querySelector(".watch-alerts").hidden = !controlOn;
   ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
   ask.querySelector(".watch-ask-label").textContent = "Ask to tap";
   ask.setAttribute("aria-label", `Ask to tap for ${name}`);
