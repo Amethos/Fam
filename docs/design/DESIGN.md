@@ -1,27 +1,32 @@
 # Design
 
-## Look: Midnight & Amber
+## Look: Liquid Glass (helper app, Oct 2026)
 
-Chosen for the helper app (grown-up, calm, professional; helpers are adults
-40-60). Dark and light versions; the app follows the phone's setting and
-has an Appearance switch (Automatic / Light / Dark).
+Chosen Oct 22 2026 to replace Midnight & Amber on the helper side: modern,
+clean, room for many future features. Frosted see-through cards over soft
+color blobs, light and dark; the app follows the phone's setting and keeps
+the Appearance switch (Automatic / Light / Dark). Picked from four modern
+directions made with the ui-ux-pro-max design skill; mockups:
+https://claude.ai/artifact/PGUQsN3VoS1sbJa2qThgqj ("Modern helper" page).
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| background | `#F3F5F9` | `#0E1726` | page |
-| surface | `#FFFFFF` | `#17233A` | cards |
-| surface-2 | `#E9EEF5` | `#24324D` | secondary buttons, info |
-| line | `#DCE2EC` | `#33425E` | borders |
-| text | `#0E1726` | `#EEF2F8` | |
-| muted | `#4A5568` | `#9AA8BD` | secondary text |
-| amber | `#F2B33D` | `#F2B33D` | brand, primary buttons, "needs help" card |
-| amber text | `#8A5A00` | `#F2B33D` | small amber labels (readable on light) |
-| navy | `#0E1726` | `#0E1726` | text/buttons on amber |
+| bg | `#EEF1F8` | `#070B14` | page, under the color blobs |
+| surface | white 62% | white 7% | glass cards (blur 24px) |
+| surface-2 | white 78% | white 12% | secondary buttons, quotes |
+| fg / ink | `#0B1220` | `#F1F4FA` | text, primary buttons |
+| muted | `#475467` | `#A9B4C7` | secondary text |
+| amber (accent) | `#EA580C` | `#FF8A3D` | needs-help glow, avatars, "you're tapping" |
+| blobs | blue / peach / mint | deep blue / rust / teal | background color |
 
-- Type: **Manrope** (Google Fonts), 400-800.
-- Wordmark: "My Tech Kid" with an amber period. App icon: "tk." on navy.
-- The amber "needs help" card is always the loudest thing on screen.
-- Source of truth in code: `web/src/styles.css`.
+- Type: **Geist** (Google Fonts), 400-700.
+- Wordmark: "My Tech Kid" with an orange period.
+- The "needs help" card is always the loudest thing: glass with an orange
+  border and glow.
+- Source of truth in code: `web/src/styles.css`. The remote screen
+  (`#watch`) stays always dark.
+- Mom's side will move to **Warm Home** (terracotta, cream, olive; Varela
+  Round + Nunito Sans), same mockup canvas, "First looks" page. Not built yet.
 
 ## Mom's app
 

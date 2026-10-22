@@ -60,9 +60,10 @@ rules or pairing change needs a test in `backend-tests/`.
   (the GitHub repo is still called Fam) and "Nearby" (mockups). "Quick Question"
   was rejected: too close to the funded video-chat startup Super Quick Question.
   Mockups: https://claude.ai/artifact/JJ2wsqWtCRZqqjaP9qxHpj (copies in `docs/design/`).
-- **Look: Midnight & Amber** (navy + amber, Manrope), light and dark, for the
+- **Look: Liquid Glass** (frosted glass, Geist, orange accent), light and dark, for the
   helper app and website; see `docs/design/DESIGN.md`. Mom's app uses
-  design 9 ("Today's Date") for now, pending her own feedback.
+  design 9 ("Today's Date") for now; the owner picked "Warm Home" for it next
+  (not built yet, see DESIGN.md).
 
 ## Layout
 

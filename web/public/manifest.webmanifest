@@ -3,7 +3,7 @@
   "short_name": "My Tech Kid",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0E1726",
+  "background_color": "#070B14",
   "theme_color": "#0E1726",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

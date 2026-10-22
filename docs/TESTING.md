@@ -50,8 +50,8 @@ phone, before Mom tries it on her own.
     link; it goes away once we're on Google Play.)
   - Her phone then asks **"*You* wants to tap on your phone for you"**. She taps **Yes**. A dark bar with your
     name and **Stop** stays at the top of her screen.
-  - On your phone, tap, press and hold, or swipe on her screen; use **Back**, **Home**, **Apps** and **Alerts**
-    below it. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
+  - On your phone, tap, press and hold, or swipe on her screen; use her phone's buttons (Recent apps, Home,
+    Back) in the bar along the bottom, and **Pull down alerts** in the menu. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
   - **Stop** on her bar, in her notification, in her app, or on your page ends seeing and tapping at once.
   - Turn her phone sideways: the picture shows it sideways with black bars, and taps should still land
     where you aim.
