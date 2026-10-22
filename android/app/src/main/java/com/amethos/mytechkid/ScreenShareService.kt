@@ -87,6 +87,12 @@ class ScreenShareService : Service() {
     private val pendingCandidates = mutableListOf<IceCandidate>()
     private var offered = false
     private var stopping = false
+    /** The helper has joined: setup messages can go out (the rules refuse them before). */
+    private var live = false
+    /** Setup messages made before the helper joined, sent the moment they do. */
+    private val outbox = mutableListOf<Pair<String, String>>()
+    /** A late relay pass needs a fresh network path once the current offer is answered. */
+    private var restartPending = false
 
     private var egl: EglBase? = null
     private var factory: PeerConnectionFactory? = null
@@ -95,6 +101,7 @@ class ScreenShareService : Service() {
     private var source: VideoSource? = null
     private var pc: PeerConnection? = null
     private var channel: DataChannel? = null
+    private var sender: org.webrtc.RtpSender? = null
 
     private var circleId: String = ""
     private var helperName: String = ""
@@ -153,7 +160,12 @@ class ScreenShareService : Service() {
                 "status" to "waiting",
                 "createdAt" to FieldValue.serverTimestamp(),
             ),
-        ).addOnSuccessListener { fetchIceServers(circleId, ref.id) }
+        ).addOnSuccessListener {
+            fetchIceServers(circleId, ref.id)
+            // Get the connection ready while Mom waits, so her screen shows
+            // as soon as her helper joins instead of starting from scratch then.
+            withIceServers { if (!stopping && pc == null) connect(FIRST_GEN) }
+        }
             .addOnFailureListener { stopSharing(endShare = false) }
         listeners += ref.addSnapshotListener { snap, _ ->
             when (snap?.getString("status")) {
@@ -163,10 +175,12 @@ class ScreenShareService : Service() {
                     ShareState.watcher = helper
                     ShareState.waiting = false
                     notify("$helper can see your screen")
+                    live = true
+                    flushOutbox()
                     if (!offered) {
                         offered = true
                         listenForSignals(ref)
-                        withIceServers { connect(FIRST_GEN) }
+                        withIceServers { if (pc == null) connect(FIRST_GEN) }
                     }
                 }
                 "ended" -> stopSharing(endShare = false)
@@ -220,13 +234,8 @@ class ScreenShareService : Service() {
         val source = source ?: return
         closeConnection()
         gen = newGen
-        val config = PeerConnection.RTCConfiguration(iceServers ?: STUN_ONLY).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            // Start finding a network path right away, so the helper connects sooner.
-            iceCandidatePoolSize = 2
-        }
         val myGen = newGen
-        val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
+        val pc = factory.createPeerConnection(rtcConfig(), object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
                 main.post { if (gen == myGen) sendSignal("candidate", candidateJson(candidate)) }
             }
@@ -248,17 +257,11 @@ class ScreenShareService : Service() {
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {}
         }) ?: return
         this.pc = pc
-        pc.addTrack(factory.createVideoTrack("screen-$myGen", source), listOf("screen"))?.let { sender ->
-            // Smooth and quick to react: up to 30 pictures a second, and on a
-            // slow connection give up a little sharpness before smoothness.
-            val params = sender.parameters
-            params.degradationPreference = RtpParameters.DegradationPreference.BALANCED
-            params.encodings.forEach {
-                it.maxFramerate = FPS
-                it.maxBitrateBps = MAX_BITRATE
-            }
-            sender.setParameters(params)
-        }
+        // Start sharp instead of ramping up from a blurry picture, and never
+        // drop so low that words can't be read.
+        pc.setBitrate(MIN_BITRATE, START_BITRATE, MAX_BITRATE)
+        sender = pc.addTrack(factory.createVideoTrack("screen-$myGen", source), listOf("screen"))
+        tuneVideo()
         // Created before the offer so it's part of the same encrypted connection.
         channel = pc.createDataChannel("control", DataChannel.Init()).also { dc ->
             dc.registerObserver(object : DataChannel.Observer {
@@ -286,10 +289,41 @@ class ScreenShareService : Service() {
         makeOffer(pc, myGen)
     }
 
+    private fun rtcConfig() = PeerConnection.RTCConfiguration(iceServers ?: STUN_ONLY).apply {
+        sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+        // Start finding a network path right away, so the helper connects sooner.
+        iceCandidatePoolSize = 2
+    }
+
+    /**
+     * Up to 30 pictures a second. On a slow connection, keep words sharp and
+     * show fewer pictures a second, since the helper is mostly reading Mom's
+     * screen to her. While the helper taps, lean back toward smoothness so
+     * scrolling keeps up with their finger.
+     */
+    private fun tuneVideo() {
+        val sender = sender ?: return
+        val params = sender.parameters
+        params.degradationPreference = if (controlOn) {
+            RtpParameters.DegradationPreference.BALANCED
+        } else {
+            RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION
+        }
+        params.encodings.forEach {
+            it.maxFramerate = FPS
+            it.minBitrateBps = MIN_BITRATE
+            it.maxBitrateBps = MAX_BITRATE
+        }
+        sender.setParameters(params)
+    }
+
     /** Ends the current connection (not the share). Tapping stops with it. */
     private fun closeConnection() {
         endControl()
         pendingCandidates.clear()
+        outbox.clear()
+        restartPending = false
+        sender = null
         channel?.unregisterObserver()
         channel?.dispose()
         channel = null
@@ -308,15 +342,39 @@ class ScreenShareService : Service() {
             .call(mapOf("circleId" to circleId, "shareId" to shareId))
             .addOnCompleteListener { task ->
                 val list = if (task.isSuccessful) parseIceServers(task.result?.getData()) else null
-                main.post { serversReady(list?.takeIf { it.isNotEmpty() } ?: STUN_ONLY) }
+                main.post { serversReady(list?.takeIf { it.isNotEmpty() } ?: STUN_ONLY, fromBackend = list != null) }
             }
     }
 
-    private fun serversReady(list: List<PeerConnection.IceServer>) {
-        if (stopping || iceServers != null) return
-        iceServers = list
-        serversWaiters.toList().forEach { it() }
-        serversWaiters.clear()
+    private fun serversReady(list: List<PeerConnection.IceServer>, fromBackend: Boolean = false) {
+        if (stopping) return
+        val current = iceServers
+        if (current == null) {
+            iceServers = list
+            serversWaiters.toList().forEach { it() }
+            serversWaiters.clear()
+            return
+        }
+        // The relay pass came after we stopped waiting for it: use it now
+        // rather than leave a phone on a strict network unable to connect.
+        val hasRelay = list.any { s -> s.urls.any { it.startsWith("turn") } }
+        if (fromBackend && current === STUN_ONLY && hasRelay) {
+            iceServers = list
+            val pc = pc ?: return
+            if (!live) return connect(gen)
+            pc.setConfiguration(rtcConfig())
+            refreshPath()
+        }
+    }
+
+    /** Looks for a new network path on the same connection (an ICE restart); seeing and tapping carry on. */
+    private fun refreshPath() {
+        val pc = pc ?: return
+        if (pc.signalingState() != PeerConnection.SignalingState.STABLE) {
+            restartPending = true
+            return
+        }
+        makeOffer(pc, gen, iceRestart = true)
     }
 
     /** Runs once the addresses are in; the helper is never kept waiting more than a few seconds for them. */
@@ -430,6 +488,7 @@ class ScreenShareService : Service() {
             asking = false
             if (yes) {
                 controlOn = true
+                tuneVideo()
                 ShareState.controlling = true
                 notify("$helperName can see and tap your screen")
                 control.showBanner(helperName) { stopSharing(endShare = true) }
@@ -500,6 +559,7 @@ class ScreenShareService : Service() {
         if (!controlOn && !asking) return
         controlOn = false
         asking = false
+        tuneVideo()
         ShareState.controlling = false
         RemoteControlService.instance?.hideAll()
         if (!stopping) notify("$helperName can see your screen")
@@ -544,7 +604,7 @@ class ScreenShareService : Service() {
         dc.send(DataChannel.Buffer(ByteBuffer.wrap(message.toString().toByteArray(Charsets.UTF_8)), false))
     }
 
-    private fun makeOffer(pc: PeerConnection, myGen: String) {
+    private fun makeOffer(pc: PeerConnection, myGen: String, iceRestart: Boolean = false) {
         pc.createOffer(object : SdpAdapter() {
             override fun onCreateSuccess(desc: SessionDescription) {
                 pc.setLocalDescription(object : SdpAdapter() {
@@ -557,7 +617,9 @@ class ScreenShareService : Service() {
                     }
                 }, desc)
             }
-        }, MediaConstraints())
+        }, MediaConstraints().apply {
+            if (iceRestart) mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
+        })
     }
 
     private fun listenForSignals(ref: DocumentReference) {
@@ -583,6 +645,10 @@ class ScreenShareService : Service() {
                             main.post {
                                 pendingCandidates.forEach { pc?.addIceCandidate(it) }
                                 pendingCandidates.clear()
+                                if (restartPending) {
+                                    restartPending = false
+                                    refreshPath()
+                                }
                             }
                         }
                     }, SessionDescription(SessionDescription.Type.ANSWER, payload.getString("sdp")))
@@ -598,9 +664,19 @@ class ScreenShareService : Service() {
     private fun sendSignal(type: String, payload: String) {
         val ref = shareRef ?: return
         if (stopping) return
+        if (!live) {
+            outbox += type to payload
+            return
+        }
         ref.collection("signals").add(
             mapOf("from" to uid, "type" to type, "payload" to payload, "createdAt" to FieldValue.serverTimestamp()),
         )
+    }
+
+    private fun flushOutbox() {
+        val waiting = outbox.toList()
+        outbox.clear()
+        waiting.forEach { (type, payload) -> sendSignal(type, payload) }
     }
 
     private fun candidateJson(c: IceCandidate) = JSONObject()
@@ -692,6 +768,8 @@ class ScreenShareService : Service() {
         )
         private const val FPS = 30
         private const val MAX_BITRATE = 2_500_000
+        private const val START_BITRATE = 1_000_000
+        private const val MIN_BITRATE = 150_000
 
         /** The share in progress, so RemoteControlService can tell it when Mom's switch changes. */
         var active: ScreenShareService? = null
