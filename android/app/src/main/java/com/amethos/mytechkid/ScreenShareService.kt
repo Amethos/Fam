@@ -54,6 +54,12 @@ object ShareState {
     /** The helper asked to tap for Mom, but her accessibility switch is still off. */
     var controlAsk by mutableStateOf(false)
         internal set
+    /** Mom tapped "Agree and show me where" and went to turn the switch on. */
+    var setupOpened by mutableStateOf(false)
+        internal set
+    /** She came back with the switch still off: Android may have said "Restricted setting". */
+    var setupBlocked by mutableStateOf(false)
+        internal set
     /** Mom said yes: the helper can tap on her phone until the share ends. */
     var controlling by mutableStateOf(false)
         internal set
@@ -403,7 +409,7 @@ class ScreenShareService : Service() {
                     asking = false
                     ShareState.controlAsk = true
                     notify("$helperName wants to tap for you. Open My Tech Kid to allow it.")
-                    sendControl("off")
+                    sendControl(setupState())
                 }
                 else -> askMom()
             }
@@ -438,8 +444,48 @@ class ScreenShareService : Service() {
     /** Mom turned on the switch after her helper asked: ask her right away. */
     fun onControlSwitchReady() {
         if (stopping || !ShareState.controlAsk) return
-        ShareState.controlAsk = false
+        clearSetup()
         askMom()
+    }
+
+    /** Where Mom is in turning the switch on, so her helper's guide can follow along. */
+    private fun setupState() = when {
+        ShareState.setupBlocked -> "blocked"
+        ShareState.setupOpened -> "opened"
+        else -> "off"
+    }
+
+    /** Mom tapped "Agree and show me where": she's on her way to the switch. */
+    fun onSwitchOpened() {
+        if (stopping || !ShareState.controlAsk) return
+        ShareState.setupOpened = true
+        sendControl(setupState())
+    }
+
+    /**
+     * Mom came back to My Tech Kid and the switch is still off. On Android 13
+     * and later that's usually the "Restricted setting" block apps from a link
+     * get, so her screen shows how to lift it.
+     */
+    fun onBackFromSwitch() {
+        if (stopping || !ShareState.controlAsk || !ShareState.setupOpened) return
+        if (RemoteControlService.instance != null || Build.VERSION.SDK_INT < 33) return
+        ShareState.setupBlocked = true
+        sendControl(setupState())
+    }
+
+    /** Mom tapped "Not now": same as saying no to her helper. */
+    fun onSetupNotNow() {
+        if (stopping || !ShareState.controlAsk) return
+        clearSetup()
+        declinedAt = System.currentTimeMillis()
+        sendControl("declined", declinedAt + ASK_AGAIN_AFTER_MS)
+    }
+
+    private fun clearSetup() {
+        ShareState.controlAsk = false
+        ShareState.setupOpened = false
+        ShareState.setupBlocked = false
     }
 
     /** Mom turned the switch off: tapping stops at once. */
@@ -569,7 +615,7 @@ class ScreenShareService : Service() {
         if (active === this) active = null
         closeConnection()
         RemoteControlService.instance?.hideAll()
-        ShareState.controlAsk = false
+        clearSetup()
         ShareState.controlling = false
         if (endShare) {
             shareRef?.update(mapOf("status" to "ended", "endedBy" to uid, "endedAt" to FieldValue.serverTimestamp()))

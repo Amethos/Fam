@@ -17,13 +17,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,7 +66,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.amethos.mytechkid.RingService
 import com.amethos.mytechkid.RingState
 import com.amethos.mytechkid.RemoteControlService
+import com.amethos.mytechkid.ScreenShareService
 import com.amethos.mytechkid.ShareState
+import android.os.Build
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -425,6 +430,7 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
         val ringer = RingState.ringingFrom
         if (ringer != null) RingingPanel(ringer)
         val watcher = ShareState.watcher
+        if (!watcher.isNullOrBlank() && ShareState.controlAsk) TapSetupPanel(watcher)
         if (watcher != null) SharingPanel(watcher, onStopScreen)
         when (help?.status) {
             "waiting" -> Panel(InfoSoft) {
@@ -483,11 +489,8 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
 }
 
 // Always visible while the screen is shared: who can see it, and a big Stop.
-// When the helper asks to tap for Mom and her switch is still off, this is
-// also the disclosure Google requires before the accessibility switch.
 @Composable
 private fun SharingPanel(watcher: String, onStop: () -> Unit) {
-    val context = LocalContext.current
     Panel(AmberSoft) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LiveDot(AmberDeep)
@@ -501,17 +504,127 @@ private fun SharingPanel(watcher: String, onStop: () -> Unit) {
             )
         }
         Body("Banking and password screens stay hidden. Nothing is recorded.", AmberInk)
-        if (ShareState.controlAsk && watcher.isNotBlank()) {
-            Text("$watcher wants to tap on your phone for you", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
-            Body(
-                "To allow it, turn on \"My Tech Kid: let family tap for me\" once. " +
-                    "$watcher's taps only work while you show your screen, after you say yes each time. " +
-                    "My Tech Kid doesn't read or save what's on your screen.",
-                Ink,
-            )
-            BigButton("Agree and turn it on", color = Green) { RemoteControlService.openSwitch(context) }
-        }
         BigButton("Stop showing my screen", color = Red) { onStop() }
+    }
+}
+
+// The helper asked to tap and the switch is still off: a one-time setup,
+// shown in pictures while the helper talks them through it on the phone.
+// The first card is also the disclosure Google requires before the switch.
+@Composable
+private fun TapSetupPanel(watcher: String) {
+    val context = LocalContext.current
+    val share = ScreenShareService.active
+    Box(Modifier.popIn()) {
+        Panel(Color.White) {
+            if (ShareState.setupBlocked) {
+                Text("Did your phone say \"Restricted setting\"?", fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                RestrictedPicture()
+                Body("That's normal for apps from a link. It takes three taps to fix:", Ink)
+                SetupStep(1, "Tap Take me there below")
+                SetupStep(2, "Tap ⋮ in the top corner")
+                SetupStep(3, "Tap Allow restricted settings")
+                BigButton("Take me there", color = Green) { RemoteControlService.openAppInfo(context) }
+                Body("Then come back here and tap Turn it on.")
+                QuietButton("Turn it on") { RemoteControlService.openSwitch(context) }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Avatar(watcher, 56)
+                    Text("$watcher wants to tap on your phone for you", fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                }
+                Body("You only do this once. $watcher will walk you through it on the phone.", Ink)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Samsung calls the list "Installed apps"; most other phones "Downloaded apps".
+                    val list = if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "Installed apps" else "Downloaded apps"
+                    SetupPicture("1. Tap $list") { ListPicture() }
+                    SetupPicture("2. Tap My Tech Kid") { AppPicture() }
+                    SetupPicture("3. Turn the switch on") { SwitchPicture() }
+                }
+                Text(
+                    "Turning on \"My Tech Kid: let family tap for me\" lets $watcher tap for you. " +
+                        "$watcher's taps only work while you show your screen, and only after you say yes each time. " +
+                        "My Tech Kid doesn't read or save what's on your screen.",
+                    fontSize = 17.sp, lineHeight = 24.sp, color = Muted,
+                )
+                BigButton("Agree and show me where", color = Green) {
+                    share?.onSwitchOpened()
+                    RemoteControlService.openSwitch(context)
+                }
+                QuietButton("Not now") { share?.onSetupNotNow() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupStep(number: Int, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(36.dp).background(Navy, CircleShape), contentAlignment = Alignment.Center) {
+            Text("$number", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        }
+        Text(text, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+    }
+}
+
+@Composable
+private fun RowScope.SetupPicture(label: String, picture: @Composable () -> Unit) {
+    Column(
+        Modifier.weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+                .background(InfoSoft, RoundedCornerShape(14.dp))
+                .padding(8.dp),
+            contentAlignment = Alignment.Center,
+        ) { picture() }
+        Text(label, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink, textAlign = TextAlign.Center)
+    }
+}
+
+// Little drawings of the settings screens, so there's nothing to read.
+@Composable
+private fun ListPicture() {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.fillMaxWidth().height(12.dp).background(Line, RoundedCornerShape(4.dp)))
+        Box(Modifier.fillMaxWidth().height(18.dp).background(Amber, RoundedCornerShape(6.dp)))
+        Box(Modifier.fillMaxWidth().height(12.dp).background(Line, RoundedCornerShape(4.dp)))
+    }
+}
+
+@Composable
+private fun AppPicture() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(34.dp).background(Navy, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            Text("tk.", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Amber)
+        }
+        Box(Modifier.width(48.dp).height(8.dp).background(Amber, RoundedCornerShape(4.dp)))
+    }
+}
+
+@Composable
+private fun SwitchPicture() {
+    Box(Modifier.width(56.dp).height(32.dp).background(Green, RoundedCornerShape(16.dp)).padding(4.dp), contentAlignment = Alignment.CenterEnd) {
+        Box(Modifier.size(24.dp).background(Color.White, CircleShape))
+    }
+}
+
+// What Android's block looks like, so it's easy to recognize.
+@Composable
+private fun RestrictedPicture() {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF2B2B2E), RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Restricted setting", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Text("For your security, this setting is currently unavailable.", fontSize = 15.sp, lineHeight = 20.sp, color = Color(0xFFD4D4D8))
+        Text("OK", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF8AB4FF), modifier = Modifier.align(Alignment.End))
     }
 }
 

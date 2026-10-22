@@ -42,12 +42,13 @@ phone, before Mom tries it on her own.
   big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
   **Stop** ends it on both phones.
 - **Tap for Mom:** while you watch, tap the menu button (top right), then **Ask to tap**.
-  - The first time, her phone needs a one-time switch. Your page tells you; on her phone she opens My Tech Kid
-    and taps **Agree and turn it on**. Android opens its Accessibility list: on a Samsung tap **Installed apps**
-    (other phones: **Downloaded apps**), then **My Tech Kid: let family tap for me**, turn it on → **Allow**.
-  - If it says **Restricted setting**: open **Settings → Apps → My Tech Kid**, tap **⋮** (top right) →
-    **Allow restricted settings**, confirm, then go back and turn the switch on. (Only for apps installed from a
-    link; it goes away once we're on Google Play.)
+  - The first time, her phone needs a one-time switch. A card on your screen lists what to read to her, and
+    moves along as she goes. Her app shows the same steps in pictures: she taps **Agree and show me where**,
+    then on a Samsung **Installed apps** (other phones: **Downloaded apps**), **My Tech Kid: let family tap for
+    me**, turns it on → **Allow**. Your card turns green by itself once the switch is on.
+  - If Android says **Restricted setting**, she comes back to My Tech Kid, which now shows how to fix it:
+    **Take me there** → **⋮** (top right) → **Allow restricted settings**, then **Turn it on** again. (Only for
+    apps installed from a link; it goes away once we're on Google Play.) **Not now** on her phone counts as no.
   - Her phone then asks **"*You* wants to tap on your phone for you"**. She taps **Yes**. A dark bar with your
     name and **Stop** stays at the top of her screen.
   - On your phone, tap, press and hold, or swipe on her screen; use her phone's buttons (Recent apps, Home,

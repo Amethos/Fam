@@ -405,15 +405,19 @@ body.watching { overflow: hidden; }
 /* Her phone's own buttons, along the bottom like Android's: Recent apps,
    Home, Back (Samsung's order). Only while tapping is on; her screen sits
    above the bar so it never covers anything. */
+#watch { --keys-h: calc(40px + max(0px, env(safe-area-inset-bottom) - 12px)); }
 #watch .watch-keys { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
-  height: calc(64px + env(safe-area-inset-bottom)); padding: 0 24px env(safe-area-inset-bottom);
+  height: var(--keys-h); padding: 0 32px max(0px, calc(env(safe-area-inset-bottom) - 12px));
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center;
   background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-  border-top: 1px solid rgba(255, 255, 255, 0.18); }
-#watch .watch-keys button { justify-self: center; width: 72px; min-height: 48px; padding: 0; border-radius: 999px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14); }
+#watch .watch-keys button { justify-self: center; width: 64px; min-height: 40px; padding: 0; border-radius: 999px;
   background: transparent; color: #FFFFFF; }
-#watch.controlling video { height: auto; bottom: calc(64px + env(safe-area-inset-bottom)); }
-#watch.controlling .watch-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+#watch .watch-keys svg { width: 20px; height: 20px; }
+/* Her screen ends where the bar starts. (A video's height doesn't stretch
+   between top and bottom like a div's, so set it outright.) */
+#watch.controlling video { bottom: auto; height: calc(100% - var(--keys-h)); }
+#watch.controlling .watch-toast { bottom: calc(var(--keys-h) + 12px); }
 #watch .watch-menu .watch-alerts { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
 /* "Show Mom where": only while tapping is on. */
 #watch:not(.controlling) [data-watch-point] { display: none; }
@@ -428,6 +432,34 @@ body.watching { overflow: hidden; }
   bottom: max(20px, env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 28px); box-sizing: border-box;
   margin: 0; padding: 10px 16px; border-radius: 18px; text-align: center; font-size: 0.875rem; font-weight: 600; }
 #watch.menu-open .watch-toast { display: none; }
+
+/* Turning on tapping the first time: steps to read out on the call */
+#watch .watch-guide { position: absolute; z-index: 3; left: 12px; right: 12px; bottom: max(16px, env(safe-area-inset-bottom));
+  max-width: 480px; margin: 0 auto; box-sizing: border-box; padding: 16px 18px 18px; border-radius: 28px;
+  display: flex; flex-direction: column; gap: 10px; color: #FFFFFF;
+  background: rgba(18, 22, 34, 0.66); -webkit-backdrop-filter: blur(28px) saturate(170%); backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: background 0.3s ease, border-color 0.3s ease; }
+#watch .watch-guide[hidden] { display: none; }
+#watch.menu-open .watch-guide { display: none; }
+#watch .watch-guide-head { display: flex; align-items: center; justify-content: space-between; margin: -4px -6px -4px 0; }
+#watch .watch-guide-kicker { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #FFB27A; }
+#watch .watch-guide-hide { width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12); color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; }
+#watch .watch-guide-title { margin: 0; font-size: 1.1875rem; font-weight: 700; line-height: 1.25; }
+#watch .watch-guide-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 1rem; line-height: 1.3; }
+#watch .watch-guide-steps:empty { display: none; }
+#watch .watch-guide-steps li { display: flex; gap: 10px; align-items: center; }
+#watch .watch-guide-num { flex: none; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3); display: inline-flex; align-items: center; justify-content: center; font-size: 0.875rem; font-weight: 700; }
+#watch .watch-guide-steps li.now .watch-guide-num { background: var(--amber); border-color: var(--amber); color: #0B1220; }
+#watch .watch-guide-steps li.done { color: #A9B4C7; }
+#watch .watch-guide-steps li.done .watch-guide-num { background: #3FB27F; border-color: #3FB27F; color: #0B1220; }
+#watch .watch-guide-note { margin: 0; font-size: 0.875rem; line-height: 1.4; color: #A9B4C7; }
+#watch .watch-guide-note:empty { display: none; }
+#watch .watch-guide.done { background: rgba(31, 107, 69, 0.78); border-color: rgba(63, 178, 127, 0.7); }
+#watch .watch-guide.done .watch-guide-kicker { color: #BFF0D5; }
+#watch:has(.watch-guide:not([hidden]):not(.done)) .watch-toast { display: none; }
 
 #watch .watch-ripple { position: fixed; z-index: 1; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
   background: var(--amber); opacity: 0.7; pointer-events: none; animation: watch-ripple 450ms ease-out forwards; }
