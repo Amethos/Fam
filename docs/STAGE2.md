@@ -53,9 +53,12 @@ Built so far:
 - **A late relay pass still counts.** If the pass comes after the 4-second
   wait, Mom's phone adds it and looks for a new path on the same connection
   (an ICE restart); the helper's page adds it too.
-- **Sharp words first.** On a slow connection Mom's phone keeps the picture
-  sharp and sends fewer pictures a second; while the helper taps, it leans
-  back toward smoothness. It starts at 1 Mbps instead of ramping up, and
+- **Smooth first.** Mom's screen is sent as live video, not a slide show:
+  pictures that can't keep up are skipped instead of queued. On a slow
+  connection it trades sharpness and pictures a second evenly; while the
+  helper taps, it keeps the pictures a second up and lets words soften
+  (Gray saw about 5 pictures a second and 5-second stalls opening apps with
+  the older "sharp words first" setting). It starts at 1 Mbps instead of ramping up, and
   never goes below 0.15 Mbps.
 - **H.264 when both phones have it** (hardware video chips on Samsung and
   iPhone). The helper's page asks for it; phones without it use the default.

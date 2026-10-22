@@ -44,6 +44,14 @@ export function liveLine(stats) {
   const s = summarize(stats, 1);
   const video = stats.find((x) => x.type === "inbound-rtp" && x.kind === "video");
   const fps = Math.round(video?.framesPerSecond ?? 0);
-  return [s.rttMs ? `${s.rttMs} ms` : "", s.codec, s.relay ? "relay" : "direct", `${fps} fps`]
+  return [s.rttMs ? `${s.rttMs} ms` : "", s.codec, s.relay ? `relay${viaTcp(stats) ? " tcp" : ""}` : "direct", `${fps} fps`]
     .filter(Boolean).join(" · ");
+}
+
+// A relay reached over TCP waits for every lost piece before showing the
+// next picture, so one dropped packet can freeze the screen for seconds.
+function viaTcp(stats) {
+  const pair = stats.find((x) => x.type === "candidate-pair" && (x.nominated || x.selected) && x.state === "succeeded");
+  const local = pair && stats.find((x) => x.id === pair.localCandidateId);
+  return /^(tcp|tls)$/i.test(local?.relayProtocol ?? "");
 }
