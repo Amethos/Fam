@@ -319,7 +319,10 @@ exports.shareIceServers = onCall(async (request) => {
   const age = Date.now() - (share?.createdAt?.toMillis?.() ?? 0);
   const allowed = share && circle.members?.[uid] && age < SHARE_MAX_MS + 10 * 60 * 1000 && (
     (uid === share.parentId && ["waiting", "live"].includes(share.status))
-    || (uid === share.helperId && share.status === "live"));
+    || (uid === share.helperId && share.status === "live")
+    // A helper of the family can ask while Mom waits, so the pass is ready
+    // the moment they join (they could join it anyway).
+    || (share.status === "waiting" && (circle.helperIds ?? []).includes(uid)));
   if (!allowed) throw new HttpsError("permission-denied", "This screen share isn't open.");
   return { iceServers: await relayPass({ keyId: process.env.CLOUDFLARE_TURN_KEY_ID, apiToken: process.env.CLOUDFLARE_TURN_API_TOKEN }) };
 });

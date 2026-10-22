@@ -36,3 +36,14 @@ export function summarize(stats, seconds) {
     codec: String(codec ?? "").slice(0, 20),
   };
 }
+
+// Right now, for the helper's menu: how long a round trip to Mom's phone
+// takes, the video format, whether it goes through the relay, and pictures
+// a second. Lets a test say why it feels slow instead of guessing.
+export function liveLine(stats) {
+  const s = summarize(stats, 1);
+  const video = stats.find((x) => x.type === "inbound-rtp" && x.kind === "video");
+  const fps = Math.round(video?.framesPerSecond ?? 0);
+  return [s.rttMs ? `${s.rttMs} ms` : "", s.codec, s.relay ? "relay" : "direct", `${fps} fps`]
+    .filter(Boolean).join(" · ");
+}

@@ -59,6 +59,13 @@ Built so far:
   never goes below 0.15 Mbps.
 - **H.264 when both phones have it** (hardware video chips on Samsung and
   iPhone). The helper's page asks for it; phones without it use the default.
+- **Relay pass fetched early.** While Mom's request is waiting, the helper's
+  page already asks for its relay pass (the backend lets any helper in her
+  circle ask while it waits), and tapping "I'm on it" wakes the backend, so
+  joining no longer waits on a cold start.
+- **Connection numbers in the menu.** While watching, the helper's menu shows
+  delay, video format, relay or direct, and pictures a second
+  (`liveLine` in `web/src/quality.js`), refreshed every 2 seconds.
 - **How smooth was it?** When a share ends, the helper's page saves a few
   numbers on the share (`quality`: seconds, relay used, delay, pictures a
   second, height, data rate, loss, freezes, video format). The rules allow it

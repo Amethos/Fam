@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferH264, summarize } from "./quality.js";
+import { preferH264, summarize, liveLine } from "./quality.js";
 
 test("H.264 goes first, everything else keeps its order", () => {
   const codecs = [{ mimeType: "video/VP8" }, { mimeType: "video/rtx" }, { mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
@@ -23,4 +23,16 @@ test("a share's numbers come from the video and the path it took", () => {
 
 test("missing stats give zeros, never errors", () => {
   assert.deepEqual(summarize([], 0), { seconds: 1, relay: false, rttMs: 0, fps: 0, height: 0, kbps: 0, lossPct: 0, freezes: 0, codec: "" });
+});
+
+test("the menu's connection line says delay, format, path and smoothness", () => {
+  const stats = [
+    { id: "v", type: "inbound-rtp", kind: "video", framesPerSecond: 24.4, codecId: "c" },
+    { id: "c", type: "codec", mimeType: "video/H264" },
+    { id: "p", type: "candidate-pair", nominated: true, state: "succeeded", currentRoundTripTime: 0.0824, localCandidateId: "l", remoteCandidateId: "r" },
+    { id: "l", type: "local-candidate", candidateType: "host" },
+    { id: "r", type: "remote-candidate", candidateType: "srflx" },
+  ];
+  assert.equal(liveLine(stats), "82 ms · H264 · direct · 24 fps");
+  assert.equal(liveLine([]), "direct · 0 fps");
 });
