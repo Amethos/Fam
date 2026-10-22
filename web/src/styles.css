@@ -1,39 +1,57 @@
-/* Midnight & Amber. Dark by default at night, light by day: follows the
-   phone's setting unless the helper picks one (data-theme on <html>). */
+/* Liquid Glass. Frosted see-through cards over soft color, light and dark:
+   follows the phone's setting unless the helper picks one (data-theme on
+   <html>). --amber is the warm accent (needs help, you're tapping). */
 :root {
-  --bg: #F3F5F9;
-  --surface: #FFFFFF;
-  --surface-2: #E9EEF5;
-  --line: #DCE2EC;
-  --fg: #0E1726;
-  --muted: #3D4757;
-  --navy: #0E1726;
-  --amber: #F2B33D;
-  --amber-text: #8A5A00;
+  --bg: #EEF1F8;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-2: rgba(255, 255, 255, 0.78);
+  --solid: #FFFFFF;
+  --line: rgba(255, 255, 255, 0.95);
+  --hair: rgba(15, 23, 42, 0.08);
+  --fg: #0B1220;
+  --muted: #475467;
+  --navy: #0B1220;
+  --ink: #0B1220;
+  --on-ink: #FFFFFF;
+  --blue: #2563EB;
+  --amber: #EA580C;
+  --amber-text: #9A3412;
+  --amber-soft: rgba(234, 88, 12, 0.12);
   --red: #B42318;
-  --red-soft: #FDECEA;
+  --red-soft: rgba(253, 236, 234, 0.85);
   --red-ink: #7A1A12;
   --green: #1F7A4D;
-  --green-soft: #E3F3EA;
+  --green-soft: rgba(227, 243, 234, 0.85);
   --green-ink: #134D31;
-  --focus: #2F6FED;
-  --font: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --focus: #2563EB;
+  --blob-1: #8FB0FF;
+  --blob-2: #FFC29E;
+  --blob-3: #B9EBDD;
+  --shadow: 0 10px 30px rgba(30, 50, 90, 0.10);
+  --blur: blur(24px) saturate(160%);
+  --font: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
-    --fg: #EEF2F8; --muted: #B3BFD0; --amber-text: #F2B33D;
-    --red: #E5484D; --red-soft: #3A1D25; --red-ink: #FFD7D5;
-    --green: #3FB27F; --green-soft: #173A2E; --green-ink: #C8F0DC; --focus: #8AB4FF;
+    --bg: #070B14; --surface: rgba(255, 255, 255, 0.07); --surface-2: rgba(255, 255, 255, 0.12); --solid: #121A2B;
+    --line: rgba(255, 255, 255, 0.14); --hair: rgba(255, 255, 255, 0.10);
+    --fg: #F1F4FA; --muted: #A9B4C7; --ink: #F1F4FA; --on-ink: #0B1220; --blue: #7AA2FF;
+    --amber: #FF8A3D; --amber-text: #FFB27A; --amber-soft: rgba(255, 138, 61, 0.16);
+    --red: #E5484D; --red-soft: rgba(229, 72, 77, 0.18); --red-ink: #FFD7D5;
+    --green: #3FB27F; --on-good: #0B1220; --green-soft: rgba(63, 178, 127, 0.18); --green-ink: #C8F0DC; --focus: #8AB4FF;
+    --blob-1: #1E3A8A; --blob-2: #7C2D12; --blob-3: #134E4A; --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0E1726; --surface: #17233A; --surface-2: #24324D; --line: #33425E;
-  --fg: #EEF2F8; --muted: #B3BFD0; --amber-text: #F2B33D;
-  --red: #E5484D; --red-soft: #3A1D25; --red-ink: #FFD7D5;
-  --green: #3FB27F; --green-soft: #173A2E; --green-ink: #C8F0DC; --focus: #8AB4FF;
+  --bg: #070B14; --surface: rgba(255, 255, 255, 0.07); --surface-2: rgba(255, 255, 255, 0.12); --solid: #121A2B;
+  --line: rgba(255, 255, 255, 0.14); --hair: rgba(255, 255, 255, 0.10);
+  --fg: #F1F4FA; --muted: #A9B4C7; --ink: #F1F4FA; --on-ink: #0B1220; --blue: #7AA2FF;
+  --amber: #FF8A3D; --amber-text: #FFB27A; --amber-soft: rgba(255, 138, 61, 0.16);
+  --red: #E5484D; --red-soft: rgba(229, 72, 77, 0.18); --red-ink: #FFD7D5;
+  --green: #3FB27F; --on-good: #0B1220; --green-soft: rgba(63, 178, 127, 0.18); --green-ink: #C8F0DC; --focus: #8AB4FF;
+  --blob-1: #1E3A8A; --blob-2: #7C2D12; --blob-3: #134E4A; --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
 
@@ -41,6 +59,7 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
@@ -49,6 +68,15 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+/* The soft color the glass sits on. Fixed, so it stays put while scrolling. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(closest-side, var(--blob-1), transparent) -30vw -20vh / 110vw 70vh no-repeat,
+    radial-gradient(closest-side, var(--blob-2), transparent) 45vw 25vh / 90vw 60vh no-repeat,
+    radial-gradient(closest-side, var(--blob-3), transparent) -20vw 70vh / 100vw 60vh no-repeat;
+  opacity: 0.85;
+}
 
 main {
   max-width: 520px;
@@ -56,57 +84,63 @@ main {
   padding: calc(20px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 h1, h2 { margin: 0; line-height: 1.1; text-wrap: balance; }
-h1 { font-size: 2.125rem; font-weight: 800; letter-spacing: -0.02em; }
-h2 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; }
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.025em; }
+h2 { font-size: 1.1875rem; font-weight: 600; letter-spacing: -0.01em; }
+strong { font-weight: 600; }
 p { margin: 0; }
-.muted { color: var(--muted); font-weight: 500; }
-.eyebrow { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-text); }
+.muted { color: var(--muted); font-weight: 400; }
+.eyebrow { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; color: var(--amber-text); }
 
-.brand { font-weight: 800; font-size: 1.125rem; letter-spacing: -0.01em; }
+.brand { font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; }
 .brand .dot { color: var(--amber); }
 
-.card {
+/* Glass */
+.card, .alert, .picture {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+}
+.card {
+  border-radius: 28px;
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.alert { border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); }
-.alert.urgent { background: var(--amber); color: var(--navy); border-color: var(--amber); }
-.alert.urgent .muted { color: var(--navy); opacity: 0.8; }
-.alert.blue { background: var(--surface-2); border-color: var(--surface-2); }
-.alert.red { background: var(--red-soft); color: var(--red-ink); border-color: var(--red-soft); }
-.alert.green { background: var(--green-soft); color: var(--green-ink); border-color: var(--green-soft); }
+.alert { border-radius: 28px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+/* Needs help: still the loudest thing on screen, a warm glow round the glass. */
+.alert.urgent { background: var(--surface-2); border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber-soft), var(--shadow); }
+.alert.urgent .eyebrow { color: var(--amber-text) !important; }
+.alert.red { background: var(--red-soft); color: var(--red-ink); }
+.alert.green { background: var(--green-soft); color: var(--green-ink); }
 
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .row > .grow { flex: 1; min-width: 0; }
 .avatar {
   width: 46px; height: 46px; border-radius: 50%; flex: none;
-  background: var(--navy); color: var(--amber);
+  background: var(--amber); color: #FFFFFF;
   display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 1.25rem;
+  font-weight: 600; font-size: 1.25rem;
 }
 
 button, .button {
-  font: inherit; font-weight: 700; border: 0; border-radius: 12px; min-height: 50px; padding: 0 18px;
-  background: var(--amber); color: var(--navy); cursor: pointer; text-decoration: none;
+  font: inherit; font-weight: 600; border: 0; border-radius: 16px; min-height: 50px; padding: 0 18px;
+  background: var(--ink); color: var(--on-ink); cursor: pointer; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
 }
-button.secondary, .button.secondary { background: var(--surface-2); color: var(--fg); }
-button.dark, .alert.urgent button { background: var(--navy); color: #FFFFFF; }
+button.secondary, .button.secondary { background: var(--surface-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+button.dark, .alert.urgent button:not(.secondary):not(.danger):not(.good):not(.text-link) { background: var(--ink); color: var(--on-ink); }
 button.danger { background: var(--red); color: #FFFFFF; }
-button.good { background: var(--green); color: #FFFFFF; }
+button.good { background: var(--green); color: var(--on-good, #FFFFFF); }
 button.text-link { background: none; color: var(--muted); min-height: 32px; padding: 0; font-size: 0.875rem;
-  font-weight: 500; text-decoration: underline; }
-.remove-box { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  font-weight: 500; text-decoration: underline; box-shadow: none; }
+.remove-box { border-top: 1px solid var(--hair); margin-top: 12px; padding-top: 12px; }
 .remove-box .row { justify-content: flex-end; flex-wrap: wrap; }
 button.small { min-height: 40px; padding: 0 14px; font-size: 0.9375rem; font-weight: 600; border-radius: 999px; }
 button:disabled { opacity: 0.55; cursor: default; }
@@ -115,32 +149,33 @@ button[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--fg); }
 .full { width: 100%; }
 
 form { display: flex; flex-direction: column; gap: 12px; }
-label { font-weight: 700; font-size: 0.9375rem; }
+label { font-weight: 600; font-size: 0.9375rem; }
 input, textarea {
-  font: inherit; font-weight: 500; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
-  background: var(--bg); color: var(--fg);
+  font: inherit; font-weight: 400; width: 100%; padding: 12px 14px; border: 1px solid var(--hair); border-radius: 14px;
+  background: var(--surface-2); color: var(--fg);
 }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.error { color: var(--red); font-weight: 700; }
+.error { color: var(--red); font-weight: 600; }
 
 .pictures { display: flex; flex-direction: column; gap: 10px; }
-.picture { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; font-size: 1.5rem; font-weight: 800; }
+.picture { display: flex; align-items: center; gap: 16px; border-radius: 20px; padding: 12px 16px; font-size: 1.5rem; font-weight: 700; }
 .picture span:first-child { font-size: 2.5rem; }
 
-.quote { background: var(--bg); border-radius: 12px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quote { background: var(--surface-2); border-radius: 16px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .qr-card { display: flex; justify-content: center; background: #FFFFFF; }
 .qr { width: min(100%, 300px); height: auto; display: block; }
-.link-box { overflow-wrap: anywhere; font-size: 0.875rem; background: var(--bg); border-radius: 10px; padding: 10px; }
+.link-box { overflow-wrap: anywhere; font-size: 0.875rem; background: var(--surface-2); border-radius: 12px; padding: 10px; }
 a { color: var(--fg); font-weight: 600; }
 
-.appearance { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
-.appearance .choices { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 4px; }
-.appearance .choices button { min-height: 36px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--fg); font-weight: 600; font-size: 0.9375rem; box-shadow: none; }
-.appearance .choices button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.18); }
+.appearance { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--hair); }
+.appearance .choices { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 4px;
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.appearance .choices button { min-height: 36px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--fg); font-weight: 500; font-size: 0.9375rem; box-shadow: none; }
+.appearance .choices button[aria-pressed="true"] { background: var(--solid); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.18); }
 
 /* ---------- First-run story ---------- */
 .story { min-height: calc(100vh - 80px); display: flex; flex-direction: column; gap: 22px; }
@@ -161,7 +196,7 @@ a { color: var(--fg); font-weight: 600; }
 .bubble.warn { background: var(--red-soft); color: var(--red-ink); }
 .bubble.warn .from { color: var(--red-ink); }
 .story-mark {
-  width: 96px; height: 96px; border-radius: 26px; background: var(--navy); color: #FFFFFF;
+  width: 96px; height: 96px; border-radius: 26px; background: var(--ink); color: var(--on-ink);
   display: flex; align-items: center; justify-content: center; font-size: 2.25rem; font-weight: 800;
 }
 .story-mark .dot { color: var(--amber); }
@@ -274,7 +309,7 @@ button:active:not(:disabled), .button:active { transform: scale(0.97); filter: b
   }
   @keyframes fill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
   @keyframes grow { from { width: var(--from, 0%); } }
-  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(242, 179, 61, 0.55); } 70%, 100% { box-shadow: 0 0 0 14px rgba(242, 179, 61, 0); } }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.45); } 70%, 100% { box-shadow: 0 0 0 14px rgba(234, 88, 12, 0); } }
   @keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
   @keyframes burst {
     0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(0.4); }
@@ -388,4 +423,4 @@ body.watching { overflow: hidden; }
    callouts) and an amber glow runs round the edge so it's clear taps reach her phone. */
 #watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #watch.controlling .watch-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  box-shadow: inset 0 0 0 4px var(--amber), inset 0 0 40px rgba(242, 179, 61, 0.35); }
+  box-shadow: inset 0 0 0 4px var(--amber), inset 0 0 40px rgba(234, 88, 12, 0.35); }
