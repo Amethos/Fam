@@ -92,6 +92,13 @@ function show(name, message, { video = false } = {}) {
         <button data-key="home" aria-label="Home">${icon('<rect x="5" y="5" width="14" height="14" rx="5"/>', 24)}</button>
         <button data-key="back" aria-label="Back">${icon('<path d="M15 5l-7 7 7 7"/>', 24)}</button>
       </nav>
+      <section class="watch-guide" aria-live="polite" hidden>
+        <div class="watch-guide-head"><span class="watch-guide-kicker"></span>
+          <button class="watch-guide-hide" aria-label="Hide these steps">${icon('<path d="M6 6l12 12M18 6L6 18"/>', 18)}</button></div>
+        <h2 class="watch-guide-title"></h2>
+        <ol class="watch-guide-steps"></ol>
+        <p class="watch-guide-note"></p>
+      </section>
       <p class="watch-toast" role="status" hidden></p>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
@@ -114,6 +121,7 @@ function show(name, message, { video = false } = {}) {
     });
     addMenuButton(el.querySelector(".watch-menu-btn"));
     el.querySelector(".watch-scrim").addEventListener("click", () => setMenu(false));
+    el.querySelector(".watch-guide-hide").addEventListener("click", () => { el.querySelector(".watch-guide").hidden = true; });
     addGestures(el.querySelector("video"));
   }
   el.querySelector(".watch-title").textContent = `${name}'s screen`;
@@ -380,7 +388,7 @@ function setControl(msg) {
   box.hidden = !msg;
   keys.hidden = !controlOn;
   el.querySelector(".watch-alerts").hidden = !controlOn;
-  ask.hidden = !["ready", "declined", "off", "waiting"].includes(msg?.state);
+  ask.hidden = !["ready", "declined", "off", "opened", "blocked", "waiting"].includes(msg?.state);
   ask.querySelector(".watch-ask-label").textContent = "Ask to tap";
   ask.setAttribute("aria-label", `Ask to tap for ${name}`);
   ask.classList.toggle("locked", msg?.state === "waiting");
@@ -400,12 +408,70 @@ function setControl(msg) {
     asking: `${name}'s phone is asking them to say yes. Tell them it's you.`,
     on: "Tap, hold or swipe on the screen. Stop on either phone ends it.",
     declined: `${name} said no, or didn't answer in time. You can ask again in a few seconds.`,
-    off: `${name} needs to turn on tapping once. On their phone, open My Tech Kid and tap Agree and turn it on, then turn on "My Tech Kid: let family tap for me". On a Samsung, if it says Restricted setting, go to Settings, Apps, My Tech Kid, tap ⋮ at the top, then Allow restricted settings, and try again. Then tap Ask again here.`,
+    off: `${name} needs to turn on tapping once. Follow the steps on your screen.`,
+    opened: `${name} needs to turn on tapping once. Follow the steps on your screen.`,
+    blocked: `${name}'s phone blocked the switch. Follow the steps on your screen.`,
     waiting: msg?.until
       ? `For safety, tapping for ${name} unlocks ${new Date(msg.until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
       : `For safety, tapping for ${name} isn't unlocked yet.`,
   };
   note.textContent = notes[msg?.state] ?? "";
+  setGuide(el, msg?.state, name);
+}
+
+// Turning on tapping the first time: steps for the helper to read out on the
+// call, following along as her phone reports each one. It turns green by
+// itself once the switch is on and her phone asks her to say yes.
+let guiding = false;
+function setGuide(el, state, name) {
+  const guide = el.querySelector(".watch-guide");
+  const who = esc(name);
+  const steps = {
+    off: [
+      [`“Tap <b>Agree and show me where</b> on your screen.”`, "now"],
+      [`“Tap <b>Installed apps</b>.” (Some phones say Downloaded apps.)`],
+      [`“Tap <b>My Tech Kid</b>.”`],
+      [`“Turn the switch on, then tap <b>Allow</b>.”`],
+    ],
+    opened: [
+      [`${who} tapped Agree`, "done"],
+      [`“Tap <b>Installed apps</b>.” (Some phones say Downloaded apps.)`, "now"],
+      [`“Tap <b>My Tech Kid</b>.”`],
+      [`“Turn the switch on, then tap <b>Allow</b>.”`],
+    ],
+    blocked: [
+      [`“Tap <b>Take me there</b> on your screen.”`, "now"],
+      [`“Tap <b>⋮</b> in the top corner.”`],
+      [`“Tap <b>Allow restricted settings</b>.”`],
+      [`“Come back to My Tech Kid and tap <b>Turn it on</b>.”`],
+    ],
+  }[state];
+  if (steps) {
+    const changed = guide.dataset.state !== state;
+    guiding = true;
+    guide.dataset.state = state;
+    guide.classList.remove("done");
+    guide.querySelector(".watch-guide-kicker").textContent = "One-time setup";
+    guide.querySelector(".watch-guide-title").innerHTML = state === "blocked"
+      ? `The switch is still off. If ${who}’s phone said “Restricted setting” (normal for apps from a link), read these to ${who}:`
+      : `${who}’s phone needs one switch on. Read these to ${who}:`;
+    guide.querySelector(".watch-guide-steps").innerHTML = steps.map(([text, mark], i) =>
+      `<li class="${mark ?? ""}"><span class="watch-guide-num">${mark === "done" ? "✓" : i + 1}</span><span>${text}</span></li>`).join("");
+    guide.querySelector(".watch-guide-note").textContent = "This turns green by itself when the switch is on.";
+    if (changed) guide.hidden = false;
+  } else if (guiding && state === "asking") {
+    guide.dataset.state = state;
+    guide.classList.add("done");
+    guide.querySelector(".watch-guide-kicker").textContent = "Switch is on";
+    guide.querySelector(".watch-guide-title").innerHTML = `${who}’s phone is asking them to say yes. Tell ${who} it’s you.`;
+    guide.querySelector(".watch-guide-steps").innerHTML = "";
+    guide.querySelector(".watch-guide-note").textContent = "";
+    guide.hidden = false;
+  } else if (state !== "sent") {
+    guiding = false;
+    delete guide.dataset.state;
+    guide.hidden = true;
+  }
 }
 
 let flashTimer;

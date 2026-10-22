@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -311,6 +312,14 @@ class RemoteControlService : AccessibilityService() {
         /** Opens Android's accessibility settings, where Mom turns on the switch once. */
         fun openSwitch(context: Context) {
             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+
+        /** Opens My Tech Kid's App info page, where "Allow restricted settings" is (under ⋮). */
+        fun openAppInfo(context: Context) {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 }
