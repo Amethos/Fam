@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { gestureFor, pointOnVideo } from "./gesture.js";
+import { preferH264, summarize } from "./quality.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
 // a short-lived relay pass for networks that block direct paths, once the
@@ -24,14 +25,19 @@ import { gestureFor, pointOnVideo } from "./gesture.js";
 const ICE_SERVERS = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
 const ICE_WAIT_MS = 4000;
 
-// The relay pass, or plain STUN if the backend is slow or says no.
-async function iceServersFrom(fetchServers) {
+// The relay pass, or plain STUN if the backend is slow or says no. A pass
+// that turns up after the wait still goes to onLate, so the connection can
+// use it instead of it being thrown away.
+async function iceServersFrom(fetchServers, onLate) {
   if (!fetchServers) return ICE_SERVERS;
+  const usable = (got) => (Array.isArray(got?.iceServers) && got.iceServers.length ? got.iceServers : null);
+  let late = false;
   let timer;
-  const slow = new Promise((resolve) => { timer = setTimeout(() => resolve(null), ICE_WAIT_MS); });
+  const fetching = Promise.resolve().then(fetchServers);
+  fetching.then((got) => { if (late && usable(got)) onLate?.(usable(got)); }).catch(() => {});
+  const slow = new Promise((resolve) => { timer = setTimeout(() => { late = true; resolve(null); }, ICE_WAIT_MS); });
   try {
-    const got = await Promise.race([fetchServers(), slow]);
-    return Array.isArray(got?.iceServers) && got.iceServers.length ? got.iceServers : ICE_SERVERS;
+    return usable(await Promise.race([fetching, slow])) ?? ICE_SERVERS;
   } catch (err) {
     console.warn("relay pass", err);
     return ICE_SERVERS;
@@ -260,10 +266,14 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   const gen = rejoin ? crypto.randomUUID() : "first";
   const ours = (payload) => (payload.gen ?? "first") === gen;
 
-  const servers = await iceServersFrom(iceServers);
+  const servers = await iceServersFrom(iceServers, (late) => {
+    // Mom's phone adds it the next time it refreshes the connection.
+    if (session === s && s.pc?.connectionState !== "closed") s.pc?.setConfiguration({ iceServers: late });
+  });
   if (session !== s) return;
   const pc = new RTCPeerConnection({ iceServers: servers });
   s.pc = pc;
+  s.shareRef = shareRef;
   const signals = collection(db, `circles/${circleId}/screenShares/${shareId}/signals`);
   const send = (type, payload) => addDoc(signals, { from: uid, type, payload: JSON.stringify(payload), createdAt: serverTimestamp() });
 
@@ -277,6 +287,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       if ("jitterBufferTarget" in e.receiver) e.receiver.jitterBufferTarget = 0;
       else if ("playoutDelayHint" in e.receiver) e.receiver.playoutDelayHint = 0;
     } catch { /* older browsers: keep the default */ }
+    s.videoAt ??= Date.now();
     const video = overlay().querySelector("video");
     video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
     show(s.name, "", { video: true });
@@ -328,6 +339,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
         if (!ours(payload)) return; // for an earlier connection
         if (m.type === "offer") {
           await pc.setRemoteDescription({ type: "offer", sdp: payload.sdp });
+          askForH264(pc);
           s.remoteSet = true;
           for (const c of s.pending.splice(0)) await pc.addIceCandidate(c);
           const answer = await pc.createAnswer();
@@ -347,6 +359,32 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
 
   // Ending the share is how we tell Mom's phone to stop.
   s.end = () => updateDoc(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});
+}
+
+// The helper's answer decides the video format; ask for H.264 when both
+// phones have it. Browsers without this keep the default.
+function askForH264(pc) {
+  try {
+    const codecs = RTCRtpReceiver.getCapabilities?.("video")?.codecs;
+    if (!codecs?.length) return;
+    for (const t of pc.getTransceivers()) {
+      if (t.receiver.track?.kind === "video" && t.setCodecPreferences) t.setCodecPreferences(preferH264(codecs));
+    }
+  } catch (err) {
+    console.warn("video format", err);
+  }
+}
+
+// A few numbers about how smooth the share was (no picture, nothing typed),
+// saved once on the share's record so we can tune for real networks.
+async function saveQuality(s) {
+  if (!s.videoAt || !s.pc || !s.shareRef) return;
+  try {
+    const report = await Promise.race([s.pc.getStats(), new Promise((resolve) => setTimeout(resolve, 500))]);
+    if (!report) return;
+    const quality = summarize([...report.values()], (Date.now() - s.videoAt) / 1000);
+    updateDoc(s.shareRef, { quality }).catch(() => { /* already saved, e.g. by another window */ });
+  } catch { /* nice to have, never in the way */ }
 }
 
 // ---------- Tapping for Mom ----------
@@ -475,6 +513,7 @@ export async function stop({ end = true, message = "" } = {}) {
   setControl(null);
   if (s) {
     s.unsubs.forEach((u) => u());
+    await saveQuality(s);
     s.pc?.close();
     if (end) await s.end?.();
   }

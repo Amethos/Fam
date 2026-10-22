@@ -14,6 +14,17 @@ service cloud.firestore {
     function changedOnly(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
+    function smallNumber(n) {
+      return (n is int || n is float) && n >= 0 && n <= 1000000;
+    }
+    function validQuality(q) {
+      return q is map
+        && q.keys().hasOnly(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec'])
+        && q.keys().hasAll(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec'])
+        && smallNumber(q.seconds) && q.relay is bool && smallNumber(q.rttMs) && smallNumber(q.fps)
+        && smallNumber(q.height) && smallNumber(q.kbps) && smallNumber(q.lossPct) && smallNumber(q.freezes)
+        && q.codec is string && q.codec.size() <= 20;
+    }
 
     // Alert tokens: one per installed device. A small cap stops anyone
     // stuffing their own record.
@@ -125,7 +136,15 @@ service cloud.firestore {
             && changedOnly(['status', 'endedBy', 'endedAt'])
             && request.resource.data.status == 'ended'
             && request.resource.data.endedBy == request.auth.uid
-            && request.resource.data.endedAt == request.time);
+            && request.resource.data.endedAt == request.time)
+          // The joined helper's page saves how smooth it was, once: only
+          // numbers and the video format's name, never anything on screen.
+          || (isHelper(cid)
+            && request.auth.uid == share().get('helperId', null)
+            && share().status in ['live', 'ended']
+            && !('quality' in share())
+            && changedOnly(['quality'])
+            && validQuality(request.resource.data.quality));
 
         // Connection setup messages (WebRTC offer/answer/candidates, and a
         // "hello" when the helper's page (re)joins), only

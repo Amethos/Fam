@@ -182,6 +182,32 @@ test("the parent or the joined helper can end a share, and it stays ended", asyn
   await assertFails(getDoc(doc(db("stranger"), "circles/c1/screenShares/a")));
 });
 
+test("the joined helper saves a share's smoothness numbers once, and nothing else", async () => {
+  const { Timestamp } = await import("firebase/firestore");
+  const quality = (extra = {}) => ({ quality: { seconds: 60, relay: true, rttMs: 82, fps: 20, height: 1170, kbps: 1000, lossPct: 1, freezes: 2, codec: "H264", ...extra } });
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "circles/c1"), {
+    name: "Smiths", helperIds: ["josh", "amy"], parentIds: ["mom"],
+    members: { josh: { name: "Josh", role: "helper" }, amy: { name: "Amy", role: "helper" }, mom: { name: "Mom", role: "parent" } },
+  }));
+  const base = { parentId: "mom", parentName: "Mom", helperId: "josh", helperName: "Josh", createdAt: Timestamp.now() };
+  await seedShare("q-live", { ...base, status: "live" });
+  await seedShare("q-ended", { ...base, status: "ended" });
+  await seedShare("q-waiting", { parentId: "mom", parentName: "Mom", status: "waiting", createdAt: Timestamp.now() });
+  const ref = (uid, id) => doc(db(uid), `circles/c1/screenShares/${id}`);
+  // Only the helper who watched, only numbers.
+  await assertFails(updateDoc(ref("mom", "q-live"), quality()));
+  await assertFails(updateDoc(ref("amy", "q-live"), quality()));
+  await assertFails(updateDoc(ref("josh", "q-waiting"), quality()));
+  await assertFails(updateDoc(ref("josh", "q-live"), quality({ codec: "x".repeat(21) })));
+  await assertFails(updateDoc(ref("josh", "q-live"), quality({ screen: "her bank balance" })));
+  await assertFails(updateDoc(ref("josh", "q-live"), quality({ fps: "fast" })));
+  await assertFails(updateDoc(ref("josh", "q-live"), { ...quality(), status: "waiting" }));
+  await assertSucceeds(updateDoc(ref("josh", "q-live"), quality()));
+  await assertSucceeds(updateDoc(ref("josh", "q-ended"), quality()));
+  // Once only.
+  await assertFails(updateDoc(ref("josh", "q-ended"), quality({ fps: 30 })));
+});
+
 test("connection messages flow only between the two people on a live share", async () => {
   const { Timestamp } = await import("firebase/firestore");
   await env.withSecurityRulesDisabled(async (ctx) => {

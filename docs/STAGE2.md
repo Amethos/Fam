@@ -42,6 +42,28 @@ setup messages for the old one. Tapping always ends with the old connection and
 needs Mom's Yes again. A newer window of the same helper takes over from an
 older one, which shows a note instead of ending the share.
 
+## Keeping it smooth on any network
+
+The full plan is in the project's "Smooth remote help on any network" doc.
+Built so far:
+
+- **Ready before the helper joins.** Mom's phone sets up the connection while
+  she waits and sends it the moment her helper joins (the rules only allow
+  setup messages on a live share, so they wait in an outbox until then).
+- **A late relay pass still counts.** If the pass comes after the 4-second
+  wait, Mom's phone adds it and looks for a new path on the same connection
+  (an ICE restart); the helper's page adds it too.
+- **Sharp words first.** On a slow connection Mom's phone keeps the picture
+  sharp and sends fewer pictures a second; while the helper taps, it leans
+  back toward smoothness. It starts at 1 Mbps instead of ramping up, and
+  never goes below 0.15 Mbps.
+- **H.264 when both phones have it** (hardware video chips on Samsung and
+  iPhone). The helper's page asks for it; phones without it use the default.
+- **How smooth was it?** When a share ends, the helper's page saves a few
+  numbers on the share (`quality`: seconds, relay used, delay, pictures a
+  second, height, data rate, loss, freezes, video format). The rules allow it
+  once, from the joined helper, numbers only.
+
 ## Still to build
 
 | Piece | Where | Needs from the owner |
