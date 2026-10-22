@@ -492,3 +492,5 @@ body.watching { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   #watch.reconnecting .watch-banner .watch-dot { animation: none; }
 }
+#watch .watch-stats { font-size: 0.75rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+#watch .watch-stats:empty { display: none; }
