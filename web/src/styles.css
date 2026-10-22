@@ -405,15 +405,18 @@ body.watching { overflow: hidden; }
 /* Her phone's own buttons, along the bottom like Android's: Recent apps,
    Home, Back (Samsung's order). Only while tapping is on; her screen sits
    above the bar so it never covers anything. */
+#watch { --keys-h: calc(40px + max(0px, env(safe-area-inset-bottom) - 12px)); }
 #watch .watch-keys { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
-  height: calc(64px + env(safe-area-inset-bottom)); padding: 0 24px env(safe-area-inset-bottom);
+  height: var(--keys-h); padding: 0 32px max(0px, calc(env(safe-area-inset-bottom) - 12px));
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center;
   background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-  border-top: 1px solid rgba(255, 255, 255, 0.18); }
-#watch .watch-keys button { justify-self: center; width: 72px; min-height: 48px; padding: 0; border-radius: 999px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14); }
+#watch .watch-keys button { justify-self: center; width: 64px; min-height: 40px; padding: 0; border-radius: 999px;
   background: transparent; color: #FFFFFF; }
-#watch.controlling video { height: auto; bottom: calc(64px + env(safe-area-inset-bottom)); }
-#watch.controlling .watch-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+/* Her screen ends where the bar starts. (A video's height doesn't stretch
+   between top and bottom like a div's, so set it outright.) */
+#watch.controlling video { bottom: auto; height: calc(100% - var(--keys-h)); }
+#watch.controlling .watch-toast { bottom: calc(var(--keys-h) + 12px); }
 #watch .watch-menu .watch-alerts { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
 /* "Show Mom where": only while tapping is on. */
 #watch:not(.controlling) [data-watch-point] { display: none; }
