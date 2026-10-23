@@ -677,9 +677,11 @@ function ripple(x, y) {
 
 // A drag (scrolling, moving something) goes to her phone live, as the finger
 // moves, when her app can do that; a short touch is still one tap or hold.
-// Moves go out at most every 50 ms, and every 300 ms while the finger rests,
-// so her phone knows the finger is still down.
-const MOVE_EVERY_MS = 50;
+// Moves go out up to 60 times a second (every 16 ms), and every 300 ms while
+// the finger rests, so her phone knows the finger is still down. At 50 ms
+// (20 a second) Chrome only redrew 20 times a second while scrolling, since a
+// page moves only when the finger does (Gray's timeline, Oct 23).
+const MOVE_EVERY_MS = 16;
 const STILL_DOWN_MS = 300;
 
 function addGestures(video) {
