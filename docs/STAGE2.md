@@ -62,6 +62,16 @@ Built so far:
   never goes below 0.15 Mbps.
 - **H.264 when both phones have it** (hardware video chips on Samsung and
   iPhone). The helper's page asks for it; phones without it use the default.
+- **A fast lane for pings and finger moves.** A second data channel
+  ("fast": unordered, never resent) carries only pings and drag moves, so one
+  lost packet can't hold up the rest the way it does on the reliable
+  "control" channel. Moves are numbered; Mom's phone drops one that arrives
+  after a newer one or after the finger lifted. Taps, downs, ups and
+  everything else stay on "control". Mom's phone ignores anything else on
+  "fast".
+- **Plain H.264 on Mom's phone.** The high-profile H.264 encoder is off
+  (some Samsung chips hold pictures back with it), so both phones use
+  constrained-baseline H.264, or VP8 if H.264 isn't there.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so

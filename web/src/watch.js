@@ -312,6 +312,14 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   };
   // Mom's phone opens this channel; older versions of her app don't have it.
   pc.ondatachannel = (e) => {
+    // Pings and finger moves: never resent, so a lost one can't hold up the rest.
+    if (e.channel.label === "fast") {
+      s.fast = e.channel;
+      e.channel.onmessage = (m) => {
+        try { if (JSON.parse(m.data).t === "pong") s.lastPong = Date.now(); } catch { /* ignore */ }
+      };
+      return;
+    }
     if (e.channel.label !== "control") return;
     s.channel = e.channel;
     e.channel.onmessage = (m) => {
@@ -335,7 +343,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   // 30 seconds (her Stop bar stays up); taps wait until the picture is back.
   pc.onconnectionstatechange = () => checkLink(s);
   s.pingTimer = setInterval(() => {
-    if (s.caps.ping) send({ t: "ping" });
+    if (s.caps.ping) send({ t: "ping" }, { fast: true });
     checkLink(s);
   }, PING_EVERY_MS / 2);
   s.statsTimer = setInterval(() => showStats(s), 2000);
@@ -470,8 +478,12 @@ function setLink(state) {
 
 // ---------- Tapping for Mom ----------
 
-function send(msg) {
-  const ch = session?.channel;
+// Numbers finger moves, so her phone drops any that arrive after a newer one.
+let moveSeq = 0;
+
+function send(msg, { fast = false } = {}) {
+  const quick = fast && session?.caps?.fast && session.fast?.readyState === "open";
+  const ch = quick ? session.fast : session?.channel;
   if (ch?.readyState === "open") ch.send(JSON.stringify(msg));
 }
 
@@ -646,7 +658,7 @@ function addGestures(video) {
   let stillTimer;
   const move = () => {
     if (!dragging || link !== "ok") return;
-    send({ t: "move", x: last.x, y: last.y });
+    send({ t: "move", x: last.x, y: last.y, n: ++moveSeq }, { fast: true });
     sentAt = performance.now();
     clearTimeout(stillTimer);
     stillTimer = setTimeout(move, STILL_DOWN_MS);
@@ -670,7 +682,7 @@ function addGestures(video) {
     last = p;
     if (!dragging && !pointing && session?.caps?.drag && link === "ok" && isDrag(start, p)) {
       dragging = true;
-      send({ t: "down", x: start.x, y: start.y });
+      send({ t: "down", x: start.x, y: start.y, n: ++moveSeq });
       sentAt = 0;
     }
     if (dragging && performance.now() - sentAt >= MOVE_EVERY_MS) move();
@@ -680,7 +692,7 @@ function addGestures(video) {
     clearTimeout(stillTimer);
     const end = last ?? start;
     // Pointing shows her where to tap (a ring on her screen) instead of tapping.
-    const g = dragging ? { t: "up", x: end.x, y: end.y }
+    const g = dragging ? { t: "up", x: end.x, y: end.y, n: ++moveSeq }
       : pointing ? { t: "point", x: end.x, y: end.y } : gestureFor(start, end, performance.now() - start.time);
     const wasDrag = dragging;
     start = null;
