@@ -124,6 +124,13 @@ Built so far:
   than arrived. The timeline now also counts full pictures sent, the helper's
   requests for one, re-sent pieces, pictures the helper dropped and freezes,
   and keeps the last 8 minutes.
+- **An even 60, and more room on a direct path.** The counts (Oct 23) showed
+  no lost pieces, no requests for full pictures and no drops on the helper's
+  side, so the network was fine. Instead Android handed the encoder 85-90
+  pictures a second (the Samsung screen draws up to 120) and it skipped them
+  in bursts, and the picture still hit the 8 Mbps cap and shrank while
+  scrolling. Mom's phone now passes the encoder an even 60 a second, and on
+  a direct path (no relay) the cap is 16 Mbps; through the relay it stays 8.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so

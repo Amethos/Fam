@@ -135,6 +135,8 @@ class ScreenShareService : Service() {
     private var lastEncoded = 0L
     /** Running totals at the last report, so each report says what happened since. */
     private val lastTotals = mutableMapOf<String, Long>()
+    // The bitrate cap in use: higher on a direct path than through the relay.
+    private var maxBitrate = MAX_BITRATE
     private var captureW = 1
     private var captureH = 1
 
@@ -259,6 +261,11 @@ class ScreenShareService : Service() {
         captureW = w
         captureH = h
         capturer.startCapture(w, h, FPS)
+        // Samsung screens draw up to 120 times a second and Android hands us
+        // 85-90 pictures a second (Gray's timeline, Oct 23), more than the
+        // encoder can take at 60, so it skipped them in bursts. Hand it an
+        // even 60 instead. The size is only a ceiling, so nothing shrinks.
+        source.adaptOutputFormat(4096, 4096, FPS)
     }
 
     /**
@@ -292,7 +299,8 @@ class ScreenShareService : Service() {
         this.pc = pc
         // Start sharp instead of ramping up from a blurry picture, and never
         // drop so low that words can't be read.
-        pc.setBitrate(MIN_BITRATE, START_BITRATE, MAX_BITRATE)
+        maxBitrate = MAX_BITRATE
+        pc.setBitrate(MIN_BITRATE, START_BITRATE, maxBitrate)
         sender = pc.addTrack(factory.createVideoTrack("screen-$myGen", source), listOf("screen"))
         tuneVideo()
         // Created before the offer so it's part of the same encrypted connection.
@@ -365,6 +373,10 @@ class ScreenShareService : Service() {
                     it.type == "candidate-pair" && it.members["nominated"] == true && it.members["state"] == "succeeded"
                 }
                 val estKbps = ((path?.members?.get("availableOutgoingBitrate") as? Number)?.toDouble() ?: 0.0) / 1000
+                val local = (path?.members?.get("localCandidateId") as? String)?.let { stats[it] }
+                val remote = (path?.members?.get("remoteCandidateId") as? String)?.let { stats[it] }
+                val relayed = listOf(local, remote).any { it?.members?.get("candidateType") == "relay" }
+                if (path != null) main.post { if (gen == myGen) setPathCap(pc, relayed) }
                 // Pictures Android captured, and how long each took to encode, since the last report.
                 val now = SystemClock.elapsedRealtime()
                 val secs = if (reportedAt > 0) (now - reportedAt) / 1000.0 else 2.0
@@ -427,9 +439,24 @@ class ScreenShareService : Service() {
         params.encodings.forEach {
             it.maxFramerate = FPS
             it.minBitrateBps = MIN_BITRATE
-            it.maxBitrateBps = MAX_BITRATE
+            it.maxBitrateBps = maxBitrate
         }
         sender.setParameters(params)
+    }
+
+    /**
+     * Direct between the phones, let WebRTC go up to 16 Mbps: at 8 the
+     * picture still hit the cap and shrank while scrolling right next to the
+     * router (Gray's timeline, Oct 23). Through the relay, which we pay for
+     * by the gigabyte, it stays at 8. WebRTC's own guess of the network
+     * still decides how much is actually sent.
+     */
+    private fun setPathCap(pc: PeerConnection, relayed: Boolean) {
+        val cap = if (relayed) MAX_BITRATE else DIRECT_MAX_BITRATE
+        if (cap == maxBitrate) return
+        maxBitrate = cap
+        pc.setBitrate(MIN_BITRATE, null, cap)
+        tuneVideo()
     }
 
     /**
@@ -990,6 +1017,7 @@ class ScreenShareService : Service() {
         // 876 high to fit. 8 Mbps keeps it full size; a slower network still
         // gets less, since WebRTC's own guess always wins.
         private const val MAX_BITRATE = 8_000_000
+        private const val DIRECT_MAX_BITRATE = 16_000_000
         private const val START_BITRATE = 1_000_000
         private const val MIN_BITRATE = 150_000
 
