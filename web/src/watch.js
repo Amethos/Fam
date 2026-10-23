@@ -316,7 +316,9 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
     if (e.channel.label === "fast") {
       s.fast = e.channel;
       e.channel.onmessage = (m) => {
-        try { if (JSON.parse(m.data).t === "pong") s.lastPong = Date.now(); } catch { /* ignore */ }
+        // Only proves the lane works; how fresh her picture is comes from
+        // the reliable pings, so a lost packet here never pauses taps.
+        try { if (JSON.parse(m.data).t === "pong") s.fastOk = Date.now(); } catch { /* ignore */ }
       };
       return;
     }
@@ -343,7 +345,8 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   // 30 seconds (her Stop bar stays up); taps wait until the picture is back.
   pc.onconnectionstatechange = () => checkLink(s);
   s.pingTimer = setInterval(() => {
-    if (s.caps.ping) send({ t: "ping" }, { fast: true });
+    if (s.caps.ping) send({ t: "ping" });
+    if (s.caps.fast && s.fast?.readyState === "open") s.fast.send(JSON.stringify({ t: "ping" }));
     checkLink(s);
   }, PING_EVERY_MS / 2);
   s.statsTimer = setInterval(() => showStats(s), 2000);
@@ -482,7 +485,8 @@ function setLink(state) {
 let moveSeq = 0;
 
 function send(msg, { fast = false } = {}) {
-  const quick = fast && session?.caps?.fast && session.fast?.readyState === "open";
+  // The fast lane only once her phone has answered on it lately.
+  const quick = fast && session?.fast?.readyState === "open" && Date.now() - (session.fastOk ?? 0) < 3000;
   const ch = quick ? session.fast : session?.channel;
   if (ch?.readyState === "open") ch.send(JSON.stringify(msg));
 }
