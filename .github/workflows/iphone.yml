@@ -1,0 +1,44 @@
+name: Build iPhone app
+
+# Run by hand from GitHub: Actions > Build iPhone app > Run workflow.
+# Expo builds and signs the app on its own Macs, then sends it to TestFlight.
+# Needs the EXPO_TOKEN secret and a one-time Apple setup (iphone/README.md).
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "production = TestFlight, preview = install link, development = for live coding"
+        default: production
+        type: choice
+        options: [production, preview, development]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: iphone
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Check setup
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Add the EXPO_TOKEN secret first (iphone/README.md)."
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Build in Expo's cloud
+        run: |
+          if [ "${{ inputs.profile }}" = production ]; then
+            npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --no-wait --auto-submit
+          else
+            npx --yes eas-cli@latest build --platform ios --profile "${{ inputs.profile }}" --non-interactive --no-wait
+          fi
