@@ -283,7 +283,8 @@ exports.onHelpRequestUpdated = onDocumentUpdated("circles/{circleId}/helpRequest
 
 exports.onScamCheck = onDocumentCreated("circles/{circleId}/scamChecks/{id}", async (event) => {
   const check = event.data.data();
-  await notify(await helpersOf(event.params.circleId), `${check.parentName} asks: is this a scam?`, check.text.slice(0, 120), `/#/scam/${event.params.id}`);
+  // Alerts can show on a locked screen, so the message itself stays in the app.
+  await notify(await helpersOf(event.params.circleId), `${check.parentName} asks: is this a scam?`, "Tap to see it and answer.", `/#/scam/${event.params.id}`);
 });
 
 exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}", async (event) => {
@@ -291,7 +292,8 @@ exports.onScamAnswered = onDocumentUpdated("circles/{circleId}/scamChecks/{id}",
   const after = event.data.after.data();
   if (before.verdict || !after.verdict) return;
   const titles = { scam: "Scam — don't tap it", unsure: "Not sure — don't tap it yet", safe: "It's safe" };
-  await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, after.note || "Open My Tech Kid to see the answer.");
+  // The helper's note stays in the app too (alerts can show on a locked screen).
+  await notify([after.parentId], `${after.answeredByName}: ${titles[after.verdict]}`, "Open My Tech Kid to see the answer.");
 });
 
 

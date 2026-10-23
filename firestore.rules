@@ -17,6 +17,8 @@ service cloud.firestore {
     function smallNumber(n) {
       return (n is int || n is float) && n >= 0 && n <= 1000000;
     }
+    // Names shown in alerts and on the helper's screen.
+    function shortName(n) { return n is string && n.size() > 0 && n.size() <= 60; }
     function validQuality(q) {
       return q is map
         && q.keys().hasOnly(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec', 'enc', 'timeline'])
@@ -37,6 +39,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return (!('fcmTokens' in d) || (d.fcmTokens is list && d.fcmTokens.size() <= 10))
         && (!('displayName' in d) || (d.displayName is string && d.displayName.size() <= 60))
+        && (!('platform' in d) || d.platform in ['android', 'ios', 'web'])
         && (!('device' in d) || validDevice(d.device));
     }
 
@@ -75,6 +78,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt', 'practice'])
           && request.resource.data.get('practice', false) is bool
           && request.resource.data.parentId == request.auth.uid
+          && shortName(request.resource.data.parentName)
           && request.resource.data.status == 'waiting'
           && request.resource.data.createdAt == request.time;
         // A finished or cancelled request stays finished: nobody can reopen it.
@@ -181,6 +185,7 @@ service cloud.firestore {
         allow create: if isParent(cid)
           && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'text', 'createdAt', 'verdict'])
           && request.resource.data.parentId == request.auth.uid
+          && shortName(request.resource.data.parentName)
           && request.resource.data.verdict == null
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
@@ -191,6 +196,7 @@ service cloud.firestore {
           && changedOnly(['verdict', 'note', 'answeredBy', 'answeredByName', 'answeredAt'])
           && request.resource.data.verdict in ['scam', 'unsure', 'safe']
           && request.resource.data.answeredBy == request.auth.uid
+          && shortName(request.resource.data.answeredByName)
           && request.resource.data.note is string
           && request.resource.data.note.size() <= 500;
       }
