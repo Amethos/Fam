@@ -118,6 +118,12 @@ Built so far:
   matching the helper sending a move every 50 ms (a web page moves only when
   the finger does; the home screen animates in between). Moves now go out
   every 16 ms.
+- **Hunting the hiccups.** After the 60-a-second moves (Oct 23), the helper's
+  buffer stayed at 20-90 ms, but in some 2-second stretches Mom's phone sent
+  far fewer pictures than it captured, or the helper's phone showed far fewer
+  than arrived. The timeline now also counts full pictures sent, the helper's
+  requests for one, re-sent pieces, pictures the helper dropped and freezes,
+  and keeps the last 8 minutes.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so

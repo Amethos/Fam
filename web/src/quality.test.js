@@ -78,12 +78,12 @@ test("worstSent picks the slowest report while moving", () => {
 
 test("the timeline is numbers only, in the format the rules check", () => {
   const start = 1_000_000;
-  assert.equal(timelinePoint({ at: start + 4_400, start, rttMs: 22.4, fps: 2.6, sent: { fps: 3, h: 1168, why: "cpu" }, moving: true }), "4,22,3,3,1168,c,1,0,0,0,0,0;");
-  assert.equal(timelinePoint({ at: start + 2_000, start, rttMs: undefined, fps: 0, sent: undefined, moving: false }), "2,0,0,0,0,-,0,0,0,0,0,0;");
-  assert.equal(timelinePoint({ at: start, start, rttMs: 1, fps: 5000, sent: { fps: -3, h: 10, why: "<b>", est: 2500.4, cap: 59.6, encMs: 7.2 }, delays: { bufferMs: 31.5, decodeMs: 2 } }), "0,1,999,0,10,-,0,2500,60,7,32,2;");
-  const points = Array.from({ length: MAX_TIMELINE + 5 }, (_, i) => timelinePoint({ at: start + i * 2000, start, rttMs: 99999, fps: 999, sent: { fps: 999, h: 9999, why: "cpu", est: 999999, cap: 999, encMs: 99999 }, delays: { bufferMs: 99999, decodeMs: 99999 }, moving: true }));
+  assert.equal(timelinePoint({ at: start + 4_400, start, rttMs: 22.4, fps: 2.6, sent: { fps: 3, h: 1168, why: "cpu" }, moving: true }), "4,22,3,3,1168,c,1,0,0,0,0,0,0,0,0,0,0;");
+  assert.equal(timelinePoint({ at: start + 2_000, start, rttMs: undefined, fps: 0, sent: undefined, moving: false }), "2,0,0,0,0,-,0,0,0,0,0,0,0,0,0,0,0;");
+  assert.equal(timelinePoint({ at: start, start, rttMs: 1, fps: 5000, sent: { fps: -3, h: 10, why: "<b>", est: 2500.4, cap: 59.6, encMs: 7.2, kf: 1, pli: 2, nack: 14 }, delays: { bufferMs: 31.5, decodeMs: 2, dropped: 5, freezes: 1 } }), "0,1,999,0,10,-,0,2500,60,7,32,2,1,2,14,5,1;");
+  const points = Array.from({ length: MAX_TIMELINE + 5 }, (_, i) => timelinePoint({ at: start + i * 2000, start, rttMs: 99999, fps: 999, sent: { fps: 999, h: 9999, why: "cpu", est: 999999, cap: 999, encMs: 99999, kf: 999, pli: 999, nack: 9999 }, delays: { bufferMs: 99999, decodeMs: 99999, dropped: 999, freezes: 99 }, moving: true }));
   const text = timelineText(points);
-  assert.ok(text.startsWith("10,99999,999,999,9999,c,1,999999,999,99999,99999,99999;"));
+  assert.ok(text.startsWith(`${(5 * 2000) / 1000},99999,999,999,9999,c,1,999999,999,99999,99999,99999,999,999,9999,999,99;`));
   // The same pattern and size cap as firestore.rules.
   assert.ok(text.length <= 20000, `${text.length}`);
   assert.match(text, /^([0-9]{1,5},[0-9]{1,5},[0-9]{1,3},[0-9]{1,3},[0-9]{1,4},[cbon-],[01](,[0-9]{1,6})*;)*$/);
@@ -97,5 +97,6 @@ test("receiveDelays gives ms per picture since the last check", () => {
   const d = receiveDelays(now, prev);
   assert.equal(Math.round(d.bufferMs), 50);
   assert.equal(Math.round(d.decodeMs), 2);
-  assert.deepEqual(receiveDelays(prev, prev), { bufferMs: 0, decodeMs: 0 });
+  assert.deepEqual(receiveDelays(prev, prev), { bufferMs: 0, decodeMs: 0, dropped: 0, freezes: 0 });
+  assert.equal(receiveDelays({ ...now, framesDropped: 7, freezeCount: 3 }, { ...prev, framesDropped: 2, freezeCount: 1 }).dropped, 5);
 });

@@ -133,6 +133,8 @@ class ScreenShareService : Service() {
     private var reportedAt = 0L
     private var lastEncodeSecs = 0.0
     private var lastEncoded = 0L
+    /** Running totals at the last report, so each report says what happened since. */
+    private val lastTotals = mutableMapOf<String, Long>()
     private var captureW = 1
     private var captureH = 1
 
@@ -373,6 +375,15 @@ class ScreenShareService : Service() {
                 val encodeMs = if (encoded > lastEncoded) (encodeSecs - lastEncodeSecs) * 1000 / (encoded - lastEncoded) else 0.0
                 lastEncodeSecs = encodeSecs
                 lastEncoded = encoded
+                // Since the last report: full pictures (big, slow to send), how often the
+                // helper's phone asked for one, and asked for lost pieces again.
+                fun since(key: String): Long {
+                    val total = (m[key] as? Number)?.toLong() ?: 0L
+                    return (total - (lastTotals.put(key, total) ?: total)).coerceAtLeast(0L)
+                }
+                val keyFrames = since("keyFramesEncoded")
+                val asked = since("pliCount") + since("firCount")
+                val resent = since("nackCount")
                 val msg = JSONObject().put("t", "sent")
                     .put("fps", (m["framesPerSecond"] as? Number)?.toDouble() ?: 0.0)
                     .put("w", (m["frameWidth"] as? Number)?.toLong() ?: 0L)
@@ -383,6 +394,9 @@ class ScreenShareService : Service() {
                     .put("est", estKbps)
                     .put("cap", captured)
                     .put("encMs", encodeMs.coerceAtLeast(0.0))
+                    .put("kf", keyFrames)
+                    .put("pli", asked)
+                    .put("nack", resent)
                 main.post { if (gen == myGen) send(msg) }
             }
             main.postDelayed(this, 2_000)
@@ -469,6 +483,7 @@ class ScreenShareService : Service() {
         reportedAt = 0L
         lastEncodeSecs = 0.0
         lastEncoded = 0L
+        lastTotals.clear()
         pendingCandidates.clear()
         outbox.clear()
         restartPending = false
