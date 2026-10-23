@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferFormat, summarize, liveLine, worstLine } from "./quality.js";
+import { preferFormat, summarize, liveLine, worstLine, sentLine, worstSent } from "./quality.js";
 
 test("VP8 goes first, everything else keeps its order", () => {
   const codecs = [{ mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/rtx" }, { mimeType: "video/VP8" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
@@ -55,4 +55,23 @@ test("the worst moment while moving is remembered for a minute", () => {
   assert.equal(worstLine(samples, 6000), "While you moved: 6 fps at worst, 410 ms");
   assert.equal(worstLine(samples, 64_000), "While you moved: 18 fps at worst, 120 ms");
   assert.equal(worstLine([], 0), "");
+});
+
+test("sentLine says what Mom's phone sends and what holds it back", () => {
+  assert.equal(sentLine(null, "Mom"), "");
+  assert.equal(sentLine({ fps: 2.6, w: 540, h: 1168, codec: "H264", enc: "MediaCodecVideoEncoder", why: "cpu" }, "Mom"),
+    "Mom's phone sends 3 fps · 540×1168 · H264 · MediaCodecVideoEncoder · phone too busy");
+  assert.equal(sentLine({ fps: 58, why: "none" }, "Mom", true), "While you moved, Mom's phone sent 58 fps");
+});
+
+test("worstSent picks the slowest report while moving", () => {
+  const now = 100_000;
+  const samples = [
+    { at: now - 70_000, sent: { fps: 0 } },
+    { at: now - 5_000, sent: { fps: 20 } },
+    { at: now - 3_000, sent: { fps: 4, why: "cpu" } },
+    { at: now - 1_000 },
+  ];
+  assert.deepEqual(worstSent(samples, now), { fps: 4, why: "cpu" });
+  assert.equal(worstSent([], now), null);
 });

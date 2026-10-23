@@ -289,6 +289,8 @@ class ScreenShareService : Service() {
                                 // What this version can do, so the helper's page uses it.
                                 send(JSONObject().put("t", "caps").put("ping", true).put("drag", true).put("fast", true))
                                 sendScreenBars()
+                                main.removeCallbacks(reportSent)
+                                main.post(reportSent)
                             }
                             // The helper's page went away: stop tapping at once.
                             DataChannel.State.CLOSING, DataChannel.State.CLOSED -> endControl()
@@ -318,6 +320,36 @@ class ScreenShareService : Service() {
             })
         }
         makeOffer(pc, myGen)
+    }
+
+    /**
+     * Every 2 seconds, tells the helper's page how many pictures a second
+     * Mom's phone is actually sending, how big, with which encoder, and what
+     * holds it back ("cpu": her phone is too busy, "bandwidth": the network).
+     * Only numbers, never anything on her screen. Shows on the helper's menu
+     * so a slow share can be pinned on the phone or the network.
+     */
+    private val reportSent = object : Runnable {
+        override fun run() {
+            val pc = pc ?: return
+            val myGen = gen
+            pc.getStats { report ->
+                val stats = report.statsMap
+                val out = stats.values.firstOrNull { it.type == "outbound-rtp" && it.members["kind"] == "video" }
+                    ?: return@getStats
+                val m = out.members
+                val codec = (m["codecId"] as? String)?.let { stats[it] }?.members?.get("mimeType")?.toString()?.substringAfter("/")
+                val msg = JSONObject().put("t", "sent")
+                    .put("fps", (m["framesPerSecond"] as? Number)?.toDouble() ?: 0.0)
+                    .put("w", (m["frameWidth"] as? Number)?.toLong() ?: 0L)
+                    .put("h", (m["frameHeight"] as? Number)?.toLong() ?: 0L)
+                    .put("why", m["qualityLimitationReason"] as? String ?: "")
+                    .put("enc", (m["encoderImplementation"] as? String ?: "").take(40))
+                    .put("codec", codec ?: "")
+                main.post { if (gen == myGen) send(msg) }
+            }
+            main.postDelayed(this, 2_000)
+        }
     }
 
     private fun rtcConfig() = PeerConnection.RTCConfiguration(iceServers ?: STUN_ONLY).apply {
@@ -396,6 +428,7 @@ class ScreenShareService : Service() {
         reconnecting = false
         main.removeCallbacks(giveUp)
         main.removeCallbacks(retryPath)
+        main.removeCallbacks(reportSent)
         pendingCandidates.clear()
         outbox.clear()
         restartPending = false
@@ -732,7 +765,8 @@ class ScreenShareService : Service() {
 
     private fun makeOffer(pc: PeerConnection, myGen: String, iceRestart: Boolean = false) {
         pc.createOffer(object : SdpAdapter() {
-            override fun onCreateSuccess(desc: SessionDescription) {
+            override fun onCreateSuccess(made: SessionDescription) {
+                val desc = SessionDescription(made.type, preferVp8(made.description))
                 pc.setLocalDescription(object : SdpAdapter() {
                     override fun onSetSuccess() {
                         main.post {
@@ -917,4 +951,21 @@ class ScreenShareService : Service() {
             context.startService(Intent(context, ScreenShareService::class.java).setAction(ACTION_STOP))
         }
     }
+}
+
+/**
+ * Puts VP8 first in Mom's offer. H.264 on Gray's Samsung sent only 0-3
+ * pictures a second while scrolling, and the helper's page asking for VP8
+ * wasn't enough on its own (the share still came through as H.264). Other
+ * formats stay listed after it, so a phone that can't do VP8 still connects.
+ */
+internal fun preferVp8(sdp: String): String {
+    val lines = sdp.split("\r\n").toMutableList()
+    val vp8 = lines.mapNotNull { Regex("^a=rtpmap:(\\d+) VP8/90000").find(it)?.groupValues?.get(1) }.toSet()
+    val i = lines.indexOfFirst { it.startsWith("m=video ") }
+    if (vp8.isEmpty() || i < 0) return sdp
+    val parts = lines[i].split(" ")
+    val formats = parts.drop(3)
+    lines[i] = (parts.take(3) + formats.filter { it in vp8 } + formats.filter { it !in vp8 }).joinToString(" ")
+    return lines.joinToString("\r\n")
 }

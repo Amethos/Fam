@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
-import { preferFormat, summarize, liveLine, liveFps, worstLine } from "./quality.js";
+import { preferFormat, summarize, liveLine, liveFps, worstLine, sentLine, worstSent } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -331,6 +331,8 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       // What her app can do (older versions say nothing): answer pings, live drags.
       if (msg.t === "caps") { s.caps = msg; s.lastPong = Date.now(); }
       if (msg.t === "pong") s.lastPong = Date.now();
+      // What her phone actually sends (numbers only), for the menu.
+      if (msg.t === "sent") s.sent = msg;
       // How tall her top bar and her own phone buttons are, to cut them off.
       if (msg.t === "screen") {
         const part = (v) => (Number.isFinite(v) ? Math.min(Math.max(v, 0), 0.15) : 0);
@@ -439,9 +441,11 @@ async function showStats(s) {
     const stats = [...report.values()];
     const now = Date.now();
     if (now - (s.touchedAt ?? 0) < 2500) {
-      s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs: summarize(stats, 1).rttMs, fps: liveFps(stats) }];
+      s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs: summarize(stats, 1).rttMs, fps: liveFps(stats), sent: s.sent }];
     }
-    el.textContent = [liveLine(stats), worstLine(s.worst ?? [], now)].filter(Boolean).join("\n");
+    const low = worstSent(s.worst ?? [], now);
+    el.textContent = [liveLine(stats), worstLine(s.worst ?? [], now), sentLine(low ?? s.sent, s.name, !!low)]
+      .filter(Boolean).join("\n");
   } catch {
     el.textContent = "Connection numbers not available";
   }

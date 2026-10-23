@@ -72,3 +72,22 @@ export function worstLine(samples, now) {
   const rtt = Math.max(...recent.map((x) => x.rttMs));
   return `While you moved: ${fps} fps at worst${rtt ? `, ${rtt} ms` : ""}`;
 }
+
+// What Mom's phone says it actually sends (newer versions of her app), so a
+// slow share can be pinned on her phone or the network. sent: { fps, w, h,
+// why, enc, codec }; why is "cpu" (her phone is too busy) or "bandwidth".
+export function sentLine(sent, name, moving = false) {
+  if (!sent) return "";
+  const fps = Math.round(Number(sent.fps) || 0);
+  const why = { cpu: "phone too busy", bandwidth: "network too slow" }[sent.why] ?? "";
+  const parts = [`${fps} fps`, sent.w && sent.h ? `${sent.w}×${sent.h}` : "", String(sent.codec ?? "").slice(0, 10),
+    String(sent.enc ?? "").slice(0, 30), why].filter(Boolean);
+  return `${moving ? `While you moved, ${name}'s phone sent` : `${name}'s phone sends`} ${parts.join(" · ")}`;
+}
+
+// The slowest picture rate Mom's phone reported while the helper's finger
+// was on the screen, within the same window as worstLine.
+export function worstSent(samples, now) {
+  const recent = samples.filter((x) => x.sent && now - x.at <= WORST_WINDOW_MS);
+  return recent.reduce((low, x) => (!low || (Number(x.sent.fps) || 0) < (Number(low.fps) || 0) ? x.sent : low), null);
+}

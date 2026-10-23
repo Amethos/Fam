@@ -76,6 +76,12 @@ Built so far:
   in steps of 16 pixels and aims for 60 pictures a second (up to 4 Mbps).
   The menu's numbers line says the format and the worst moment while the
   helper's finger was on the screen.
+- **VP8 from Mom's side too, and her own numbers.** The second test still
+  came through as H.264 (22 ms, 0-3 pictures a second), so Mom's offer now
+  lists VP8 first as well (`preferVp8` in `ScreenShareService.kt`). Every 2
+  seconds her phone tells the helper's page what it actually sends: pictures
+  a second, size, format, encoder and what holds it back ("phone too busy" or
+  "network too slow"). Numbers only, nothing from her screen.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
