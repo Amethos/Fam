@@ -89,6 +89,12 @@ rules or pairing change needs a test in `backend-tests/`.
   GitHub Actions builds it. The beta signing key `app/beta.keystore` is
   committed on purpose so updates install over each other — replace it with a
   private key before any public release.
+- `iphone/` — iPhone app, Expo (React Native, TypeScript), bundle id
+  `com.amethos.mytechkid`, linked to an Expo (EAS) project. Built in Expo's
+  cloud (no Mac) by the hand-run `.github/workflows/iphone.yml` (needs the
+  `EXPO_TOKEN` secret). In the Claude container `npx expo install` can't reach
+  Expo's servers: install with npm at the version in
+  `node_modules/expo/bundledNativeModules.json`. Native `ios/` is generated.
 - `.github/workflows/build.yml` — tests backend, builds web + APK, and deploys
   everything to Firebase on pushes to `main` once the
   `FIREBASE_SERVICE_ACCOUNT` secret exists. The APK is served at
