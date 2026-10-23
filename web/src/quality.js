@@ -99,13 +99,16 @@ export function worstSent(samples, now) {
 // held back by (c: her phone, b: network, o: other, n: nothing, -: unknown),
 // finger moving (1/0),WebRTC's guess of the connection's speed in kbps,
 // pictures her phone captured a second,ms to encode each,ms each waited in
-// the helper's buffer,ms to decode each;". Keeps the last MAX_TIMELINE moments.
-export const MAX_TIMELINE = 300;
+// the helper's buffer,ms to decode each,full pictures sent,times the helper's
+// phone asked for one,times it asked for lost pieces again,pictures it
+// dropped,freezes;". Keeps the last MAX_TIMELINE moments (8 minutes).
+export const MAX_TIMELINE = 240;
 export function timelinePoint({ at, start, rttMs, fps, sent, moving, delays }) {
   const n = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
   const why = sent ? ({ cpu: "c", bandwidth: "b", other: "o", none: "n" }[sent.why] ?? "-") : "-";
   return [n((at - start) / 1000, 99999), n(rttMs, 99999), n(fps, 999), n(sent?.fps, 999), n(sent?.h, 9999), why, moving ? 1 : 0,
-    n(sent?.est, 999999), n(sent?.cap, 999), n(sent?.encMs, 99999), n(delays?.bufferMs, 99999), n(delays?.decodeMs, 99999)].join(",") + ";";
+    n(sent?.est, 999999), n(sent?.cap, 999), n(sent?.encMs, 99999), n(delays?.bufferMs, 99999), n(delays?.decodeMs, 99999),
+    n(sent?.kf, 999), n(sent?.pli, 999), n(sent?.nack, 9999), n(delays?.dropped, 999), n(delays?.freezes, 99)].join(",") + ";";
 }
 export function timelineText(points) {
   return points.slice(-MAX_TIMELINE).join("");
@@ -119,5 +122,11 @@ export function receiveDelays(video, prev) {
     const n = (video[count] ?? 0) - (prev[count] ?? 0);
     return n > 0 ? (((video[total] ?? 0) - (prev[total] ?? 0)) * 1000) / n : 0;
   };
-  return { bufferMs: per("jitterBufferDelay", "jitterBufferEmittedCount"), decodeMs: per("totalDecodeTime", "framesDecoded") };
+  const since = (key) => Math.max(0, (video[key] ?? 0) - (prev[key] ?? 0));
+  return {
+    bufferMs: per("jitterBufferDelay", "jitterBufferEmittedCount"),
+    decodeMs: per("totalDecodeTime", "framesDecoded"),
+    dropped: since("framesDropped"),
+    freezes: since("freezeCount"),
+  };
 }
