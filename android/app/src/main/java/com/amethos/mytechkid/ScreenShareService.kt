@@ -970,7 +970,11 @@ class ScreenShareService : Service() {
                 .createIceServer(),
         )
         private const val FPS = 60
-        private const val MAX_BITRATE = 4_000_000
+        // Gray's timeline (Oct 23): at 4 Mbps the picture hit this cap while
+        // scrolling (WebRTC's guess sat at exactly 4000 kbps) and shrank to
+        // 876 high to fit. 8 Mbps keeps it full size; a slower network still
+        // gets less, since WebRTC's own guess always wins.
+        private const val MAX_BITRATE = 8_000_000
         private const val START_BITRATE = 1_000_000
         private const val MIN_BITRATE = 150_000
 
