@@ -107,6 +107,11 @@ class ScreenShareService : Service() {
     private var source: VideoSource? = null
     private var pc: PeerConnection? = null
     private var channel: DataChannel? = null
+    // Pings and finger moves: never resent, never wait for a lost one, so a
+    // dropped packet can't hold up the ones behind it. A newer move replaces
+    // an older one anyway (moveSeq drops any that arrive late).
+    private var fastChannel: DataChannel? = null
+    private var moveSeq = -1L
     private var sender: org.webrtc.RtpSender? = null
 
     private var circleId: String = ""
@@ -211,7 +216,10 @@ class ScreenShareService : Service() {
         )
         val egl = EglBase.create().also { this.egl = it }
         val factory = PeerConnectionFactory.builder()
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
+            // High-profile H.264 off: the plain kind sends each picture as soon
+            // as it's ready, while the "high" kind on some Samsung chips holds
+            // pictures back to compress better, which shows up as lag.
+            .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, false))
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
             .createPeerConnectionFactory()
             .also { this.factory = it }
@@ -279,7 +287,7 @@ class ScreenShareService : Service() {
                             DataChannel.State.OPEN -> {
                                 sendControl("ready")
                                 // What this version can do, so the helper's page uses it.
-                                send(JSONObject().put("t", "caps").put("ping", true).put("drag", true))
+                                send(JSONObject().put("t", "caps").put("ping", true).put("drag", true).put("fast", true))
                                 sendScreenBars()
                             }
                             // The helper's page went away: stop tapping at once.
@@ -289,10 +297,23 @@ class ScreenShareService : Service() {
                     }
                 }
                 override fun onMessage(buffer: DataChannel.Buffer) {
-                    if (buffer.binary || buffer.data.remaining() > 1000) return
-                    val bytes = ByteArray(buffer.data.remaining()).also { buffer.data.get(it) }
-                    val message = runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull() ?: return
+                    val message = readMessage(buffer) ?: return
                     main.post { if (gen == myGen) onHelperMessage(message) }
+                }
+            })
+        }
+        fastChannel = pc.createDataChannel("fast", DataChannel.Init().apply {
+            ordered = false
+            maxRetransmits = 0
+        }).also { dc ->
+            dc.registerObserver(object : DataChannel.Observer {
+                override fun onBufferedAmountChange(previous: Long) {}
+                override fun onStateChange() {}
+                override fun onMessage(buffer: DataChannel.Buffer) {
+                    val message = readMessage(buffer) ?: return
+                    // Only what's safe to lose comes this way.
+                    if (message.optString("t") !in setOf("ping", "move")) return
+                    main.post { if (gen == myGen) onHelperMessage(message, fast = true) }
                 }
             })
         }
@@ -382,6 +403,9 @@ class ScreenShareService : Service() {
         channel?.unregisterObserver()
         channel?.dispose()
         channel = null
+        fastChannel?.unregisterObserver()
+        fastChannel?.dispose()
+        fastChannel = null
         pc?.close()
         pc?.dispose()
         pc = null
@@ -483,7 +507,13 @@ class ScreenShareService : Service() {
 
     // ---------- Tapping for Mom ----------
 
-    private fun onHelperMessage(m: JSONObject) {
+    private fun readMessage(buffer: DataChannel.Buffer): JSONObject? {
+        if (buffer.binary || buffer.data.remaining() > 1000) return null
+        val bytes = ByteArray(buffer.data.remaining()).also { buffer.data.get(it) }
+        return runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull()
+    }
+
+    private fun onHelperMessage(m: JSONObject, fast: Boolean = false) {
         if (stopping || ShareState.watcher.isNullOrBlank()) return
         if (tooLong()) return stopSharing(endShare = true)
         // A runaway helper page can't flood Mom's phone with taps.
@@ -493,9 +523,19 @@ class ScreenShareService : Service() {
         recent.addLast(now)
 
         when (m.optString("t")) {
-            "ping" -> send(JSONObject().put("t", "pong"))
+            "ping" -> send(JSONObject().put("t", "pong"), fast)
             "ask" -> askForControl()
-            "tap", "hold", "swipe", "key", "point", "down", "move", "up" -> if (controlOn && !stale()) doGesture(m)
+            "tap", "hold", "swipe", "key", "point", "down", "move", "up" -> if (controlOn && !stale() && inOrder(m)) doGesture(m)
+        }
+    }
+
+    /** A move that arrives after a newer one (or after the finger lifted) is dropped. */
+    private fun inOrder(m: JSONObject): Boolean {
+        val n = m.optLong("n", -1)
+        return when (m.optString("t")) {
+            "down", "up" -> { moveSeq = n; true }
+            "move" -> if (n < 0) true else if (n > moveSeq) { moveSeq = n; true } else false
+            else -> true
         }
     }
 
@@ -681,8 +721,8 @@ class ScreenShareService : Service() {
         send(JSONObject().put("t", "control").put("state", state).apply { if (until != null) put("until", until) })
     }
 
-    private fun send(message: JSONObject) {
-        val dc = channel ?: return
+    private fun send(message: JSONObject, fast: Boolean = false) {
+        val dc = (if (fast) fastChannel else channel) ?: return
         if (dc.state() != DataChannel.State.OPEN) return
         dc.send(DataChannel.Buffer(ByteBuffer.wrap(message.toString().toByteArray(Charsets.UTF_8)), false))
     }
