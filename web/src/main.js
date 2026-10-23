@@ -1,5 +1,6 @@
 // My Tech Kid helper app (the person giving help). Runs in the browser and can be
-// added to an iPhone home screen. Mom's side is the Android app in android/.
+// added to an iPhone home screen. The side of the person getting help is the
+// Android app in android/.
 
 import "./styles.css";
 import { initializeApp } from "firebase/app";
@@ -13,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
-import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
+import { firebaseConfig, vapidKey, isConfigured, apkPath } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 import { watchShare, closeWatch } from "./watch.js";
 import { qrSvg } from "./qr.js";
@@ -286,7 +287,7 @@ function viewSignedOut() {
   const signup = state.authMode === "signup";
   return `${header()}
   <h1>${signup ? "Create your helper account" : "Welcome back"}</h1>
-  <p class="muted">My Tech Kid lets you help your parents with their phone from anywhere. Only your family can connect.</p>
+  <p class="muted">My Tech Kid lets you help the people you look out for with their phone, from anywhere. Only people you link can connect.</p>
   <div class="tabs" role="group" aria-label="Account">
     <button class="${signup ? "secondary" : ""}" data-action="mode" data-mode="signin" aria-pressed="${!signup}">Sign in</button>
     <button class="${signup ? "" : "secondary"}" data-action="mode" data-mode="signup" aria-pressed="${signup}">New account</button>
@@ -302,28 +303,40 @@ function viewSignedOut() {
 
 // ---------- First-run story and setup ----------
 
-// Shown once to a new visitor before they make an account. Real moments
-// helpers recognize, then what changes.
+// Who's here? The website is mostly for helpers, but someone who wants help
+// can land on it too, so the very first screen asks. Remembered on this
+// device only.
+const ROLES = {
+  helper: { title: "I help someone with their phone", note: "A parent, grandparent, partner, friend or neighbor" },
+  "getting-help": { title: "I want help with my phone", note: "Someone you trust helps from their own phone" },
+};
+// The link from "Text someone who can help" on the Android app
+// (`/?start=helper`) already says who this is.
+if (new URLSearchParams(location.search).get("start") === "helper") storage.set("onb:role", "helper");
+
+// Shown once to a new helper before they make an account. Real moments
+// helpers recognize, then what changes. Gender neutral on purpose: the person
+// they help could be anyone.
 const STORY = [
   {
-    from: "Mom", bubble: "Honey, the screen went all funny again. Can you look at it when you get a chance?",
-    title: "You've been the family tech support for years.",
+    from: "Pat", bubble: "Hi, the screen went all funny again. Can you look at it when you get a chance?",
+    title: "You're the one everyone calls for tech help.",
     body: "You love helping. You just can't always be there.",
   },
   {
-    from: "Mom", bubble: "Which button? The blue one? I don't see a blue one.",
-    title: "\"Okay Mom, what do you see now?\"",
+    from: "Pat", bubble: "Which button? The blue one? I don't see a blue one.",
+    title: "\"Okay, what do you see now?\"",
     body: "Twenty minutes on the phone, trying to picture a screen you can't see.",
   },
   {
     from: "Unknown number", warn: true, bubble: "URGENT: Your bank account has been locked. Tap here to verify your identity.",
     title: "And the texts that keep you up at night.",
-    body: "Scammers count on Mom being alone when she reads one.",
+    body: "Scammers count on people being alone when they read one.",
   },
   {
     final: true,
     title: "Now you're one tap away.",
-    body: "Mom gets one big button. You get the alert, wherever you are. She can ask \"Is this a scam?\" before she taps anything. And only family can ever connect.",
+    body: "They get one big button. You get the alert, wherever you are. They can ask \"Is this a scam?\" before tapping anything. And only people you link can ever connect.",
   },
 ];
 
@@ -331,6 +344,37 @@ const isIOS = /iPhone|iPad/.test(navigator.userAgent);
 const isInstalled = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 // iPhone only allows alerts from the home-screen app.
 const canAlert = () => typeof Notification !== "undefined" && "serviceWorker" in navigator && !(isIOS && !isInstalled());
+
+function viewRole() {
+  return `<div class="brand">${LOGO}</div>
+    <h1>Who are you?</h1>
+    <p class="muted">My Tech Kid connects someone who wants a hand with their phone to a person they trust.</p>
+    ${Object.entries(ROLES).map(([key, r]) => `
+      <button class="choice" data-action="role" data-role="${key}"><strong>${r.title}</strong><span>${r.note}</span></button>`).join("")}
+    <button class="secondary small" data-action="role-signin">I already have an account</button>`;
+}
+
+// For someone who wants help: the app lives on their Android phone, and the
+// person helping them starts the link.
+function viewGettingHelp() {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const steps = isAndroid
+    ? `<div class="card"><ol class="howto">
+        <li>Download My Tech Kid and tap <strong>Install</strong>.</li>
+        <li>Open it and tap <strong>Text someone who can help</strong>.</li>
+        <li>On a phone call, you both check that three pictures match.</li>
+      </ol>
+      <a class="button full" href="${esc(apkPath)}" download>Download My Tech Kid</a></div>`
+    : `<div class="card"><p>For now, getting help works on <strong>Android</strong> phones. iPhone is coming later.</p>
+      <p class="muted">If you have an Android phone, open this page on it. Or send this page to the person who helps you with tech.</p>
+      <button class="secondary" data-action="share-site">Send this page to someone</button></div>`;
+  return `<div class="brand">${LOGO}</div>
+    <h1>Let's get you some help</h1>
+    <p class="muted">You'll get one big button that reaches someone you trust, plus an "Is this a scam?" button.</p>
+    ${steps}
+    <div class="alert blue"><p><strong>Only connect with people you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.</p></div>
+    <button class="secondary small" data-action="role-back">Go back</button>`;
+}
 
 function viewStory() {
   const i = Math.min(state.storyIndex, STORY.length - 1);
@@ -351,7 +395,9 @@ function viewStory() {
 }
 
 // Setup after signing up. Each step can be skipped; the dashboard keeps
-// reminding about alerts until they're on.
+// reminding about alerts until they're on. The photo step is only for a new
+// family (it needs the family to exist, and helpers who already linked
+// someone change it from the home page).
 function setupSteps() {
   const c = state.circle;
   const hasParent = (c?.parentIds?.length ?? 0) > 0 || state.invites.length > 0;
@@ -359,6 +405,7 @@ function setupSteps() {
     { key: "home", applies: isIOS, done: isInstalled() || !!storage.get("onb:home") },
     { key: "alerts", applies: canAlert(), done: state.alertsOn || !!storage.get("onb:alerts") },
     { key: "family", applies: true, done: !!state.profile?.circleId },
+    { key: "photo", applies: !hasParent, done: !!myPhoto() || !!storage.get("onb:photo") },
     { key: "parent", applies: true, done: hasParent || !!storage.get("onb:parent") },
   ].filter((step) => step.applies);
 }
@@ -394,20 +441,26 @@ function viewSetup(step) {
       <button class="secondary" data-action="skip-step" data-step="home">I'll do it later</button>`);
   }
   if (step.key === "alerts") {
-    return stepFrame(step, `<h1>Know the moment Mom needs you</h1>
-      <p class="muted">When Mom taps her help button or asks about a scam, your phone buzzes. You'll only get alerts from your own family.</p>
+    return stepFrame(step, `<h1>Know the moment you're needed</h1>
+      <p class="muted">When someone you help taps their help button or asks about a scam, your phone buzzes. You'll only get alerts from people you've linked.</p>
       <button data-action="alerts-setup" ${state.busy ? "disabled" : ""}>Turn on alerts</button>
       <button class="secondary" data-action="skip-step" data-step="alerts">Not now</button>`);
   }
   if (step.key === "family") {
     return stepFrame(step, `<h1>Name your family</h1>
-      <p class="muted">This is your circle: the people you help, like Mom and Dad, and anyone who helps alongside you.</p>
+      <p class="muted">This is your circle: the people you help, and anyone who helps alongside you. Friends and neighbors count too.</p>
       <form data-form="circle" class="card">
         <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" value="${esc(myName())}'s Family" maxlength="40" required></div>
         <button type="submit" ${state.busy ? "disabled" : ""}>Create my family</button>
       </form>`);
   }
-  return stepFrame(step, `<h1>Now add Mom or Dad</h1>
+  if (step.key === "photo") {
+    return stepFrame(step, `<h1>Add your photo</h1>
+      <p class="muted">The person you help sees your face on their big button, so they know exactly who they're reaching.</p>
+      ${photoPicker()}
+      <button class="secondary" data-action="skip-step" data-step="photo">Later</button>`);
+  }
+  return stepFrame(step, `<h1>Now add someone you help</h1>
     <div class="card">
       <ol class="howto">
         <li>You text them a link.</li>
@@ -416,7 +469,7 @@ function viewSetup(step) {
       </ol>
       <p class="muted">Best done when you can talk on the phone for five minutes.</p>
     </div>
-    <a class="button" href="#/add">Add Mom or Dad</a>
+    <a class="button" href="#/add">Add someone</a>
     <button class="secondary" data-action="skip-step" data-step="parent">Later</button>`);
 }
 
@@ -425,10 +478,10 @@ function alertsBanner() {
   const ios = /iPhone|iPad/.test(navigator.userAgent);
   const installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   if (ios && !installed) {
-    return `<div class="alert blue"><h2>Get an alert when Mom needs help</h2>
+    return `<div class="alert blue"><h2>Get an alert when someone needs help</h2>
       <p>On iPhone, first add My Tech Kid to your home screen: tap the <strong>Share</strong> button, then <strong>Add to Home Screen</strong>. Then open My Tech Kid from your home screen and turn on alerts.</p></div>`;
   }
-  return `<div class="alert blue"><h2>Get an alert when Mom needs help</h2>
+  return `<div class="alert blue"><h2>Get an alert when someone needs help</h2>
     <button data-action="alerts">Turn on alerts</button></div>`;
 }
 
@@ -489,14 +542,14 @@ function memberCards() {
   const helpers = (c.helperIds ?? []).map((id) => ({ id, ...c.members?.[id] }));
   const parentHtml = parents.length
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
-        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
+        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([relationLabel(p.relationship), deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
         ${howToHelp(p)}
         ${ringButton(p)}
         <p class="muted">${isPast(p.controlAllowedAt)
-          ? `You can tap for ${esc(p.name)} while they show you their screen, once they say yes on their phone.`
+          ? `You can tap for ${esc(p.name)} while they show you their screen.`
           : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
         ${removeControls(p)}</div>`).join("")
-    : `<div class="card"><p>No one is linked yet. Add Mom or Dad to get started.</p></div>`;
+    : `<div class="card"><p>No one is linked yet. Add someone you help to get started.</p></div>`;
   const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
   return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
 }
@@ -591,12 +644,12 @@ function photoCard() {
   return `<a class="card photo-card" href="#/photo">
     <div class="row">${faceHtml(myName(), photo)}
       <div class="grow"><strong>${photo ? "Your photo" : "Add your photo"}</strong><br>
-      <span class="muted">${esc(parentWord())} sees it on the big button</span></div>${PENCIL}</div></a>`;
+      <span class="muted">${esc(parentWord() ?? "They")} see${parentWord() ? "s" : ""} it on the big button</span></div>${PENCIL}</div></a>`;
 }
 
 function viewFamilyName() {
   const current = familyName(state.circle);
-  const ideas = [`${myName()}'s Family`, `${parentWord()}'s Helpers`]
+  const ideas = [`${myName()}'s Family`, parentWord() && `${parentWord()}'s Helpers`]
     .filter((v, k, all) => v && v !== current && all.indexOf(v) === k);
   return `${header()}
   <a href="#/">← Back</a>
@@ -608,22 +661,31 @@ function viewFamilyName() {
       `<button type="button" class="secondary small" data-action="name-idea" data-name="${esc(v)}">${esc(v)}</button>`).join("")}</div>` : ""}
     <button type="submit" ${state.busy ? "disabled" : ""}>Save</button>
   </form>
-  <p class="muted">Everyone who helps sees the new name. Mom's phone doesn't change.</p>`;
+  <p class="muted">Everyone who helps sees the new name. Nothing changes on the phones of the people you help.</p>`;
 }
 
+// The name of the first person this helper helps, or null before anyone is linked.
 function parentWord() {
   const id = state.circle?.parentIds?.[0];
-  return (id && state.circle.members?.[id]?.name) || "Mom";
+  return (id && state.circle.members?.[id]?.name) || null;
 }
 
 function viewPhoto() {
-  const photo = myPhoto();
+  const who = parentWord();
   return `${header()}
   <a href="#/">← Back</a>
   <h1>Your photo</h1>
-  <p class="muted">${esc(parentWord())} sees your face on the big button, so they know exactly who they're reaching.</p>
-  <div class="card button-preview">
-    <p class="eyebrow">On ${esc(parentWord())}'s phone</p>
+  <p class="muted">${who ? esc(who) : "The person you help"} sees your face on the big button, so they know exactly who they're reaching.</p>
+  ${photoPicker()}`;
+}
+
+// The big-button preview and the two ways to pick a photo, on the photo page
+// and in setup. Saving it is handled by the "change" listener below.
+function photoPicker() {
+  const photo = myPhoto();
+  const who = parentWord();
+  return `<div class="card button-preview">
+    <p class="eyebrow">On ${who ? `${esc(who)}'s` : "their"} phone</p>
     <div class="mini-button">${faceHtml(myName(), photo, "mini-face")}
       <span class="mini-title">Tap for help</span><span class="mini-from">from ${esc(myName())}</span></div>
   </div>
@@ -646,7 +708,7 @@ function viewDashboard() {
   ${memberCards()}
   ${photoCard()}
   ${pendingInvites()}
-  <a class="button" href="#/add">Add Mom or Dad</a>
+  <a class="button" href="#/add">Add someone</a>
   ${answered.length ? `<h2>Recent scam checks</h2>${answered.map((s) => `
     <a class="card" style="text-decoration:none;color:inherit" href="#/scam/${esc(s.id)}">
       <strong>${esc(s.parentName)}: ${esc(VERDICTS[s.verdict])}</strong>
@@ -660,13 +722,31 @@ function appearance() {
       `<button type="button" data-action="theme" data-choice="${key}" aria-pressed="${themeChoice === key}">${label}</button>`).join("")}</div></div>`;
 }
 
+// Who the person being added is to the helper. Their phone sees the matching
+// word for the helper ("Josh, your grandchild"); see RELATIONSHIPS in
+// functions/pairing.js. "Someone else" shows no word.
+const RELATIONSHIPS = {
+  parent: "Your parent",
+  grandparent: "Your grandparent",
+  partner: "Your partner",
+  relative: "Another relative",
+  friend: "A friend",
+  neighbor: "A neighbor",
+  other: "Someone else",
+};
+const relationLabel = (key) => (key && key !== "other" ? RELATIONSHIPS[key] : null);
+
 function viewAdd() {
   return `${header()}
   <a href="#/">← Back</a>
-  <h1>Add Mom or Dad</h1>
+  <h1>Add someone you help</h1>
   <p class="muted">You'll get a link to text them, or a code to scan if you're together. It works once and expires after an hour.</p>
   <form data-form="invite" class="card">
-    <div class="field"><label for="forName">What do you call them?</label><input id="forName" name="forName" value="Mom" required></div>
+    <fieldset class="field"><legend>Who are they to you?</legend>
+      <div class="chips">${Object.entries(RELATIONSHIPS).map(([key, label]) => `
+        <label class="chip"><input type="radio" name="relationship" value="${key}" required><span>${label}</span></label>`).join("")}</div>
+    </fieldset>
+    <div class="field"><label for="forName">What do you call them?</label><input id="forName" name="forName" placeholder="Like Mom, Grandpa or Alex" maxlength="40" required></div>
     <button type="submit" ${state.busy ? "disabled" : ""}>Create invite link</button>
   </form>`;
 }
@@ -790,7 +870,12 @@ function popAttrs(id, classes) {
 
 function screenKey(page, id, step) {
   if (state.user === undefined) return "loading";
-  if (!state.user) return storage.get("onb:story") ? "signin" : `story${state.storyIndex}`;
+  if (!state.user) {
+    const role = storage.get("onb:role");
+    if (!role && !storage.get("onb:story")) return "role";
+    if (role === "getting-help") return "getting-help";
+    return storage.get("onb:story") ? "signin" : `story${state.storyIndex}`;
+  }
   if (state.profile === null || (state.profile.circleId && !state.circle)) return "loading";
   if (step) return `setup-${step.key}`;
   if (page === "invite") return `invite-${id}-${state.invites.find((i) => i.id === id)?.status}`;
@@ -806,7 +891,7 @@ function render() {
   let html;
   const step = state.user && state.profile ? currentStep() : null;
   if (state.user === undefined) html = viewLoading();
-  else if (!state.user) html = storage.get("onb:story") ? viewSignedOut() : viewStory();
+  else if (!state.user) html = signedOutView();
   else if (state.profile === null) html = viewLoading();
   else if (state.profile.circleId && !state.circle) html = viewLoading();
   else if (step && (!state.profile.circleId || (page !== "add" && page !== "invite"))) html = viewSetup(step);
@@ -837,6 +922,15 @@ function render() {
     if (el && el.type !== "password" && el.type !== "file") el.value = value;
   }
   if (focused) document.getElementById(focused)?.focus();
+}
+
+// Before signing in: who are you, then the helper's story, then the account.
+// Anyone who already finished the story is a helper.
+function signedOutView() {
+  const role = storage.get("onb:role");
+  if (!role && !storage.get("onb:story")) return viewRole();
+  if (role === "getting-help") return viewGettingHelp();
+  return storage.get("onb:story") ? viewSignedOut() : viewStory();
 }
 
 window.addEventListener("hashchange", () => { state.error = ""; acceptFromAlert(); render(); window.scrollTo(0, 0); });
@@ -931,6 +1025,21 @@ const actions = {
       render();
     }
   },
+  role: (el) => { storage.set("onb:role", el.dataset.role); render(); window.scrollTo(0, 0); },
+  "role-back": () => { storage.remove("onb:role"); render(); window.scrollTo(0, 0); },
+  "role-signin": () => { storage.set("onb:role", "helper"); storage.set("onb:story", "1"); state.authMode = "signin"; render(); },
+  "share-site": async () => {
+    const url = location.origin;
+    const text = "Can you help me with my phone? I'd like to use My Tech Kid. Start here:";
+    if (navigator.share) {
+      try { await navigator.share({ text, url }); } catch { /* closed the share sheet */ }
+    } else {
+      try { await navigator.clipboard.writeText(`${text} ${url}`); state.error = "Copied. Paste it into a text to someone you trust."; } catch {
+        state.error = `Send this address to someone you trust: ${url}`;
+      }
+      render();
+    }
+  },
   confirm: (el) => run(() => call("confirmInvite", { circleId, inviteId: el.dataset.id, match: el.dataset.match === "yes" })),
   "story-next": () => { state.storyIndex += 1; render(); window.scrollTo(0, 0); },
   "story-skip": () => { storage.set("onb:story", "1"); state.authMode = "signin"; render(); },
@@ -965,7 +1074,8 @@ const forms = {
     location.hash = "#/";
   }),
   invite: (f) => run(async () => {
-    const { inviteId, token } = await call("createInvite", { circleId, forName: val(f, "forName").trim() });
+    const relationship = f.querySelector("input[name=relationship]:checked")?.value ?? "other";
+    const { inviteId, token } = await call("createInvite", { circleId, forName: val(f, "forName").trim(), relationship });
     storage.set(`invite:${inviteId}`, token);
     location.hash = `#/invite/${inviteId}`;
   }),

@@ -24,12 +24,14 @@ async function rejects(promise, text) {
 const josh = client("josh");
 await createUserWithEmailAndPassword(josh.auth, `josh${Date.now()}@example.com`, "password123");
 const { circleId } = await josh.call("createCircle", { circleName: "Smiths", displayName: "Josh" });
-const { inviteId, token } = await josh.call("createInvite", { circleId, forName: "Mom" });
+const { inviteId, token } = await josh.call("createInvite", { circleId, forName: "Mom", relationship: "parent" });
 
 const mom = client("mom");
 await signInAnonymously(mom.auth);
 await rejects(mom.call("peekInvite", { circleId, inviteId, token: "wrong" }), /isn't valid/);
 const peek = await mom.call("peekInvite", { circleId, inviteId, token });
+assert.equal(peek.helperRelation, "your child", "the invited phone sees how the helper says they're related");
+assert.equal(peek.helperPhoto, null, "no photo yet");
 assert.equal(peek.helperName, "Josh");
 const claim = await mom.call("claimInvite", { circleId, inviteId, token });
 assert.equal(claim.pictures.length, 3);
@@ -48,6 +50,7 @@ assert.equal((await josh.call("confirmInvite", { circleId, inviteId, match: true
 const circle = (await getDoc(doc(mom.db, `circles/${circleId}`))).data();
 assert.deepEqual(circle.parentIds, [mom.auth.currentUser.uid]);
 assert.equal(circle.members[mom.auth.currentUser.uid].name, "Mom");
+assert.equal(circle.members[mom.auth.currentUser.uid].relationship, "parent");
 assert.ok(circle.members[mom.auth.currentUser.uid].controlAllowedAt.toMillis() > Date.now() + 23 * 3600 * 1000);
 
 // Mom's phone says what kind of phone it is; the helper sees it in the circle.
@@ -69,9 +72,11 @@ await rejects(mom.call("peekInvite", { circleId: other.circleId, inviteId: bad.i
 await rejects(mom.call("claimInvite", { circleId: other.circleId, inviteId: bad.inviteId, token: bad.token }), /already linked/);
 
 // Saying "they don't match" cancels the invite.
-const second = await josh.call("createInvite", { circleId, forName: "Dad" });
+const second = await josh.call("createInvite", { circleId, forName: "Dad", relationship: "boss" });
 const dad = client("dad");
 await signInAnonymously(dad.auth);
+// An unknown relationship is stored as "other" and shows no label.
+assert.equal((await dad.call("peekInvite", { circleId, inviteId: second.inviteId, token: second.token })).helperRelation, null);
 await dad.call("claimInvite", { circleId, inviteId: second.inviteId, token: second.token });
 assert.equal((await josh.call("confirmInvite", { circleId, inviteId: second.inviteId, match: false })).status, "cancelled");
 await rejects(dad.call("confirmInvite", { circleId, inviteId: second.inviteId, match: true }), /isn't waiting/);
@@ -143,6 +148,17 @@ assert.equal((await josh.call("setMyPhoto", { circleId, photo })).status, "saved
   const c = (await getDoc(doc(mom.db, `circles/${circleId}`))).data();
   assert.equal(c.name, "Team Blue");
   assert.equal(c.members[josh.auth.currentUser.uid].photo, photo, "Mom's phone can see Josh's photo");
+}
+{
+  // A phone opening a new invite sees the helper's photo on the trust screen,
+  // but only with the invite's secret token.
+  const fresh = await josh.call("createInvite", { circleId, forName: "Grandpa", relationship: "grandparent" });
+  const gramps = client("gramps");
+  await signInAnonymously(gramps.auth);
+  await rejects(gramps.call("peekInvite", { circleId, inviteId: fresh.inviteId, token: "wrong" }), /isn't valid/);
+  const seen = await gramps.call("peekInvite", { circleId, inviteId: fresh.inviteId, token: fresh.token });
+  assert.equal(seen.helperPhoto, photo);
+  assert.equal(seen.helperRelation, "your grandchild");
 }
 assert.equal((await josh.call("setMyPhoto", { circleId, photo: null })).status, "removed");
 assert.equal((await getDoc(doc(josh.db, `circles/${circleId}`))).data().members[josh.auth.currentUser.uid].photo, undefined);

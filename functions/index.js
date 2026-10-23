@@ -10,7 +10,7 @@ const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
-const { pickPictures, hashToken, newToken } = require("./pairing");
+const { RELATIONSHIPS, cleanRelationship, pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
 const { cleanDevice, sameDevice } = require("./device");
 const { relayPass } = require("./relay");
@@ -67,7 +67,8 @@ exports.createCircle = onCall(async (request) => {
   return { circleId: circleRef.id };
 });
 
-// Helper creates a single-use invite link for a parent ("Mom").
+// Helper creates a single-use invite link for the person they help, with
+// what the helper calls them ("Mom", "Sam") and how they know each other.
 exports.createInvite = onCall(async (request) => {
   const uid = requireAuth(request);
   const circleId = String(request.data?.circleId ?? "");
@@ -80,7 +81,8 @@ exports.createInvite = onCall(async (request) => {
   await inviteRef.set({
     createdBy: uid,
     createdByName: circle.get(`members.${uid}.name`) ?? "Your family",
-    forName: cleanName(request.data?.forName, "Mom"),
+    forName: cleanName(request.data?.forName, "Family member"),
+    relationship: cleanRelationship(request.data?.relationship),
     tokenHash: hashToken(token),
     status: "open",
     createdAt: FieldValue.serverTimestamp(),
@@ -122,14 +124,21 @@ async function requireUnlinked(tx, uid) {
   }
 }
 
-// Parent's phone reads who sent the invite, before agreeing to anything.
+// The invited phone reads who sent the invite, before agreeing to anything:
+// the helper's name, how they say they're related ("your child") and their
+// photo, so the trust screen shows a real face. Only someone holding the
+// invite's secret token gets this far.
 exports.peekInvite = onCall(async (request) => {
   const uid = requireAuth(request);
   return db.runTransaction(async (tx) => {
     await requireUnlinked(tx, uid);
     const { invite } = await openInvite(tx, request.data);
     if (invite.status !== "open") throw new HttpsError("failed-precondition", "This invite was already used.");
-    return { helperName: invite.createdByName, forName: invite.forName };
+    const circle = await tx.get(db.doc(`circles/${String(request.data.circleId)}`));
+    const photo = circle.get(`members.${invite.createdBy}.photo`);
+    // Older invites have no relationship; those show no label.
+    const helperRelation = RELATIONSHIPS[invite.relationship ?? "other"] ?? null;
+    return { helperName: invite.createdByName, forName: invite.forName, helperRelation, helperPhoto: photo ?? null };
   });
 });
 
@@ -195,6 +204,7 @@ exports.confirmInvite = onCall(async (request) => {
       [`members.${parentUid}`]: {
         name: invite.forName,
         role: "parent",
+        relationship: invite.relationship ?? "other",
         linkedAt: Timestamp.fromMillis(now),
         controlAllowedAt: Timestamp.fromMillis(now + CONTROL_WAIT_HOURS.value() * 3600 * 1000),
       },

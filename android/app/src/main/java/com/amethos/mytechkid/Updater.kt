@@ -25,9 +25,15 @@ object Updater {
     private const val APK = "download/mytechkid-beta.apk"
     private const val VERSION = "download/version.json"
 
-    private fun site(context: Context): String? {
+    fun site(context: Context): String? {
         val projectId = FirebaseApp.getApps(context).firstOrNull()?.options?.projectId ?: return null
         return "https://$projectId.web.app/"
+    }
+
+    /** Both addresses Firebase serves our website from (invite links use either). */
+    fun sites(context: Context): List<String> {
+        val projectId = FirebaseApp.getApps(context).firstOrNull()?.options?.projectId ?: return emptyList()
+        return listOf("https://$projectId.web.app", "https://$projectId.firebaseapp.com")
     }
 
     private fun installedVersion(context: Context): Long {

@@ -153,6 +153,7 @@ fun TechKidScreens(
     onIntroDone: () -> Unit,
     onShowScreen: () -> Unit = {},
     onStopScreen: () -> Unit = {},
+    onTextHelper: () -> Unit = {},
 ) {
     Box(
         Modifier
@@ -164,9 +165,9 @@ fun TechKidScreens(
             Screen.Loading -> Centered { CircularProgressIndicator() }
             Screen.NotConfigured -> Page {
                 Title("Almost there")
-                Body("This copy of My Tech Kid isn't connected yet. Your family needs to finish setup (docs/SETUP.md).")
+                Body("This copy of My Tech Kid isn't connected yet. Whoever set it up needs to finish setup (docs/SETUP.md).")
             }
-            is Screen.Welcome -> WelcomeScreen(s.message)
+            is Screen.Welcome -> WelcomeScreen(s.message, onTextHelper)
             is Screen.InviteAsk -> InviteAskScreen(vm, s)
             is Screen.Pictures -> PicturesScreen(vm, s)
             Screen.Intro -> IntroScreen(vm, onIntroDone)
@@ -356,29 +357,60 @@ private fun ErrorText(vm: TechKidViewModel) {
 }
 
 private fun names(list: List<String>): String = when (list.size) {
-    0 -> "your family"
+    0 -> "your helper"
     1 -> list[0]
     else -> list.dropLast(1).joinToString(", ") + " or " + list.last()
 }
 
 // ---------- Screens ----------
 
+// One job: reach someone who can help. The button opens Messages with a
+// ready-made text; the person picks who gets it. The text is only a
+// referral: linking still needs their invite and the picture check.
 @Composable
-private fun WelcomeScreen(message: String?) {
+private fun WelcomeScreen(message: String?, onTextHelper: () -> Unit) {
     Page {
         Spacer(Modifier.heightIn(min = 24.dp))
         Title("Welcome to My Tech Kid")
         if (message != null) Panel(ClaySoft) { Body(message, ClayInk) }
-        Body("My Tech Kid puts a big button on your phone that reaches your family when you need help.")
-        Body("To get started, ask your family to text you an invite link. Then tap the link in your messages.")
+        Body("My Tech Kid puts a big button on your phone that reaches someone you trust when you need help.")
+        BigButton("Text someone who can help") { onTextHelper() }
+        Panel(ClaySoft) {
+            Body("Only send this to people you know. Banks, Samsung, Google, Microsoft and the police will never ask you to.", ClayInk)
+        }
+        Body("Already got a link? Tap it in your messages.")
+    }
+}
+
+// The helper's face on the trust screen: their photo if they added one, or their initial.
+@Composable
+private fun Face(name: String, photo: ImageBitmap?, size: Int) {
+    if (photo != null) {
+        Image(
+            photo,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(size.dp)
+                .clip(CircleShape)
+                .border(4.dp, Card, CircleShape),
+        )
+    } else {
+        Avatar(name, size)
     }
 }
 
 @Composable
 private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
     Page {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Avatar(s.helperName, 120)
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Face(s.helperName, s.helperPhoto, 120)
+            // "Your child": what the helper said, so a stranger's claim can sound wrong.
+            s.helperRelation?.let { Text(it, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Olive) }
         }
         Title("Link with ${s.helperName}?")
         Panel(ClaySoft) {
@@ -428,7 +460,7 @@ private fun PicturesScreen(vm: TechKidViewModel, s: Screen.Pictures) {
 
 @Composable
 private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
-    val first = vm.helperNames.firstOrNull() ?: "Your family"
+    val first = vm.helperNames.firstOrNull() ?: "Your helper"
     val practice = vm.practiceHelp
     Page {
         when (practice?.status) {
@@ -473,10 +505,17 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
                         Body("That's all there is to it. Whenever you're stuck on your phone, tap your button and $first will call you.", Ink)
                     }
                 }
-                Panel(ClaySoft) {
-                    Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", ClayInk)
+                var tapLater by remember { mutableStateOf(false) }
+                // Checked again each time the app comes back from Settings.
+                val switchOn = remember(vm.resumes) { RemoteControlService.instance != null }
+                if (!tapLater && !switchOn) {
+                    TapNowPanel(first, onLater = { tapLater = true })
+                } else {
+                    Panel(ClaySoft) {
+                        Body("Next, your phone will ask about notifications. Tap Allow so you can see $first's answers.", ClayInk)
+                    }
+                    BigButton("OK, got it") { onDone() }
                 }
-                BigButton("OK, got it") { onDone() }
             }
         }
     }
@@ -668,6 +707,57 @@ private fun TapSetupPanel(watcher: String) {
     }
 }
 
+// Right after the practice run, while their helper is still on the phone:
+// the one-time tapping switch, so it isn't waiting for them the first time
+// they're stuck. Same pictures, words and disclosure as TapSetupPanel. Taps
+// still only work during a share they start with Start.
+@Composable
+private fun TapNowPanel(helper: String, onLater: () -> Unit) {
+    val context = LocalContext.current
+    var opened by remember { mutableStateOf(false) }
+    // Shown only while the switch is off, so after "Set it up now" this means
+    // they came back without it on. On Android 13+ Samsung's "Restricted
+    // setting" is the usual reason.
+    val blocked = opened && Build.VERSION.SDK_INT >= 33
+    Box(Modifier.popIn(400)) {
+        Panel(Card) {
+            if (blocked) {
+                Text("Did your phone say \"Restricted setting\"?", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+                RestrictedPicture()
+                Body("That's normal for apps from a link. It takes three taps to fix:", Ink)
+                SetupStep(1, "Tap Take me there below")
+                SetupStep(2, "Tap ⋮ in the top corner")
+                SetupStep(3, "Tap Allow restricted settings")
+                BigButton("Take me there", color = Green) { RemoteControlService.openAppInfo(context) }
+                Body("Then come back here and tap Turn it on.")
+                QuietButton("Turn it on") { RemoteControlService.openSwitch(context) }
+                QuietButton("Later") { onLater() }
+            } else {
+                Text("One more thing, while $helper is on the phone", fontFamily = Rounded, fontSize = 24.sp, lineHeight = 30.sp, color = Ink)
+                Body("Let $helper tap on your phone for you when you show your screen. You only do this once.", Ink)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Samsung calls the list "Installed apps"; most other phones "Downloaded apps".
+                    val list = if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "Installed apps" else "Downloaded apps"
+                    SetupPicture("1. Tap $list") { ListPicture() }
+                    SetupPicture("2. Tap My Tech Kid") { AppPicture() }
+                    SetupPicture("3. Turn the switch on") { SwitchPicture() }
+                }
+                Text(
+                    "Turning on \"My Tech Kid: let family tap for me\" lets $helper tap for you. " +
+                        "$helper's taps only work while you show your screen, which you start each time with Start. " +
+                        "My Tech Kid doesn't read or save what's on your screen.",
+                    fontSize = 17.sp, lineHeight = 24.sp, color = Muted,
+                )
+                BigButton("Set it up now", color = Green) {
+                    opened = true
+                    RemoteControlService.openSwitch(context)
+                }
+                QuietButton("Later") { onLater() }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SetupStep(number: Int, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -806,7 +896,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
 @Composable
 private fun TalkScreen(vm: TechKidViewModel) {
     BackHandler { vm.leaveTalk() }
-    val first = vm.helperNames.firstOrNull() ?: "your family"
+    val first = vm.helperNames.firstOrNull() ?: "your helper"
     val context = LocalContext.current
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
         if (allowed) vm.startTalking() else vm.askWithoutTalking()
