@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferH264, summarize, liveLine } from "./quality.js";
+import { preferH264, summarize, liveLine, worstLine } from "./quality.js";
 
 test("H.264 goes first, everything else keeps its order", () => {
   const codecs = [{ mimeType: "video/VP8" }, { mimeType: "video/rtx" }, { mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
@@ -44,4 +44,15 @@ test("a relay reached over TCP says so, since it freezes on loss", () => {
     { id: "r", type: "remote-candidate", candidateType: "srflx" },
   ];
   assert.equal(liveLine(stats), "120 ms · relay tcp · 0 fps");
+});
+
+test("the worst moment while moving is remembered for a minute", () => {
+  const samples = [
+    { at: 1000, rttMs: 90, fps: 24 },
+    { at: 3000, rttMs: 410, fps: 6 },
+    { at: 5000, rttMs: 120, fps: 18 },
+  ];
+  assert.equal(worstLine(samples, 6000), "While you moved: 6 fps at worst, 410 ms");
+  assert.equal(worstLine(samples, 64_000), "While you moved: 18 fps at worst, 120 ms");
+  assert.equal(worstLine([], 0), "");
 });

@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
-import { preferH264, summarize, liveLine } from "./quality.js";
+import { preferH264, summarize, liveLine, liveFps, worstLine } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -436,7 +436,12 @@ async function showStats(s) {
   if (!el || session !== s || !s.pc || !(s.videoAt || s.pc.connectionState === "connected")) return;
   try {
     const report = await Promise.race([s.pc.getStats(), new Promise((_, no) => setTimeout(no, 1500))]);
-    el.textContent = liveLine([...report.values()]);
+    const stats = [...report.values()];
+    const now = Date.now();
+    if (now - (s.touchedAt ?? 0) < 2500) {
+      s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs: summarize(stats, 1).rttMs, fps: liveFps(stats) }];
+    }
+    el.textContent = [liveLine(stats), worstLine(s.worst ?? [], now)].filter(Boolean).join("\n");
   } catch {
     el.textContent = "Connection numbers not available";
   }
@@ -667,6 +672,9 @@ function addGestures(video) {
     clearTimeout(stillTimer);
     stillTimer = setTimeout(move, STILL_DOWN_MS);
   };
+  const touched = () => { if (session) session.touchedAt = Date.now(); };
+  video.addEventListener("pointerdown", touched);
+  video.addEventListener("pointermove", touched);
   video.addEventListener("pointerdown", (e) => {
     if (!controlOn) return;
     const p = pointOn(video, e);

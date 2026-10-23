@@ -42,8 +42,7 @@ export function summarize(stats, seconds) {
 // a second. Lets a test say why it feels slow instead of guessing.
 export function liveLine(stats) {
   const s = summarize(stats, 1);
-  const video = stats.find((x) => x.type === "inbound-rtp" && x.kind === "video");
-  const fps = Math.round(video?.framesPerSecond ?? 0);
+  const fps = liveFps(stats);
   return [s.rttMs ? `${s.rttMs} ms` : "", s.codec, s.relay ? `relay${viaTcp(stats) ? " tcp" : ""}` : "direct", `${fps} fps`]
     .filter(Boolean).join(" · ");
 }
@@ -54,4 +53,21 @@ function viaTcp(stats) {
   const pair = stats.find((x) => x.type === "candidate-pair" && (x.nominated || x.selected) && x.state === "succeeded");
   const local = pair && stats.find((x) => x.id === pair.localCandidateId);
   return /^(tcp|tls)$/i.test(local?.relayProtocol ?? "");
+}
+
+export function liveFps(stats) {
+  const video = stats.find((x) => x.type === "inbound-rtp" && x.kind === "video");
+  return Math.round(video?.framesPerSecond ?? 0);
+}
+
+// The menu closes when the helper touches the screen, so it also remembers
+// the worst moment while their finger was on it (a still screen sends no
+// pictures, so only those moments count). samples: [{ at, rttMs, fps }].
+export const WORST_WINDOW_MS = 60_000;
+export function worstLine(samples, now) {
+  const recent = samples.filter((x) => now - x.at <= WORST_WINDOW_MS);
+  if (!recent.length) return "";
+  const fps = Math.min(...recent.map((x) => x.fps));
+  const rtt = Math.max(...recent.map((x) => x.rttMs));
+  return `While you moved: ${fps} fps at worst${rtt ? `, ${rtt} ms` : ""}`;
 }
