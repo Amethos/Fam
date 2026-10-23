@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build && node build-sw.mjs",
     "preview": "vite preview",
-    "test": "node --test src/device.test.js src/gesture.test.js src/qr.test.js src/quality.test.js src/link.test.js"
+    "test": "node --test src/device.test.js src/gesture.test.js src/qr.test.js src/quality.test.js src/link.test.js src/photo.test.js"
   },
   "dependencies": {
     "firebase": "^13.0.0",

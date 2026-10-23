@@ -17,6 +17,7 @@ import { firebaseConfig, vapidKey, isConfigured } from "./config.js";
 import { esc, initial, timeAgo, formatTime, isPast, storage } from "./util.js";
 import { watchShare, closeWatch } from "./watch.js";
 import { qrSvg } from "./qr.js";
+import { isPhoto, shrinkPhoto } from "./photo.js";
 import { thisDevice, helpMethod, deviceLabel } from "./device.js";
 
 const root = document.getElementById("app");
@@ -402,7 +403,7 @@ function viewSetup(step) {
     return stepFrame(step, `<h1>Name your family</h1>
       <p class="muted">This is your circle: the people you help, like Mom and Dad, and anyone who helps alongside you.</p>
       <form data-form="circle" class="card">
-        <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" placeholder="Smith Family" required></div>
+        <div class="field"><label for="circleName">Family name</label><input id="circleName" name="circleName" value="${esc(myName())}'s Family" maxlength="40" required></div>
         <button type="submit" ${state.busy ? "disabled" : ""}>Create my family</button>
       </form>`);
   }
@@ -568,15 +569,82 @@ function familyTitle(name) {
   return [...words, "Family"].join(" ");
 }
 
+// Families named after this change are shown exactly as typed ("Team Blue").
+function familyName(circle) {
+  return circle?.nameAsTyped ? circle.name : familyTitle(circle?.name);
+}
+
+const PENCIL = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>`;
+
+function myPhoto() {
+  const photo = state.circle?.members?.[state.user.uid]?.photo;
+  return isPhoto(photo) ? photo : null;
+}
+
+function faceHtml(name, photo, cls = "avatar") {
+  return photo ? `<img class="${cls} photo" src="${photo}" alt="">` : `<span class="${cls}">${initial(name)}</span>`;
+}
+
+function photoCard() {
+  const photo = myPhoto();
+  return `<a class="card photo-card" href="#/photo">
+    <div class="row">${faceHtml(myName(), photo)}
+      <div class="grow"><strong>${photo ? "Your photo" : "Add your photo"}</strong><br>
+      <span class="muted">${esc(parentWord())} sees it on the big button</span></div>${PENCIL}</div></a>`;
+}
+
+function viewFamilyName() {
+  const current = familyName(state.circle);
+  const ideas = [`${myName()}'s Family`, `${parentWord()}'s Helpers`]
+    .filter((v, k, all) => v && v !== current && all.indexOf(v) === k);
+  return `${header()}
+  <a href="#/">← Back</a>
+  <h1>Your family's name</h1>
+  <form data-form="rename" class="card">
+    <div class="field"><label for="familyName">Shown exactly as you type it</label>
+      <input id="familyName" name="familyName" value="${esc(current)}" maxlength="40" required></div>
+    ${ideas.length ? `<div class="row ideas"><span class="muted">Ideas</span>${ideas.map((v) =>
+      `<button type="button" class="secondary small" data-action="name-idea" data-name="${esc(v)}">${esc(v)}</button>`).join("")}</div>` : ""}
+    <button type="submit" ${state.busy ? "disabled" : ""}>Save</button>
+  </form>
+  <p class="muted">Everyone who helps sees the new name. Mom's phone doesn't change.</p>`;
+}
+
+function parentWord() {
+  const id = state.circle?.parentIds?.[0];
+  return (id && state.circle.members?.[id]?.name) || "Mom";
+}
+
+function viewPhoto() {
+  const photo = myPhoto();
+  return `${header()}
+  <a href="#/">← Back</a>
+  <h1>Your photo</h1>
+  <p class="muted">${esc(parentWord())} sees your face on the big button, so they know exactly who they're reaching.</p>
+  <div class="card button-preview">
+    <p class="eyebrow">On ${esc(parentWord())}'s phone</p>
+    <div class="mini-button">${faceHtml(myName(), photo, "mini-face")}
+      <span class="mini-title">Tap for help</span><span class="mini-from">from ${esc(myName())}</span></div>
+  </div>
+  <label class="button full${state.busy ? " disabled" : ""}" for="selfie">Take a selfie</label>
+  <input class="hidden-file" id="selfie" type="file" accept="image/*" capture="user" data-photo ${state.busy ? "disabled" : ""}>
+  <label class="button secondary full${state.busy ? " disabled" : ""}" for="pickPhoto">Choose from photos</label>
+  <input class="hidden-file" id="pickPhoto" type="file" accept="image/*" data-photo ${state.busy ? "disabled" : ""}>
+  ${photo ? `<button class="text-link" data-action="remove-photo" ${state.busy ? "disabled" : ""}>Use my first letter instead</button>` : ""}
+  <p class="muted">Only your family circle can see it. You can change it any time.</p>`;
+}
+
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
   return `${header()}
-  <div><p class="muted">Your family</p><h1>${esc(familyTitle(state.circle?.name))}</h1></div>
+  <div><p class="muted">Your family</p><a class="family-name" href="#/family" aria-label="Change your family's name"><h1>${esc(familyName(state.circle))}</h1><span class="pencil">${PENCIL}</span></a></div>
   ${alertsBanner()}
   ${helpCards()}
   ${shareCards()}
   ${scamCards()}
   ${memberCards()}
+  ${photoCard()}
   ${pendingInvites()}
   <a class="button" href="#/add">Add Mom or Dad</a>
   ${answered.length ? `<h2>Recent scam checks</h2>${answered.map((s) => `
@@ -743,6 +811,8 @@ function render() {
   else if (state.profile.circleId && !state.circle) html = viewLoading();
   else if (step && (!state.profile.circleId || (page !== "add" && page !== "invite"))) html = viewSetup(step);
   else if (page === "add") html = viewAdd();
+  else if (page === "family") html = viewFamilyName();
+  else if (page === "photo") html = viewPhoto();
   else if (page === "invite" && id) html = viewInvite(id);
   else if (page === "scam" && id) html = viewScam(id);
   else html = viewDashboard();
@@ -764,7 +834,7 @@ function render() {
 
   for (const [elId, value] of kept) {
     const el = document.getElementById(elId);
-    if (el && el.type !== "password") el.value = value;
+    if (el && el.type !== "password" && el.type !== "file") el.value = value;
   }
   if (focused) document.getElementById(focused)?.focus();
 }
@@ -873,6 +943,8 @@ const actions = {
     applyTheme(themeChoice);
     render();
   },
+  "name-idea": (el) => { document.getElementById("familyName").value = el.dataset.name; },
+  "remove-photo": () => run(() => call("setMyPhoto", { circleId, photo: null })),
   verdict: (el) => { state.verdicts[el.dataset.id] = el.dataset.verdict; render(); },
 };
 
@@ -888,6 +960,10 @@ const forms = {
     await setDoc(doc(db, "users", cred.user.uid), { displayName: name }, { merge: true });
   }),
   circle: (f) => run(() => call("createCircle", { circleName: val(f, "circleName").trim(), displayName: myName() })),
+  rename: (f) => run(async () => {
+    await call("renameCircle", { circleId, name: val(f, "familyName") });
+    location.hash = "#/";
+  }),
   invite: (f) => run(async () => {
     const { inviteId, token } = await call("createInvite", { circleId, forName: val(f, "forName").trim() });
     storage.set(`invite:${inviteId}`, token);
@@ -912,6 +988,17 @@ root.addEventListener("click", (event) => {
     event.preventDefault();
     actions[el.dataset.action](el);
   }
+});
+
+// "Take a selfie" / "Choose from photos": shrink it here, then save it.
+root.addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-photo]");
+  const file = input?.files?.[0];
+  if (!file) return;
+  run(async () => {
+    await call("setMyPhoto", { circleId, photo: await shrinkPhoto(file) });
+    location.hash = "#/";
+  });
 });
 
 root.addEventListener("submit", (event) => {

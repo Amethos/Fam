@@ -70,14 +70,15 @@ rules or pairing change needs a test in `backend-tests/`.
 ## Layout
 
 - `functions/` — Firebase Cloud Functions (Node 22): `createCircle`,
-  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`, `shareIceServers` (relay passes for screen sharing), and push
+  `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`,
+  `renameCircle`, `setMyPhoto` (helper's photo for Mom's big button), `shareIceServers` (relay passes for screen sharing), and push
   notification triggers. Unit tests: `npm test` (pure helpers in `pairing.js`).
 - `backend-tests/` — `npm test` checks `firestore.rules`; `npm run e2e` runs the
   whole pairing flow against local emulators (in the Claude container, unset the
   `*_PROXY` variables for that command).
 - `firestore.rules` — who can read/write what. Data model:
   `users/{uid}` (displayName, role, circleId, fcmTokens, device),
-  `circles/{cid}` (name, helperIds, parentIds, members map; `members.<uid>.device` is copied from the user doc by `onUserDevice` so helpers know whether to use in-app sharing or FaceTime),
+  `circles/{cid}` (name, shown as typed when `nameAsTyped`; helperIds, parentIds, members map; `members.<uid>.photo` is a helper's 256 px JPEG data URL, checked by `functions/profile.js`; `members.<uid>.device` is copied from the user doc by `onUserDevice` so helpers know whether to use in-app sharing or FaceTime),
   `circles/{cid}/invites`, `/helpRequests` (+ `/voice/clip`: Mom's voice message, kept 30 days), `/scamChecks`, `/rings` (helper rings a parent's phone), `/screenShares` (+ `/signals`;
   stage 2, see `docs/STAGE2.md`).
 - `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.
@@ -112,7 +113,6 @@ rules or pairing change needs a test in `backend-tests/`.
   large); no typing. Helper sees it full size. Needs Firebase Storage (owner
   clicks Build > Storage > Get started), storage rules limited to the circle,
   auto-delete after 30 days.
-- Helper's photo on Mom's big button instead of an initial.
 - Android home-screen widget: "Get help from Josh" without opening the app.
 - If the helper doesn't respond in ~2 minutes, show Mom one big "Call Josh"
   button that dials normally.

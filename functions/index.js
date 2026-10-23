@@ -14,6 +14,7 @@ const { pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
 const { cleanDevice, sameDevice } = require("./device");
 const { relayPass } = require("./relay");
+const { cleanCircleName, cleanPhoto } = require("./profile");
 
 initializeApp();
 const db = getFirestore();
@@ -53,7 +54,8 @@ exports.createCircle = onCall(async (request) => {
   const circleRef = db.collection("circles").doc();
   await db.runTransaction(async (tx) => {
     tx.set(circleRef, {
-      name: cleanName(request.data?.circleName, `${displayName}'s family`),
+      name: cleanCircleName(request.data?.circleName) || `${displayName}'s Family`,
+      nameAsTyped: true,
       createdBy: uid,
       createdAt: FieldValue.serverTimestamp(),
       helperIds: [uid],
@@ -233,6 +235,37 @@ exports.removeMember = onCall(async (request) => {
     open.docs.forEach((d) => tx.update(d.ref, { status: "cancelled", updatedAt: FieldValue.serverTimestamp() }));
     return { status: "removed" };
   });
+});
+
+// Helper renames the family. Shown exactly as typed, on every helper's app.
+exports.renameCircle = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const circle = await loadCircle(String(request.data?.circleId ?? ""));
+  if (!circle.get("helperIds").includes(uid)) {
+    throw new HttpsError("permission-denied", "Only helpers can rename the family.");
+  }
+  const name = cleanCircleName(request.data?.name);
+  if (!name) throw new HttpsError("invalid-argument", "Please type a name for your family.");
+  await circle.ref.update({ name, nameAsTyped: true });
+  return { name };
+});
+
+// Helper sets or removes their own photo, which Mom sees on her big button
+// instead of their first letter. Only the family circle can read it.
+exports.setMyPhoto = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const circle = await loadCircle(String(request.data?.circleId ?? ""));
+  if (!circle.get("helperIds").includes(uid)) {
+    throw new HttpsError("permission-denied", "Only helpers can add a photo for now.");
+  }
+  if (request.data?.photo == null) {
+    await circle.ref.update({ [`members.${uid}.photo`]: FieldValue.delete() });
+    return { status: "removed" };
+  }
+  const photo = cleanPhoto(request.data.photo);
+  if (!photo) throw new HttpsError("invalid-argument", "That photo didn't work. Try a different one.");
+  await circle.ref.update({ [`members.${uid}.photo`]: photo });
+  return { status: "saved" };
 });
 
 // ---- Push notifications ----
