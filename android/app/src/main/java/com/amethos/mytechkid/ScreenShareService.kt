@@ -130,6 +130,7 @@ class ScreenShareService : Service() {
     private var iceServers: List<PeerConnection.IceServer>? = null
     private val serversWaiters = mutableListOf<() -> Unit>()
     private val capturedFrames = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile private var lastPassedNs = 0L
     private var reportedAt = 0L
     private var lastEncodeSecs = 0.0
     private var lastEncoded = 0L
@@ -254,6 +255,14 @@ class ScreenShareService : Service() {
             override fun onCapturerStopped() = observer.onCapturerStopped()
             override fun onFrameCaptured(frame: VideoFrame) {
                 capturedFrames.incrementAndGet()
+                // Samsung screens draw up to 120 times a second and Android hands
+                // us 85-90 pictures a second (Gray's timeline, Oct 23), more than
+                // the encoder can take at 60, so it skipped them in bursts. Pass
+                // it an even 60 instead. (WebRTC's own adaptOutputFormat crops
+                // the picture to the size it's given, so it's not used.)
+                val at = frame.timestampNs
+                if (at - lastPassedNs < MIN_FRAME_GAP_NS) return
+                lastPassedNs = at
                 observer.onFrameCaptured(frame)
             }
         })
@@ -261,11 +270,6 @@ class ScreenShareService : Service() {
         captureW = w
         captureH = h
         capturer.startCapture(w, h, FPS)
-        // Samsung screens draw up to 120 times a second and Android hands us
-        // 85-90 pictures a second (Gray's timeline, Oct 23), more than the
-        // encoder can take at 60, so it skipped them in bursts. Hand it an
-        // even 60 instead. The size is only a ceiling, so nothing shrinks.
-        source.adaptOutputFormat(4096, 4096, FPS)
     }
 
     /**
@@ -1012,6 +1016,9 @@ class ScreenShareService : Service() {
                 .createIceServer(),
         )
         private const val FPS = 60
+        // A little under 1/60 s, so a 60-a-second screen with uneven timing
+        // still passes every picture and a 120-a-second one passes every other.
+        private const val MIN_FRAME_GAP_NS = 14_000_000L
         // Gray's timeline (Oct 23): at 4 Mbps the picture hit this cap while
         // scrolling (WebRTC's guess sat at exactly 4000 kbps) and shrank to
         // 876 high to fit. 8 Mbps keeps it full size; a slower network still

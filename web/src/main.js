@@ -223,11 +223,20 @@ function wakeRelay() {
 // After "I'm on it", the helper is waiting for Mom's screen: open it as soon
 // as she taps Show my screen, once per share.
 const autoOpened = new Set();
+// Whose share each one was, so an ended share can be matched to her next one.
+const shareParents = new Map();
 function openMyShare() {
   const uid = state.user?.uid;
+  for (const sh of state.shares) shareParents.set(sh.id, sh.parentId);
+  const [, page, watching] = location.hash.split("/");
+  const onWatch = page === "watch" && watching;
+  // Still on the "share ended" screen of someone's share, and that same person
+  // taps Show my screen again: pick it up, no need to go back and come in again.
+  const endedParent = onWatch && !state.shares.some((sh) => sh.id === watching) ? shareParents.get(watching) : null;
   const mine = state.shares.find((sh) => sh.status === "waiting" && !autoOpened.has(sh.id)
-    && state.help.some((h) => h.status === "accepted" && h.helperId === uid && h.parentId === sh.parentId));
-  if (!mine || location.hash.startsWith("#/watch/")) return;
+    && ((endedParent && sh.parentId === endedParent)
+      || state.help.some((h) => h.status === "accepted" && h.helperId === uid && h.parentId === sh.parentId)));
+  if (!mine || (onWatch && !(endedParent && mine.parentId === endedParent))) return;
   autoOpened.add(mine.id);
   location.hash = `#/watch/${mine.id}`;
 }
