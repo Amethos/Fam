@@ -1,0 +1,32 @@
+# Prints the smoothness numbers of the latest screen shares (numbers only),
+# so a test can be read back afterwards. Run it by hand from the Actions tab.
+name: Share numbers
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: How many recent shares
+        default: "5"
+
+permissions:
+  contents: read
+
+jobs:
+  numbers:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      COUNT: ${{ github.event.inputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: functions
+      - name: Latest shares
+        run: |
+          echo "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          node tools/share-numbers.mjs "$COUNT"

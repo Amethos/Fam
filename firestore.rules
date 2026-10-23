@@ -19,11 +19,16 @@ service cloud.firestore {
     }
     function validQuality(q) {
       return q is map
-        && q.keys().hasOnly(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec'])
+        && q.keys().hasOnly(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec', 'enc', 'timeline'])
         && q.keys().hasAll(['seconds', 'relay', 'rttMs', 'fps', 'height', 'kbps', 'lossPct', 'freezes', 'codec'])
         && smallNumber(q.seconds) && q.relay is bool && smallNumber(q.rttMs) && smallNumber(q.fps)
         && smallNumber(q.height) && smallNumber(q.kbps) && smallNumber(q.lossPct) && smallNumber(q.freezes)
-        && q.codec is string && q.codec.size() <= 20;
+        && q.codec is string && q.codec.size() <= 20
+        // Optional: her phone's video encoder's name, and a timeline of
+        // numbers every 2 seconds (web/src/quality.js). Nothing else fits.
+        && (!('enc' in q) || (q.enc is string && q.enc.matches('[A-Za-z0-9._ -]{0,40}')))
+        && (!('timeline' in q) || (q.timeline is string && q.timeline.size() <= 9000
+          && q.timeline.matches('([0-9]{1,5},[0-9]{1,5},[0-9]{1,3},[0-9]{1,3},[0-9]{1,4},[cbon-],[01];){0,300}')));
     }
 
     // Alert tokens: one per installed device. A small cap stops anyone

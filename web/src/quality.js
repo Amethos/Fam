@@ -72,3 +72,37 @@ export function worstLine(samples, now) {
   const rtt = Math.max(...recent.map((x) => x.rttMs));
   return `While you moved: ${fps} fps at worst${rtt ? `, ${rtt} ms` : ""}`;
 }
+
+// What Mom's phone says it actually sends (newer versions of her app), so a
+// slow share can be pinned on her phone or the network. sent: { fps, w, h,
+// why, enc, codec }; why is "cpu" (her phone is too busy) or "bandwidth".
+export function sentLine(sent, name, moving = false) {
+  if (!sent) return "";
+  const fps = Math.round(Number(sent.fps) || 0);
+  const why = { cpu: "phone too busy", bandwidth: "network too slow" }[sent.why] ?? "";
+  const parts = [`${fps} fps`, sent.w && sent.h ? `${sent.w}×${sent.h}` : "", String(sent.codec ?? "").slice(0, 10),
+    String(sent.enc ?? "").slice(0, 30), why].filter(Boolean);
+  return `${moving ? `While you moved, ${name}'s phone sent` : `${name}'s phone sends`} ${parts.join(" · ")}`;
+}
+
+// The slowest picture rate Mom's phone reported while the helper's finger
+// was on the screen, within the same window as worstLine.
+export function worstSent(samples, now) {
+  const recent = samples.filter((x) => x.sent && now - x.at <= WORST_WINDOW_MS);
+  return recent.reduce((low, x) => (!low || (Number(x.sent.fps) || 0) < (Number(low.fps) || 0) ? x.sent : low), null);
+}
+
+// A timeline of the whole share, every 2 seconds, saved with its numbers so
+// a test can be read back afterwards. Numbers only, in a tight format the
+// database rules check: "seconds,delay ms,fps shown,fps sent,height sent,
+// held back by (c: her phone, b: network, o: other, n: nothing, -: unknown),
+// finger moving (1/0);". Keeps the last MAX_TIMELINE moments.
+export const MAX_TIMELINE = 300;
+export function timelinePoint({ at, start, rttMs, fps, sent, moving }) {
+  const n = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
+  const why = sent ? ({ cpu: "c", bandwidth: "b", other: "o", none: "n" }[sent.why] ?? "-") : "-";
+  return [n((at - start) / 1000, 99999), n(rttMs, 99999), n(fps, 999), n(sent?.fps, 999), n(sent?.h, 9999), why, moving ? 1 : 0].join(",") + ";";
+}
+export function timelineText(points) {
+  return points.slice(-MAX_TIMELINE).join("");
+}

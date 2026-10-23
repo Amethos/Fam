@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferFormat, summarize, liveLine, worstLine } from "./quality.js";
+import { preferFormat, summarize, liveLine, worstLine, sentLine, worstSent, timelinePoint, timelineText, MAX_TIMELINE } from "./quality.js";
 
 test("VP8 goes first, everything else keeps its order", () => {
   const codecs = [{ mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/rtx" }, { mimeType: "video/VP8" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
@@ -55,4 +55,34 @@ test("the worst moment while moving is remembered for a minute", () => {
   assert.equal(worstLine(samples, 6000), "While you moved: 6 fps at worst, 410 ms");
   assert.equal(worstLine(samples, 64_000), "While you moved: 18 fps at worst, 120 ms");
   assert.equal(worstLine([], 0), "");
+});
+
+test("sentLine says what Mom's phone sends and what holds it back", () => {
+  assert.equal(sentLine(null, "Mom"), "");
+  assert.equal(sentLine({ fps: 2.6, w: 540, h: 1168, codec: "H264", enc: "MediaCodecVideoEncoder", why: "cpu" }, "Mom"),
+    "Mom's phone sends 3 fps · 540×1168 · H264 · MediaCodecVideoEncoder · phone too busy");
+  assert.equal(sentLine({ fps: 58, why: "none" }, "Mom", true), "While you moved, Mom's phone sent 58 fps");
+});
+
+test("worstSent picks the slowest report while moving", () => {
+  const now = 100_000;
+  const samples = [
+    { at: now - 70_000, sent: { fps: 0 } },
+    { at: now - 5_000, sent: { fps: 20 } },
+    { at: now - 3_000, sent: { fps: 4, why: "cpu" } },
+    { at: now - 1_000 },
+  ];
+  assert.deepEqual(worstSent(samples, now), { fps: 4, why: "cpu" });
+  assert.equal(worstSent([], now), null);
+});
+
+test("the timeline is numbers only, in the format the rules check", () => {
+  const start = 1_000_000;
+  assert.equal(timelinePoint({ at: start + 4_400, start, rttMs: 22.4, fps: 2.6, sent: { fps: 3, h: 1168, why: "cpu" }, moving: true }), "4,22,3,3,1168,c,1;");
+  assert.equal(timelinePoint({ at: start + 2_000, start, rttMs: undefined, fps: 0, sent: undefined, moving: false }), "2,0,0,0,0,-,0;");
+  assert.equal(timelinePoint({ at: start, start, rttMs: 1, fps: 5000, sent: { fps: -3, h: 10, why: "<b>" } }), "0,1,999,0,10,-,0;");
+  const points = Array.from({ length: MAX_TIMELINE + 5 }, (_, i) => `${i},0,0,0,0,n,0;`);
+  const text = timelineText(points);
+  assert.ok(text.startsWith("5,0,0,0,0,n,0;"));
+  assert.match(text, /^([0-9]{1,5},[0-9]{1,5},[0-9]{1,3},[0-9]{1,3},[0-9]{1,4},[cbon-],[01];){0,300}$/);
 });
