@@ -427,7 +427,13 @@ async function saveQuality(s) {
     const quality = summarize([...report.values()], (Date.now() - s.videoAt) / 1000);
     if (s.sent?.enc) quality.enc = String(s.sent.enc).replace(/[^A-Za-z0-9._ -]/g, "").slice(0, 40);
     if (s.timeline?.length) quality.timeline = timelineText(s.timeline);
-    updateDoc(s.shareRef, { quality }).catch(() => { /* already saved, e.g. by another window */ });
+    // If the timeline is refused, the basic numbers still get saved.
+    updateDoc(s.shareRef, { quality }).catch((err) => {
+      console.warn("share numbers", err);
+      if (!quality.timeline && !quality.enc) return; // already saved, e.g. by another window
+      const { timeline, enc, ...basic } = quality;
+      updateDoc(s.shareRef, { quality: basic }).catch(() => {});
+    });
   } catch { /* nice to have, never in the way */ }
 }
 
