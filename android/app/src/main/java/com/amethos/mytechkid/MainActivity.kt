@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import com.amethos.mytechkid.ui.TechKidScreens
 import com.amethos.mytechkid.ui.TechKidTheme
 
@@ -24,9 +25,12 @@ class MainActivity : ComponentActivity() {
     // Android's own "Start sharing?" prompt. Mom must say yes every time.
     private val askToShareScreen =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            askedAt = 0L
             val data = result.data
             if (result.resultCode == RESULT_OK && data != null) vm.startScreenShare(this, data)
         }
+    // When Android's prompt was last asked for (0 once it answered).
+    private var askedAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,22 +45,41 @@ class MainActivity : ComponentActivity() {
                         askForNotificationsIfNeeded()
                         vm.finishIntro()
                     },
-                    onShowScreen = {
-                        val projection = getSystemService(MediaProjectionManager::class.java)
-                        // Always the whole screen: newer Android offers "one app" by
-                        // default, which would hide most of the phone from the helper
-                        // and put their taps in the wrong place.
-                        askToShareScreen.launch(
-                            if (Build.VERSION.SDK_INT >= 34) {
-                                projection.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
-                            } else {
-                                projection.createScreenCaptureIntent()
-                            },
-                        )
-                    },
+                    onShowScreen = { showScreenPrompt() },
                     onStopScreen = { ScreenShareService.stop(this) },
                 )
             }
+        }
+    }
+
+    /**
+     * Android's "Share your screen?" prompt. Gray saw Mom's button do nothing
+     * twice: if the prompt hasn't covered the app a moment later, ask again
+     * once. A second tap while it's opening doesn't ask twice.
+     */
+    private fun showScreenPrompt(retry: Boolean = true) {
+        val now = System.currentTimeMillis()
+        if (now - askedAt < PROMPT_WAIT_MS) return
+        askedAt = now
+        val projection = getSystemService(MediaProjectionManager::class.java)
+        // Always the whole screen: newer Android offers "one app" by
+        // default, which would hide most of the phone from the helper
+        // and put their taps in the wrong place.
+        askToShareScreen.launch(
+            if (Build.VERSION.SDK_INT >= 34) {
+                projection.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+            } else {
+                projection.createScreenCaptureIntent()
+            },
+        )
+        if (retry) {
+            window.decorView.postDelayed({
+                val stillHere = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                if (askedAt == now && stillHere) {
+                    askedAt = 0L
+                    showScreenPrompt(retry = false)
+                }
+            }, PROMPT_WAIT_MS)
         }
     }
 
@@ -98,5 +121,9 @@ class MainActivity : ComponentActivity() {
                 vm.handleSharedText(text)
             }
         }
+    }
+
+    private companion object {
+        const val PROMPT_WAIT_MS = 1500L
     }
 }
