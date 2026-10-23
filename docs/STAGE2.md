@@ -73,7 +73,8 @@ Built so far:
   delay on a direct path, but only 2 pictures a second while scrolling with
   H.264 on the Samsung. The helper's page now asks for VP8 first
   (`preferFormat` in `web/src/quality.js`); Mom's phone captures at half size
-  in steps of 16 pixels and aims for 60 pictures a second (up to 4 Mbps).
+  in steps of 16 pixels and aims for 60 pictures a second (up to 4 Mbps, raised to 8 Mbps after Gray's timeline showed the
+  picture shrinking to fit under 4 Mbps).
   The menu's numbers line says the format and the worst moment while the
   helper's finger was on the screen.
 - **VP8 from Mom's side too, and her own numbers.** The second test still
@@ -106,6 +107,12 @@ Built so far:
   the pictures Android captured, ms to encode, ms waiting in the helper's
   buffer and ms to decode, and the menu's "at worst" skips moments when Mom's
   screen was still. WebRTC's speed guess is read from the path in use.
+- **What the timeline showed (Oct 23, VP8 chip, same Wi-Fi):** about 85
+  pictures captured a second, 60 sent and 60 shown most of the time, 5-10 ms
+  network, about 35 ms to encode, 40-100 ms waiting in the helper's buffer
+  (one spike of 0.5 s), 3 ms to decode. The "network" limit was our own 4
+  Mbps cap, now 8. A few 2-second stretches where the helper's phone showed
+  far fewer pictures than arrived are still unexplained.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
