@@ -11,6 +11,7 @@ const root = document.getElementById("app");
 const params = new URLSearchParams(location.search);
 const invite = { c: params.get("c"), i: params.get("i"), t: params.get("t") };
 const isAndroid = /Android/i.test(navigator.userAgent);
+const isIPhone = /iPhone|iPad/.test(navigator.userAgent);
 
 const LOGO = `My Tech Kid<span class="dot">.</span>`;
 
@@ -20,13 +21,17 @@ function render() {
     root.innerHTML = `${brand}<div class="card"><h1>This link is incomplete</h1><p>Ask the person who sent it to send a new one.</p></div>`;
     return;
   }
+  const query = new URLSearchParams(invite).toString();
   if (!isAndroid) {
+    // The iPhone app is in testing: only phones with the test version can open it.
+    const testLink = isIPhone
+      ? `<a class="button secondary full" href="${esc(`mytechkid://join?${query}`)}">Testing the iPhone app? Open the invite there</a>`
+      : "";
     root.innerHTML = `${brand}<div class="card"><h1>Open this on the Android phone</h1>
       <p>This invite is for the phone of the person getting help. Text the link to them and open it there.</p>
-      <p class="muted">My Tech Kid for iPhone users getting help isn't ready yet.</p></div>`;
+      <p class="muted">My Tech Kid for iPhone users getting help isn't ready yet.</p>${testLink}</div>`;
     return;
   }
-  const query = new URLSearchParams(invite).toString();
   const fallback = encodeURIComponent(new URL(apkPath, location.origin).href);
   const intentUrl = `intent://join?${query}#Intent;scheme=mytechkid;package=${androidPackage};S.browser_fallback_url=${fallback};end`;
   root.innerHTML = `${brand}

@@ -16,6 +16,18 @@
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.amethos.mytechkid"
+        ]
+      },
+      "infoPlist": {
+        "RTCAppGroupIdentifier": "group.com.amethos.mytechkid",
+        "RTCScreenSharingExtension": "com.amethos.mytechkid.broadcast",
+        "UIBackgroundModes": [
+          "voip"
+        ]
       }
     },
     "plugins": [
@@ -35,7 +47,15 @@
             "./assets/fonts/varela_round.ttf"
           ]
         }
-      ]
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "My Tech Kid uses the camera only when you choose to show your family something.",
+          "microphonePermission": "My Tech Kid uses the microphone only when you choose to talk to your family."
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,

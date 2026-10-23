@@ -102,6 +102,10 @@ rules or pairing change needs a test in `backend-tests/`.
   `EXPO_TOKEN` secret). In the Claude container `npx expo install` can't reach
   Expo's servers: install with npm at the version in
   `node_modules/expo/bundledNativeModules.json`. Native `ios/` is generated.
+  Screen sharing trial: plain test screens link to the family by invite
+  (`mytechkid://join`) and share the screen with the helper's watch page;
+  Apple's broadcast add-on is Swift in `iphone/targets/broadcast/` (made by
+  `@bacons/apple-targets`) and hands pictures to `react-native-webrtc`.
 - `.github/workflows/build.yml` — tests backend, builds web + APK, and deploys
   everything to Firebase on pushes to `main` once the
   `FIREBASE_SERVICE_ACCOUNT` secret exists. The APK is served at

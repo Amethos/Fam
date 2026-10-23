@@ -41,6 +41,27 @@ build instead.
 4. On a computer on the same Wi-Fi: `cd iphone`, `npm ci`, `npx expo start`,
    and scan the QR code with the iPhone camera.
 
+## Screen sharing test
+
+The app can link to the family and show its screen to the helper's page,
+like Mom's Android app. The iPhone can't be tapped for (Apple allows that
+only in FaceTime). The screens are plain test screens for now.
+
+1. On a computer, open the helper web app and send an invite ("Add Mom or
+   Dad"). Open the invite link on the test iPhone and tap **Testing the iPhone
+   app? Open the invite there**.
+2. Tap Continue, check the three pictures with the helper page, and tap
+   **They match** on both.
+3. Tap **Share my screen**, then **Start Broadcast** in Apple's sheet.
+4. On the computer, tap the share card to watch. Then leave the app on the
+   iPhone and open others: does the picture keep coming?
+
+How it works: Apple runs a small add-on (`targets/broadcast/`, Swift) with
+the screen while the red bar shows. It passes the pictures to the app over a
+local socket in the shared app group, and the app sends them to the helper
+over WebRTC (`src/lib/share.ts`), speaking the same language as
+`ScreenShareService.kt`.
+
 ## For developers
 
 ```bash
