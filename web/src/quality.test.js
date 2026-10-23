@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferFormat, summarize, liveLine, worstLine, sentLine, worstSent } from "./quality.js";
+import { preferFormat, summarize, liveLine, worstLine, sentLine, worstSent, timelinePoint, timelineText, MAX_TIMELINE } from "./quality.js";
 
 test("VP8 goes first, everything else keeps its order", () => {
   const codecs = [{ mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/rtx" }, { mimeType: "video/VP8" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
@@ -74,4 +74,15 @@ test("worstSent picks the slowest report while moving", () => {
   ];
   assert.deepEqual(worstSent(samples, now), { fps: 4, why: "cpu" });
   assert.equal(worstSent([], now), null);
+});
+
+test("the timeline is numbers only, in the format the rules check", () => {
+  const start = 1_000_000;
+  assert.equal(timelinePoint({ at: start + 4_400, start, rttMs: 22.4, fps: 2.6, sent: { fps: 3, h: 1168, why: "cpu" }, moving: true }), "4,22,3,3,1168,c,1;");
+  assert.equal(timelinePoint({ at: start + 2_000, start, rttMs: undefined, fps: 0, sent: undefined, moving: false }), "2,0,0,0,0,-,0;");
+  assert.equal(timelinePoint({ at: start, start, rttMs: 1, fps: 5000, sent: { fps: -3, h: 10, why: "<b>" } }), "0,1,999,0,10,-,0;");
+  const points = Array.from({ length: MAX_TIMELINE + 5 }, (_, i) => `${i},0,0,0,0,n,0;`);
+  const text = timelineText(points);
+  assert.ok(text.startsWith("5,0,0,0,0,n,0;"));
+  assert.match(text, /^([0-9]{1,5},[0-9]{1,5},[0-9]{1,3},[0-9]{1,3},[0-9]{1,4},[cbon-],[01];){0,300}$/);
 });

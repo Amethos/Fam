@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
-import { preferFormat, summarize, liveLine, liveFps, worstLine, sentLine, worstSent } from "./quality.js";
+import { preferFormat, summarize, liveLine, liveFps, worstLine, sentLine, worstSent, timelinePoint, timelineText } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -332,7 +332,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
       if (msg.t === "caps") { s.caps = msg; s.lastPong = Date.now(); }
       if (msg.t === "pong") s.lastPong = Date.now();
       // What her phone actually sends (numbers only), for the menu.
-      if (msg.t === "sent") s.sent = msg;
+      if (msg.t === "sent") s.sent = { ...msg, at: Date.now() };
       // How tall her top bar and her own phone buttons are, to cut them off.
       if (msg.t === "screen") {
         const part = (v) => (Number.isFinite(v) ? Math.min(Math.max(v, 0), 0.15) : 0);
@@ -425,6 +425,8 @@ async function saveQuality(s) {
     const report = await Promise.race([s.pc.getStats(), new Promise((resolve) => setTimeout(resolve, 500))]);
     if (!report) return;
     const quality = summarize([...report.values()], (Date.now() - s.videoAt) / 1000);
+    if (s.sent?.enc) quality.enc = String(s.sent.enc).replace(/[^A-Za-z0-9._ -]/g, "").slice(0, 40);
+    if (s.timeline?.length) quality.timeline = timelineText(s.timeline);
     updateDoc(s.shareRef, { quality }).catch(() => { /* already saved, e.g. by another window */ });
   } catch { /* nice to have, never in the way */ }
 }
@@ -432,17 +434,23 @@ async function saveQuality(s) {
 // ---------- How the connection is doing ----------
 
 // A small line in the menu: delay, video format, relay or direct, pictures a second.
+// Also notes each moment on the share's timeline, saved when it ends.
 async function showStats(s) {
   const el = document.querySelector("#watch .watch-stats");
   // Once her picture is showing (not every browser reports connectionState).
-  if (!el || session !== s || !s.pc || !(s.videoAt || s.pc.connectionState === "connected")) return;
+  if (session !== s || !s.pc || !(s.videoAt || s.pc.connectionState === "connected")) return;
   try {
     const report = await Promise.race([s.pc.getStats(), new Promise((_, no) => setTimeout(no, 1500))]);
     const stats = [...report.values()];
     const now = Date.now();
-    if (now - (s.touchedAt ?? 0) < 2500) {
-      s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs: summarize(stats, 1).rttMs, fps: liveFps(stats), sent: s.sent }];
-    }
+    const moving = now - (s.touchedAt ?? 0) < 2500;
+    const rttMs = summarize(stats, 1).rttMs;
+    const fps = liveFps(stats);
+    // Her phone's report, unless it's gone quiet (an older app, a dropped link).
+    const sent = s.sent && now - s.sent.at < 5000 ? s.sent : undefined;
+    s.timeline = [...(s.timeline ?? []).slice(-400), timelinePoint({ at: now, start: s.videoAt ?? now, rttMs, fps, sent, moving })];
+    if (moving) s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs, fps, sent }];
+    if (!el) return;
     const low = worstSent(s.worst ?? [], now);
     el.textContent = [liveLine(stats), worstLine(s.worst ?? [], now), sentLine(low ?? s.sent, s.name, !!low)]
       .filter(Boolean).join("\n");

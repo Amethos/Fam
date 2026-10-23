@@ -82,6 +82,13 @@ Built so far:
   seconds her phone tells the helper's page what it actually sends: pictures
   a second, size, format, encoder and what holds it back ("phone too busy" or
   "network too slow"). Numbers only, nothing from her screen.
+- **Timeline of each share.** The helper's page notes those numbers every 2
+  seconds (delay, pictures shown, pictures sent, size, what held it back,
+  whether the helper's finger was moving) and saves the last 10 minutes with
+  the share's numbers when it ends (`timelinePoint` in `web/src/quality.js`;
+  the rules only accept digits in that format). To read them back, run
+  **Actions > Share numbers > Run workflow** (`tools/share-numbers.mjs`),
+  which prints the latest shares without names or ids.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
