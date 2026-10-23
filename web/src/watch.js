@@ -74,13 +74,18 @@ function show(name, message, { video = false } = {}) {
         <p class="watch-note"></p>
       </div>
       <div class="watch-top">
-        <a class="watch-float watch-exit" href="#/" aria-label="Back (ends sharing)">${icon('<path d="M15 5l-7 7 7 7"/>', 22)}</a>
+        <button class="watch-float watch-exit" data-watch-exit aria-label="End (stops sharing)"><span class="watch-exit-x">${icon('<path d="M6 6l12 12M18 6L6 18"/>', 13)}</span>End</button>
         <div class="watch-banner" role="status"><span class="watch-dot"></span>
           <span class="watch-connecting"></span><span class="watch-live"></span><span class="watch-tapping"></span><span class="watch-pointing"></span><span class="watch-weak"></span><span class="watch-short"></span></div>
         <button class="watch-float watch-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="watch-menu">
           ${icon('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>', 22)}<span class="watch-dot"></span></button>
       </div>
       <div class="watch-scrim" hidden></div>
+      <div class="watch-end" role="alertdialog" aria-labelledby="watch-end-title" hidden>
+        <strong id="watch-end-title"></strong>
+        <p>Their screen sharing ends.</p>
+        <div class="watch-end-row"><button class="secondary" data-watch-keep>Keep helping</button><button class="danger" data-watch-end>End</button></div>
+      </div>
       <div class="watch-menu" id="watch-menu" hidden>
         <div class="watch-status">
           <span class="watch-state"><span class="watch-dot"></span><span class="watch-connecting">Connecting</span><span class="watch-live">Live</span><span class="watch-tapping">You're tapping</span></span>
@@ -110,6 +115,18 @@ function show(name, message, { video = false } = {}) {
       <p class="watch-weak-note" role="status" hidden></p>
       <p class="watch-toast" role="status" hidden></p>`;
     el.querySelector("[data-watch-stop]").addEventListener("click", () => { location.hash = "#/"; });
+    // End sits where a Back button would, so it checks once while helping;
+    // on the "share ended" screen it just leaves.
+    const endBox = el.querySelector(".watch-end");
+    el.querySelector("[data-watch-exit]").addEventListener("click", () => {
+      if (!session) { location.hash = "#/"; return; }
+      setMenu(false);
+      endBox.querySelector("strong").textContent = `Stop helping ${session.name}?`;
+      endBox.hidden = false;
+      endBox.querySelector("[data-watch-keep]").focus();
+    });
+    el.querySelector("[data-watch-keep]").addEventListener("click", () => { endBox.hidden = true; });
+    el.querySelector("[data-watch-end]").addEventListener("click", () => { endBox.hidden = true; location.hash = "#/"; });
     el.querySelector("[data-watch-ask]").addEventListener("click", () => {
       send({ t: "ask" });
       setControl({ state: "sent" });

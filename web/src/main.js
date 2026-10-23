@@ -186,7 +186,7 @@ function watchCircle(id) {
   circleUnsubs.push(
     onSnapshot(doc(db, base), (s) => { state.circle = s.data() ?? null; render(); }, fail),
     onSnapshot(query(collection(db, base, "helpRequests"), where("status", "in", ["waiting", "accepted"])),
-      (s) => { state.help = s.docs.map((d) => ({ id: d.id, ...d.data() })); watchVoices(); render(); }, fail),
+      (s) => { state.help = s.docs.map((d) => ({ id: d.id, ...d.data() })); watchVoices(); acceptFromAlert(); render(); }, fail),
     onSnapshot(query(collection(db, base, "scamChecks"), orderBy("createdAt", "desc"), limit(20)),
       (s) => { state.scams = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
@@ -218,6 +218,27 @@ function relayPass(shareId) {
 // share is refused, which is fine: only the waking matters.)
 function wakeRelay() {
   call("shareIceServers", { circleId, shareId: "wake" }).catch(() => {});
+}
+
+// Tapping the "needs help" alert opens #/help/<id>: that tap is "I'm on it",
+// so the helper doesn't have to find the button too. Only for a request
+// still waiting (another helper may have taken it); then back to home.
+function acceptFromAlert() {
+  const [, page, id] = location.hash.split("/");
+  if (page !== "help" || !id || !circleId) return;
+  const req = state.help.find((h) => h.id === id);
+  if (!req) return;
+  history.replaceState(null, "", "#/");
+  if (req.status === "waiting" && !req.practice) acceptHelp(id);
+}
+
+function acceptHelp(id) {
+  return run(() => {
+    wakeRelay();
+    return updateDoc(doc(db, `circles/${circleId}/helpRequests/${id}`), {
+      status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
+    });
+  });
 }
 
 // After "I'm on it", the helper is waiting for Mom's screen: open it as soon
@@ -748,7 +769,7 @@ function render() {
   if (focused) document.getElementById(focused)?.focus();
 }
 
-window.addEventListener("hashchange", () => { state.error = ""; render(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => { state.error = ""; acceptFromAlert(); render(); window.scrollTo(0, 0); });
 
 // ---------- Actions ----------
 
@@ -801,12 +822,7 @@ const actions = {
     state.error = "Check your email for a link to reset your password.";
   }),
   alerts: () => run(() => enableAlerts()),
-  "accept-help": (el) => run(() => {
-    wakeRelay();
-    return updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
-      status: "accepted", helperId: state.user.uid, helperName: myName(), updatedAt: serverTimestamp(),
-    });
-  }),
+  "accept-help": (el) => acceptHelp(el.dataset.id),
   ring: (el) => run(async () => {
     const parentId = el.dataset.id;
     await addDoc(collection(db, `circles/${circleId}/rings`), {

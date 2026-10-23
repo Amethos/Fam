@@ -29,9 +29,11 @@ helper's watch page (`web/src/watch.js`), on top of the tested rules in
 
 ## Tapping for Mom (stage 3, beta)
 
-While a share is live, the helper's page can ask to tap. Mom's phone checks the
-family's safety wait (`controlAllowedAt`), whether her accessibility switch is
-on, then asks her on her own screen. If she taps Yes, the helper's taps arrive
+Mom's Start on Android's share prompt is her yes to seeing and tapping (the
+screen behind it says so). When the connection opens, her phone checks the
+family's safety wait (`controlAllowedAt`) and whether her accessibility switch
+is on, and turns tapping on by itself. If the switch is off, the helper's page
+can ask to tap, which walks her through turning it on. Then the helper's taps arrive
 over a data channel in the same WebRTC connection and `RemoteControlService`
 performs them, with a Stop bar on top. The beta turns the safety wait off on the
 real project (`functions/.env.my-tech-kid`).

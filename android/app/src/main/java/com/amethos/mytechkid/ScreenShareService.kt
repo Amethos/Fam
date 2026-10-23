@@ -317,7 +317,9 @@ class ScreenShareService : Service() {
                         if (gen != myGen) return@post
                         when (state) {
                             DataChannel.State.OPEN -> {
-                                sendControl("ready")
+                                // Mom's Start already said yes to tapping, so it's on
+                                // from the start when her phone is ready for it.
+                                askForControl(onOpen = true)
                                 // What this version can do, so the helper's page uses it.
                                 send(JSONObject().put("t", "caps").put("ping", true).put("drag", true).put("fast", true))
                                 sendScreenBars()
@@ -667,11 +669,19 @@ class ScreenShareService : Service() {
      */
     private fun stale() = reconnecting || System.currentTimeMillis() - resumedAt < STALE_AFTER_RESUME_MS
 
-    private fun askForControl() {
+    /**
+     * Turns tapping on. Mom agreed to it when she tapped Start (the screen
+     * behind Android's prompt says her helper will see and tap), so there's
+     * no second question. Still checked here, on her own phone: the family's
+     * safety wait and her accessibility switch. [onOpen] is the automatic
+     * check when the connection opens: if the switch is off it only tells the
+     * helper's page, which can then ask and walk her through turning it on.
+     */
+    private fun askForControl(onOpen: Boolean = false) {
         if (controlOn) return sendControl("on")
         if (asking) return
-        // Mom just said no: don't keep putting the question back on her screen.
-        if (System.currentTimeMillis() - declinedAt < ASK_AGAIN_AFTER_MS) {
+        // Mom just said "Not now" to turning the switch on: don't keep asking.
+        if (!onOpen && System.currentTimeMillis() - declinedAt < ASK_AGAIN_AFTER_MS) {
             return sendControl("declined", declinedAt + ASK_AGAIN_AFTER_MS)
         }
         asking = true
@@ -686,6 +696,7 @@ class ScreenShareService : Service() {
             when {
                 allowedAt == null -> { asking = false; sendControl("waiting") }
                 allowedAt > System.currentTimeMillis() -> { asking = false; sendControl("waiting", allowedAt) }
+                RemoteControlService.instance == null && onOpen -> { asking = false; sendControl("ready") }
                 RemoteControlService.instance == null -> {
                     // Mom turns on the switch once; her app shows how.
                     asking = false
@@ -693,42 +704,27 @@ class ScreenShareService : Service() {
                     notify("$helperName wants to tap for you. Open My Tech Kid to allow it.")
                     sendControl(setupState())
                 }
-                else -> askMom()
+                else -> turnOnControl()
             }
         }
     }
 
-    private fun askMom() {
-        val control = RemoteControlService.instance ?: run { asking = false; return sendControl("off") }
-        asking = true
-        sendControl("asking")
-        val askedGen = gen
-        control.askMom(helperName) { yes ->
-            if (stopping || gen != askedGen || !asking) {
-                // The share or connection ended while Mom was being asked.
-                control.hideAll()
-                return@askMom
-            }
-            asking = false
-            if (yes) {
-                controlOn = true
-                tuneVideo()
-                ShareState.controlling = true
-                notify("$helperName can see and tap your screen")
-                control.showBanner(helperName) { stopSharing(endShare = true) }
-                sendControl("on")
-            } else {
-                declinedAt = System.currentTimeMillis()
-                sendControl("declined", declinedAt + ASK_AGAIN_AFTER_MS)
-            }
-        }
+    private fun turnOnControl() {
+        asking = false
+        val control = RemoteControlService.instance ?: return sendControl("off")
+        controlOn = true
+        tuneVideo()
+        ShareState.controlling = true
+        notify("$helperName can see and tap your screen")
+        control.showBanner(helperName) { stopSharing(endShare = true) }
+        sendControl("on")
     }
 
-    /** Mom turned on the switch after her helper asked: ask her right away. */
+    /** Mom turned on the switch after her helper asked: tapping starts right away. */
     fun onControlSwitchReady() {
         if (stopping || !ShareState.controlAsk) return
         clearSetup()
-        askMom()
+        turnOnControl()
     }
 
     /** Where Mom is in turning the switch on, so her helper's guide can follow along. */

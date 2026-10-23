@@ -50,7 +50,7 @@ phone, before Mom tries it on her own.
   screen** is still there. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a
   big **Stop** button (also in her notifications). Try a banking app: it should show black. Either side tapping
   **Stop** ends it on both phones.
-- **Tap for Mom:** while you watch, tap the menu button (top right), then **Ask to tap**.
+- **Tap for Mom:** her Start already allows tapping, so once her switch is on you can tap as soon as her screen shows. If the switch is still off, tap the menu button (top right), then **Ask to tap**.
   - The first time, her phone needs a one-time switch. A card on your screen lists what to read to her, and
     moves along as she goes. Her app shows the same steps in pictures: she taps **Agree and show me where**,
     then on a Samsung **Installed apps** (other phones: **Downloaded apps**), **My Tech Kid: let family tap for
@@ -58,10 +58,10 @@ phone, before Mom tries it on her own.
   - If Android says **Restricted setting**, she comes back to My Tech Kid, which now shows how to fix it:
     **Take me there** → **⋮** (top right) → **Allow restricted settings**, then **Turn it on** again. (Only for
     apps installed from a link; it goes away once we're on Google Play.) **Not now** on her phone counts as no.
-  - Her phone then asks **"*You* wants to tap on your phone for you"**. She taps **Yes**. A dark bar with your
+  - Tapping turns on by itself (no second question). A dark bar with your
     name and **Stop** stays at the top of her screen.
   - On your phone, tap, press and hold, or swipe on her screen; use her phone's buttons (Recent apps, Home,
-    Back) in the bar along the bottom, and **Pull down alerts** in the menu. Each tap shows as an amber dot on her phone. You can't tap her **Yes** or **Stop** yourself.
+    Back) in the bar along the bottom, and **Pull down alerts** in the menu. Each tap shows as an amber dot on her phone. You can't tap her **Stop** yourself.
   - **Stop** on her bar, in her notification, in her app, or on your page ends seeing and tapping at once.
   - Turn her phone sideways: the picture shows it sideways with black bars, and taps should still land
     where you aim.
