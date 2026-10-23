@@ -98,6 +98,14 @@ Built so far:
   The first timeline save failed on the real database; the pattern check is
   now a plain `*` with a size cap, and if the timeline is still refused the
   basic numbers are saved without it.
+- **Back to the VP8 chip, and the whole pipeline in the timeline.** The saved
+  timelines (Oct 23) showed the Samsung's VP8 chip sending 50-60 pictures a
+  second most of the time (dropping to 876 high while "network" held it back),
+  and software VP8 only 30-45, so the chip is back. Both had short dips near
+  0, which can be a still screen or a stall. Each timeline moment now also has
+  the pictures Android captured, ms to encode, ms waiting in the helper's
+  buffer and ms to decode, and the menu's "at worst" skips moments when Mom's
+  screen was still. WebRTC's speed guess is read from the path in use.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so

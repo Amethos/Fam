@@ -97,15 +97,27 @@ export function worstSent(samples, now) {
 // a test can be read back afterwards. Numbers only, in a tight format the
 // database rules check: "seconds,delay ms,fps shown,fps sent,height sent,
 // held back by (c: her phone, b: network, o: other, n: nothing, -: unknown),
-// finger moving (1/0),WebRTC's guess of the connection's speed in kbps;".
-// Keeps the last MAX_TIMELINE moments.
+// finger moving (1/0),WebRTC's guess of the connection's speed in kbps,
+// pictures her phone captured a second,ms to encode each,ms each waited in
+// the helper's buffer,ms to decode each;". Keeps the last MAX_TIMELINE moments.
 export const MAX_TIMELINE = 300;
-export function timelinePoint({ at, start, rttMs, fps, sent, moving }) {
+export function timelinePoint({ at, start, rttMs, fps, sent, moving, delays }) {
   const n = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
   const why = sent ? ({ cpu: "c", bandwidth: "b", other: "o", none: "n" }[sent.why] ?? "-") : "-";
   return [n((at - start) / 1000, 99999), n(rttMs, 99999), n(fps, 999), n(sent?.fps, 999), n(sent?.h, 9999), why, moving ? 1 : 0,
-    n(sent?.est, 999999)].join(",") + ";";
+    n(sent?.est, 999999), n(sent?.cap, 999), n(sent?.encMs, 99999), n(delays?.bufferMs, 99999), n(delays?.decodeMs, 99999)].join(",") + ";";
 }
 export function timelineText(points) {
   return points.slice(-MAX_TIMELINE).join("");
+}
+
+// How long each picture waited in the helper's buffer and took to decode,
+// since the last check. video, prev: inbound-rtp entries from getStats().
+export function receiveDelays(video, prev) {
+  if (!video || !prev) return undefined;
+  const per = (total, count) => {
+    const n = (video[count] ?? 0) - (prev[count] ?? 0);
+    return n > 0 ? (((video[total] ?? 0) - (prev[total] ?? 0)) * 1000) / n : 0;
+  };
+  return { bufferMs: per("jitterBufferDelay", "jitterBufferEmittedCount"), decodeMs: per("totalDecodeTime", "framesDecoded") };
 }
