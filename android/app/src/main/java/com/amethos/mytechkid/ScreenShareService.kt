@@ -27,7 +27,11 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.functions.FirebaseFunctions
 import org.json.JSONObject
 import org.webrtc.DefaultVideoDecoderFactory
-import org.webrtc.DefaultVideoEncoderFactory
+import org.webrtc.HardwareVideoEncoderFactory
+import org.webrtc.SoftwareVideoEncoderFactory
+import org.webrtc.VideoCodecInfo
+import org.webrtc.VideoEncoder
+import org.webrtc.VideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
@@ -216,10 +220,7 @@ class ScreenShareService : Service() {
         )
         val egl = EglBase.create().also { this.egl = it }
         val factory = PeerConnectionFactory.builder()
-            // High-profile H.264 off: the plain kind sends each picture as soon
-            // as it's ready, while the "high" kind on some Samsung chips holds
-            // pictures back to compress better, which shows up as lag.
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, false))
+            .setVideoEncoderFactory(ScreenEncoderFactory(egl.eglBaseContext))
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
             .createPeerConnectionFactory()
             .also { this.factory = it }
@@ -339,6 +340,11 @@ class ScreenShareService : Service() {
                     ?: return@getStats
                 val m = out.members
                 val codec = (m["codecId"] as? String)?.let { stats[it] }?.members?.get("mimeType")?.toString()?.substringAfter("/")
+                // WebRTC's own guess of how fast the connection is.
+                val path = stats.values.firstOrNull {
+                    it.type == "candidate-pair" && it.members["nominated"] == true && it.members["state"] == "succeeded"
+                }
+                val estKbps = ((path?.members?.get("availableOutgoingBitrate") as? Number)?.toDouble() ?: 0.0) / 1000
                 val msg = JSONObject().put("t", "sent")
                     .put("fps", (m["framesPerSecond"] as? Number)?.toDouble() ?: 0.0)
                     .put("w", (m["frameWidth"] as? Number)?.toLong() ?: 0L)
@@ -346,6 +352,7 @@ class ScreenShareService : Service() {
                     .put("why", m["qualityLimitationReason"] as? String ?: "")
                     .put("enc", (m["encoderImplementation"] as? String ?: "").take(40))
                     .put("codec", codec ?: "")
+                    .put("est", estKbps)
                 main.post { if (gen == myGen) send(msg) }
             }
             main.postDelayed(this, 2_000)
@@ -968,4 +975,26 @@ internal fun preferVp8(sdp: String): String {
     val formats = parts.drop(3)
     lines[i] = (parts.take(3) + formats.filter { it in vp8 } + formats.filter { it !in vp8 }).joinToString(" ")
     return lines.joinToString("\r\n")
+}
+
+/**
+ * VP8 in software, everything else on the phone's video chip. The Samsung's
+ * VP8 chip ("c2.exynos.vp8.encoder") managed only about 10 pictures a second
+ * while scrolling, even right next to the router: it overshoots its size
+ * budget, so WebRTC thinks the network is slow and holds back. The software
+ * VP8 encoder keeps to its budget and is light enough at half the screen's
+ * size. If her phone ever can't keep up, the numbers say "phone too busy".
+ * High-profile H.264 stays off: on some Samsung chips it holds pictures back
+ * to compress better, which shows up as lag.
+ */
+private class ScreenEncoderFactory(egl: EglBase.Context) : VideoEncoderFactory {
+    private val chip = HardwareVideoEncoderFactory(egl, true, false)
+    private val software = SoftwareVideoEncoderFactory()
+
+    override fun createEncoder(info: VideoCodecInfo): VideoEncoder? =
+        if (info.name.equals("VP8", ignoreCase = true)) software.createEncoder(info)
+        else chip.createEncoder(info) ?: software.createEncoder(info)
+
+    override fun getSupportedCodecs(): Array<VideoCodecInfo> =
+        (software.supportedCodecs + chip.supportedCodecs).distinctBy { it.name.uppercase() to it.params }.toTypedArray()
 }

@@ -89,6 +89,15 @@ Built so far:
   the rules only accept digits in that format). To read them back, run
   **Actions > Share numbers > Run workflow** (`tools/share-numbers.mjs`),
   which prints the latest shares without names or ids.
+- **Software VP8.** Gray's third test (Oct 23): VP8 at last, but on the
+  Samsung's VP8 chip (`c2.exynos.vp8.encoder`) only about 10 pictures a second
+  at 396×876, held back by "bandwidth" right next to a gigabit router. That is
+  WebRTC's own speed guess collapsing, typical of a chip encoder overshooting
+  its budget. Mom's phone now encodes VP8 in software (`ScreenEncoderFactory`)
+  and reports WebRTC's guess ("kbps allowed") in the menu and the timeline.
+  The first timeline save failed on the real database; the pattern check is
+  now a plain `*` with a size cap, and if the timeline is still refused the
+  basic numbers are saved without it.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so

@@ -80,8 +80,9 @@ export function sentLine(sent, name, moving = false) {
   if (!sent) return "";
   const fps = Math.round(Number(sent.fps) || 0);
   const why = { cpu: "phone too busy", bandwidth: "network too slow" }[sent.why] ?? "";
+  const est = Number(sent.est) > 0 ? `${Math.round(sent.est)} kbps allowed` : "";
   const parts = [`${fps} fps`, sent.w && sent.h ? `${sent.w}×${sent.h}` : "", String(sent.codec ?? "").slice(0, 10),
-    String(sent.enc ?? "").slice(0, 30), why].filter(Boolean);
+    String(sent.enc ?? "").slice(0, 30), est, why].filter(Boolean);
   return `${moving ? `While you moved, ${name}'s phone sent` : `${name}'s phone sends`} ${parts.join(" · ")}`;
 }
 
@@ -96,12 +97,14 @@ export function worstSent(samples, now) {
 // a test can be read back afterwards. Numbers only, in a tight format the
 // database rules check: "seconds,delay ms,fps shown,fps sent,height sent,
 // held back by (c: her phone, b: network, o: other, n: nothing, -: unknown),
-// finger moving (1/0);". Keeps the last MAX_TIMELINE moments.
+// finger moving (1/0),WebRTC's guess of the connection's speed in kbps;".
+// Keeps the last MAX_TIMELINE moments.
 export const MAX_TIMELINE = 300;
 export function timelinePoint({ at, start, rttMs, fps, sent, moving }) {
   const n = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
   const why = sent ? ({ cpu: "c", bandwidth: "b", other: "o", none: "n" }[sent.why] ?? "-") : "-";
-  return [n((at - start) / 1000, 99999), n(rttMs, 99999), n(fps, 999), n(sent?.fps, 999), n(sent?.h, 9999), why, moving ? 1 : 0].join(",") + ";";
+  return [n((at - start) / 1000, 99999), n(rttMs, 99999), n(fps, 999), n(sent?.fps, 999), n(sent?.h, 9999), why, moving ? 1 : 0,
+    n(sent?.est, 999999)].join(",") + ";";
 }
 export function timelineText(points) {
   return points.slice(-MAX_TIMELINE).join("");
