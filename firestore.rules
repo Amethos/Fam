@@ -77,8 +77,14 @@ service cloud.firestore {
       match /helpRequests/{rid} {
         allow read: if isMember(cid);
         allow create: if isParent(cid)
-          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt', 'practice'])
+          && request.resource.data.keys().hasOnly(['parentId', 'parentName', 'status', 'createdAt', 'practice', 'hasVoice'])
           && request.resource.data.get('practice', false) is bool
+          // "Tell Josh what's wrong": the voice message is saved in the same
+          // step as the request, so the helper's one alert can mention it.
+          && (request.resource.data.get('hasVoice', false) == false
+            || (request.resource.data.hasVoice == true
+              && request.resource.data.get('practice', false) == false
+              && existsAfter(/databases/$(database)/documents/circles/$(cid)/helpRequests/$(rid)/voice/clip)))
           && request.resource.data.parentId == request.auth.uid
           && shortName(request.resource.data.parentName)
           && request.resource.data.status == 'waiting'
@@ -97,6 +103,41 @@ service cloud.firestore {
             && changedOnly(['status', 'updatedAt'])
             && resource.data.status in ['waiting', 'accepted']
             && request.resource.data.status in ['cancelled', 'done']);
+
+        // Mom's voice message for this request: only her phone adds it, only
+        // to her own open request, once, at most about a minute long. Only her
+        // family can play it. Her words (made on her phone) can be added once,
+        // a moment later. Nobody changes or deletes it; the backend deletes
+        // it after 30 days (functions/index.js, deleteOldVoice).
+        match /voice/{vid} {
+          function helpAfter() {
+            return getAfter(/databases/$(database)/documents/circles/$(cid)/helpRequests/$(rid)).data;
+          }
+          allow read: if isMember(cid);
+          allow create: if isParent(cid)
+            && vid == 'clip'
+            && helpAfter().parentId == request.auth.uid
+            && helpAfter().status in ['waiting', 'accepted']
+            && helpAfter().get('practice', false) == false
+            && request.resource.data.keys().hasOnly(['audio', 'mime', 'seconds', 'createdAt', 'said'])
+            && request.resource.data.keys().hasAll(['audio', 'mime', 'seconds', 'createdAt'])
+            && request.resource.data.audio is bytes
+            && request.resource.data.audio.size() > 0
+            && request.resource.data.audio.size() <= 400000
+            && request.resource.data.mime == 'audio/mp4'
+            && (request.resource.data.seconds is int || request.resource.data.seconds is float)
+            && request.resource.data.seconds > 0
+            && request.resource.data.seconds <= 65
+            && (!('said' in request.resource.data) || (request.resource.data.said is string && request.resource.data.said.size() <= 2000))
+            && request.resource.data.createdAt == request.time;
+          allow update: if isParent(cid)
+            && helpAfter().parentId == request.auth.uid
+            && !('said' in resource.data)
+            && changedOnly(['said'])
+            && request.resource.data.said is string
+            && request.resource.data.said.size() > 0
+            && request.resource.data.said.size() <= 2000;
+        }
       }
 
       // "Ring Mom's phone": a helper makes a parent's phone play loudly so it

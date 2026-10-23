@@ -67,6 +67,16 @@ import com.amethos.mytechkid.R
 import com.amethos.mytechkid.TechKidViewModel
 import com.amethos.mytechkid.ScamCheck
 import com.amethos.mytechkid.Screen
+import com.amethos.mytechkid.Talk
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import com.amethos.mytechkid.RingService
 import com.amethos.mytechkid.RingState
@@ -156,6 +166,7 @@ fun TechKidScreens(
             is Screen.Pictures -> PicturesScreen(vm, s)
             Screen.Intro -> IntroScreen(vm, onIntroDone)
             Screen.Home -> HomeScreen(vm, onShowScreen, onStopScreen)
+            Screen.Talk -> TalkScreen(vm)
             is Screen.Scam -> ScamScreen(vm, s.draft)
         }
     }
@@ -486,7 +497,15 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
                     LiveDot(Clay)
                     Text("Asking $helpers for help…", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
                 }
-                Body("They're getting an alert on their phone right now.")
+                if (help.hasVoice) {
+                    Body("They got your voice message.", Ink)
+                    vm.lastSaid?.takeIf { it.first == help.id }?.let { (_, said) ->
+                        Text("You said", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Olive)
+                        Quote("\u201C$said\u201D")
+                    }
+                } else {
+                    Body("They're getting an alert on their phone right now.")
+                }
                 QuietButton("Never mind, I'm OK", enabled = !vm.busy) { vm.finishHelp("cancelled") }
             }
             "accepted" -> Box(Modifier.popIn()) { Panel(GreenSoft) {
@@ -746,6 +765,100 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
             text = ""
         }
         QuietButton("Back to home") { vm.goHome() }
+    }
+}
+
+// After Get help: say what's wrong first, then it all goes to the helper in
+// one alert. The microphone is on only while the red bar shows.
+@Composable
+private fun TalkScreen(vm: TechKidViewModel) {
+    BackHandler { vm.leaveTalk() }
+    val first = vm.helperNames.firstOrNull() ?: "your family"
+    val context = LocalContext.current
+    val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+        if (allowed) vm.startTalking() else vm.askWithoutTalking()
+    }
+    val tapMic = {
+        val allowed = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (allowed) vm.startTalking() else askMic.launch(Manifest.permission.RECORD_AUDIO)
+    }
+    Page {
+        when (val talk = vm.talk) {
+            Talk.Ready -> {
+                Row(Modifier.popIn(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Avatar(first, 56)
+                    Title("What do you need help with?")
+                }
+                Column(
+                    Modifier.popIn(200).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    MicButton(enabled = !vm.busy, label = "Tell $first what's wrong", onClick = tapMic)
+                    Text("Tell $first\nwhat's wrong", fontFamily = Rounded, fontSize = 30.sp, lineHeight = 36.sp, color = Ink, textAlign = TextAlign.Center)
+                    Body("Tap and talk. Only $first will hear it.")
+                }
+                ErrorText(vm)
+                QuietButton("Just ask $first to call me", enabled = !vm.busy) { vm.askWithoutTalking() }
+            }
+            is Talk.Recording -> {
+                Row(
+                    Modifier.fillMaxWidth().background(Red, RoundedCornerShape(20.dp)).padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    LiveDot(OnClay)
+                    Text("$first will hear this", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = OnClay)
+                }
+                Title("I'm listening…")
+                Text(
+                    "%d:%02d".format(talk.seconds / 60, talk.seconds % 60),
+                    fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink,
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                )
+                Body("Tap Send when you're done talking.")
+                BigButton("Send to $first") { vm.finishTalking() }
+            }
+            Talk.Sending -> Centered {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    CircularProgressIndicator(color = Clay)
+                    Title("Sending to $first…")
+                }
+            }
+        }
+    }
+}
+
+/** A big round terracotta button with a microphone drawn in code. */
+@Composable
+private fun MicButton(enabled: Boolean, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(170.dp)
+            .background(ClaySoft, CircleShape)
+            .padding(16.dp)
+            .background(if (enabled) Clay else Line, CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(64.dp)) {
+            val w = size.width
+            val h = size.height
+            drawRoundRect(
+                OnClay,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.36f, h * 0.06f),
+                size = androidx.compose.ui.geometry.Size(w * 0.28f, h * 0.52f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.14f),
+            )
+            val stand = Path().apply {
+                moveTo(w * 0.2f, h * 0.44f)
+                cubicTo(w * 0.2f, h * 0.9f, w * 0.8f, h * 0.9f, w * 0.8f, h * 0.44f)
+                moveTo(w * 0.5f, h * 0.77f)
+                lineTo(w * 0.5f, h * 0.95f)
+            }
+            drawPath(stand, OnClay, style = Stroke(width = w * 0.08f, cap = StrokeCap.Round))
+        }
     }
 }
 

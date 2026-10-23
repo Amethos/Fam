@@ -35,8 +35,16 @@ phone, before Mom tries it on her own.
 
 ## Try the features
 
-- **Help button:** Mom taps **Get help from *you***. You should get an alert. Tap **I'm on it**:
+- **Help button:** Mom taps **Get help from *you***. Her phone asks "What do you need help with?" with a big
+  microphone. Tap **Just ask *you* to call me**. You should get an alert. Tap **I'm on it**:
   Mom's screen says you're coming and she gets a notification. When done, tap **All fixed**.
+- **Voice message:** Mom taps Get help, then the microphone. The first time, her phone asks about the
+  microphone: tap **While using the app**. She sees a red "*you* will hear this" bar; she says something
+  and stops talking (it sends after 4 seconds of quiet) or taps **Send**. Your alert says
+  **Mom needs help · voice message** and never shows her words. In the app, tap **▶ Play Mom's message**.
+  A few seconds later her words may appear under it (Android 13 or newer, when the phone can do speech
+  recognition offline); both her phone and yours show them. Also try: tapping nothing for 30 seconds
+  sends the request without a message.
 - **See Mom's screen:** after you tap **I'm on it**, Android's "share your screen" prompt comes up on Mom's
   phone by itself (once, a couple of seconds later) and she taps **Start**. If she cancels, **Show *you* my
   screen** is still there. Mom's screen opens on your phone by itself (or tap the alert → **Watch Mom's screen**). Her phone shows *you* can see her screen with a

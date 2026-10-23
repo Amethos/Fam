@@ -2,7 +2,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, serverTimestamp, arrayUnion, writeBatch, Bytes } from "firebase/firestore";
 
 let env;
 const db = (uid) => (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).firestore();
@@ -93,6 +93,61 @@ test("a practice help request is marked with a true/false flag only", async () =
   await assertSucceeds(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), practice: true }));
   await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), practice: "yes" }));
   await assertFails(addDoc(collection(db("josh"), "circles/c1/helpRequests"), { ...helpRequest("josh"), practice: true }));
+});
+
+// "Tell Josh what's wrong": the request and its voice message are saved together.
+const clip = (extra = {}) => ({ audio: Bytes.fromUint8Array(new Uint8Array(2000).fill(7)), mime: "audio/mp4", seconds: 12, createdAt: serverTimestamp(), ...extra });
+const askWithVoice = (uid, help = {}, voice = {}) => {
+  const d = db(uid);
+  const ref = doc(collection(d, "circles/c1/helpRequests"));
+  const batch = writeBatch(d);
+  batch.set(ref, { ...helpRequest(uid), hasVoice: true, ...help });
+  batch.set(doc(d, `circles/c1/helpRequests/${ref.id}/voice/clip`), clip(voice));
+  return { ref, done: batch.commit() };
+};
+
+test("the parent can send a voice message with a help request", async () => {
+  const { ref, done } = askWithVoice("mom", {}, { said: "Facebook wants my password" });
+  await assertSucceeds(done);
+  await assertSucceeds(getDoc(doc(db("josh"), `circles/c1/helpRequests/${ref.id}/voice/clip`)));
+  await assertSucceeds(getDoc(doc(db("mom"), `circles/c1/helpRequests/${ref.id}/voice/clip`)));
+  await assertFails(getDoc(doc(db("stranger"), `circles/c1/helpRequests/${ref.id}/voice/clip`)));
+  // Saying "voice message" with no message attached isn't allowed.
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), hasVoice: true }));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), hasVoice: "yes" }));
+  await assertSucceeds(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), hasVoice: false }));
+});
+
+test("voice messages: only the parent, own open request, small, once", async () => {
+  await assertFails(askWithVoice("mom", {}, { audio: Bytes.fromUint8Array(new Uint8Array(400001)) }).done);
+  await assertFails(askWithVoice("mom", {}, { audio: "not audio" }).done);
+  await assertFails(askWithVoice("mom", {}, { mime: "text/html" }).done);
+  await assertFails(askWithVoice("mom", {}, { seconds: 600 }).done);
+  await assertFails(askWithVoice("mom", {}, { said: "x".repeat(2001) }).done);
+  await assertFails(askWithVoice("mom", {}, { extra: "nope" }).done);
+  await assertFails(askWithVoice("mom", { practice: true }).done);
+  await assertFails(askWithVoice("josh").done);
+  // Only the one clip per request, and nobody else can add one to Mom's request.
+  await assertFails(setDoc(doc(db("mom"), "circles/c1/helpRequests/h1/voice/other"), clip()));
+  await assertFails(setDoc(doc(db("josh"), "circles/c1/helpRequests/h1/voice/clip"), clip()));
+  await assertSucceeds(setDoc(doc(db("mom"), "circles/c1/helpRequests/h1/voice/clip"), clip()));
+  await assertFails(setDoc(doc(db("mom"), "circles/c1/helpRequests/h1/voice/clip"), clip()));
+  await assertFails(deleteDoc(doc(db("mom"), "circles/c1/helpRequests/h1/voice/clip")));
+  await assertFails(deleteDoc(doc(db("josh"), "circles/c1/helpRequests/h1/voice/clip")));
+  // Not on a finished request.
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "circles/c1/helpRequests/old"), { parentId: "mom", parentName: "Mom", status: "done" }));
+  await assertFails(setDoc(doc(db("mom"), "circles/c1/helpRequests/old/voice/clip"), clip()));
+});
+
+test("the parent's words can be added to a voice message once, and only by her", async () => {
+  const { ref, done } = askWithVoice("mom");
+  await assertSucceeds(done);
+  const path = `circles/c1/helpRequests/${ref.id}/voice/clip`;
+  await assertFails(updateDoc(doc(db("josh"), path), { said: "Something else" }));
+  await assertFails(updateDoc(doc(db("mom"), path), { said: "x".repeat(2001) }));
+  await assertFails(updateDoc(doc(db("mom"), path), { audio: Bytes.fromUint8Array(new Uint8Array(10)) }));
+  await assertSucceeds(updateDoc(doc(db("mom"), path), { said: "The TV says no signal" }));
+  await assertFails(updateDoc(doc(db("mom"), path), { said: "Changed my mind" }));
 });
 
 test("helpers accept help; the parent can cancel", async () => {

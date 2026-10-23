@@ -5,6 +5,7 @@
 const crypto = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
@@ -269,7 +270,24 @@ exports.onHelpRequest = onDocumentCreated("circles/{circleId}/helpRequests/{id}"
       `Tap "Got it" so ${req.parentName} sees it works.`, "/#/");
     return;
   }
-  await notify(await helpersOf(event.params.circleId), `${req.parentName} needs help`, "Tap to help now.", "/#/");
+  // Her voice message and words stay in the app: alerts can show on a locked screen.
+  const [title, body] = req.hasVoice
+    ? [`${req.parentName} needs help · voice message`, "Tap to listen."]
+    : [`${req.parentName} needs help`, "Tap to help now."];
+  await notify(await helpersOf(event.params.circleId), title, body, "/#/");
+});
+
+// Voice messages are deleted after 30 days, once a day.
+const VOICE_KEEP_DAYS = 30;
+exports.deleteOldVoice = onSchedule("every day 03:30", async () => {
+  const cutoff = Timestamp.fromMillis(Date.now() - VOICE_KEEP_DAYS * 24 * 60 * 60 * 1000);
+  for (;;) {
+    const old = await db.collectionGroup("voice").where("createdAt", "<", cutoff).limit(200).get();
+    if (old.empty) return;
+    const batch = db.batch();
+    old.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
 });
 
 exports.onHelpRequestUpdated = onDocumentUpdated("circles/{circleId}/helpRequests/{id}", async (event) => {

@@ -19,12 +19,28 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+private const val MAX_TALK_SECONDS = 60.0
+private const val MAX_VOICE_BYTES = 400_000
+
 /** "Josh Smith" -> "Josh": Mom's screens use first names only. */
 fun firstName(name: String): String = name.trim().split(Regex("\\s+")).first().ifBlank { name }
 
 data class InviteLink(val circleId: String, val inviteId: String, val token: String)
 data class Picture(val emoji: String, val label: String)
-data class HelpRequest(val id: String, val status: String, val helperName: String?, val practice: Boolean = false)
+data class HelpRequest(
+    val id: String,
+    val status: String,
+    val helperName: String?,
+    val practice: Boolean = false,
+    val hasVoice: Boolean = false,
+)
+
+/** The "Tell Josh what's wrong" screen, after Mom taps Get help. */
+sealed interface Talk {
+    data object Ready : Talk
+    data class Recording(val seconds: Int) : Talk
+    data object Sending : Talk
+}
 data class ScamCheck(
     val id: String,
     val text: String,
@@ -47,6 +63,7 @@ sealed interface Screen {
     ) : Screen
     data object Intro : Screen
     data object Home : Screen
+    data object Talk : Screen
     data class Scam(val draft: String) : Screen
 }
 
@@ -71,6 +88,14 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     /** The one-time practice run on the intro screen. */
     var practiceHelp by mutableStateOf<HelpRequest?>(null)
         private set
+
+    var talk by mutableStateOf<Talk>(Talk.Ready)
+        private set
+    /** Her own words from her last voice message, shown back to her ("You said …"). */
+    var lastSaid by mutableStateOf<Pair<String, String>?>(null) // help request id to words
+        private set
+    private val recorder = VoiceRecorder(app)
+    private var talkJob: kotlinx.coroutines.Job? = null
 
     /** Counts each time the app comes back on screen (MainActivity.onResume). */
     var resumes by mutableStateOf(0)
@@ -159,7 +184,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                 watchCircle(newCircle)
             }
             when {
-                newCircle != null && screen !is Screen.Home && screen !is Screen.Scam && screen !is Screen.Intro -> {
+                newCircle != null && screen !is Screen.Home && screen !is Screen.Talk && screen !is Screen.Scam && screen !is Screen.Intro -> {
                     inviteListener?.remove()
                     val shared = pendingScamText
                     pendingScamText = null
@@ -174,7 +199,8 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 // A helper removed this phone from the family (lost or replaced).
-                newCircle == null && (screen is Screen.Home || screen is Screen.Scam || screen is Screen.Intro) -> {
+                newCircle == null && (screen is Screen.Home || screen is Screen.Talk || screen is Screen.Scam || screen is Screen.Intro) -> {
+                    stopTalk()
                     activeHelp = null
                     practiceHelp = null
                     scamChecks = emptyList()
@@ -209,7 +235,13 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             .addSnapshotListener { snap, _ ->
                 val open = snap?.documents.orEmpty()
                     .sortedByDescending { it.getTimestamp("createdAt")?.toDate()?.time ?: Long.MAX_VALUE }
-                    .map { HelpRequest(it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName), it.getBoolean("practice") == true) }
+                    .map {
+                        HelpRequest(
+                            it.id, it.getString("status")!!, it.getString("helperName")?.let(::firstName),
+                            practice = it.getBoolean("practice") == true,
+                            hasVoice = it.getBoolean("hasVoice") == true,
+                        )
+                    }
                 activeHelp = open.firstOrNull { !it.practice }
                 practiceHelp = open.firstOrNull { it.practice }
             }
@@ -309,16 +341,130 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun myCircleName(): String = myName.ifBlank { "Your family member" }
 
-    fun askForHelp() = act {
-        val id = circleId ?: return@act
-        db.collection("circles/$id/helpRequests").add(
-            mapOf(
-                "parentId" to uid,
-                "parentName" to myCircleName(),
-                "status" to "waiting",
-                "createdAt" to FieldValue.serverTimestamp(),
-            ),
-        ).await()
+    /**
+     * Get help, talk first: Mom can say what's wrong before anything is sent,
+     * so her helper's one alert already says there's a voice message. If she
+     * taps nothing for 30 seconds, the request goes anyway: she's never stuck.
+     */
+    fun askForHelp() {
+        if (circleId == null || busy) return
+        talk = Talk.Ready
+        screen = Screen.Talk
+        talkJob?.cancel()
+        talkJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(30_000)
+            if (screen == Screen.Talk && talk == Talk.Ready) sendHelp(null)
+        }
+    }
+
+    /** "Just ask Josh to call me", or the microphone isn't allowed: send without a message. */
+    fun askWithoutTalking() {
+        if (talk == Talk.Ready) sendHelp(null)
+    }
+
+    /** Back from the talk screen: she changed her mind, nothing was sent. */
+    fun leaveTalk() {
+        if (talk is Talk.Sending) return
+        stopTalk()
+        screen = Screen.Home
+    }
+
+    private fun stopTalk() {
+        talkJob?.cancel()
+        recorder.cancel()
+        talk = Talk.Ready
+    }
+
+    /** Mom tapped the microphone (and the phone allows it): record until she stops talking. */
+    fun startTalking() {
+        if (talk != Talk.Ready) return
+        talkJob?.cancel()
+        try {
+            recorder.start()
+        } catch (e: Exception) {
+            sendHelp(null) // the microphone didn't work; still get her help
+            return
+        }
+        talk = Talk.Recording(0)
+        talkJob = viewModelScope.launch {
+            var spoke = false
+            var quietMs = 0
+            while (true) {
+                kotlinx.coroutines.delay(200)
+                val level = recorder.level()
+                if (level > 2_000) {
+                    spoke = true
+                    quietMs = 0
+                } else if (spoke) {
+                    quietMs += 200
+                }
+                val seconds = recorder.seconds()
+                talk = Talk.Recording(seconds.toInt())
+                // Done after 4 seconds of quiet, or at one minute.
+                if ((spoke && quietMs >= 4_000) || seconds >= MAX_TALK_SECONDS) break
+            }
+            finishTalking()
+        }
+    }
+
+    /** "Send to Josh", or she stopped talking. */
+    fun finishTalking() {
+        if (talk !is Talk.Recording) return
+        talkJob?.cancel()
+        val recording = recorder.stop()
+        sendHelp(recording?.takeIf { it.bytes.size in 1..MAX_VOICE_BYTES && it.seconds >= 1.0 })
+    }
+
+    private fun sendHelp(voice: Recording?) {
+        val id = circleId ?: return
+        talk = Talk.Sending
+        act {
+            try {
+                val help = db.collection("circles/$id/helpRequests").document()
+                val batch = db.batch()
+                batch.set(
+                    help,
+                    mapOf(
+                        "parentId" to uid,
+                        "parentName" to myCircleName(),
+                        "status" to "waiting",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "hasVoice" to (voice != null),
+                    ),
+                )
+                if (voice != null) {
+                    batch.set(
+                        help.collection("voice").document("clip"),
+                        mapOf(
+                            "audio" to com.google.firebase.firestore.Blob.fromBytes(voice.bytes),
+                            "mime" to "audio/mp4",
+                            "seconds" to voice.seconds.coerceIn(1.0, MAX_TALK_SECONDS),
+                            "createdAt" to FieldValue.serverTimestamp(),
+                        ),
+                    )
+                }
+                batch.commit().await()
+                screen = Screen.Home
+                if (voice != null) addWords(help, voice)
+            } finally {
+                talk = Talk.Ready
+            }
+        }
+    }
+
+    /** Her words follow a moment later; the alert never carries them. */
+    private fun addWords(help: com.google.firebase.firestore.DocumentReference, voice: Recording) {
+        viewModelScope.launch {
+            val words = try { VoiceWords.transcribe(getApplication<Application>(), voice.file) } catch (e: Exception) { null }
+            voice.file.delete()
+            if (words == null) return@launch
+            lastSaid = help.id to words
+            try {
+                help.collection("voice").document("clip").update("said", words).await()
+            } catch (e: Exception) {
+                // Her helper can still play the recording.
+            }
+        }
     }
 
     /** Intro: Mom tries her button once, and her helper answers "Got it". */
@@ -448,6 +594,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        recorder.cancel()
         userListener?.remove()
         inviteListener?.remove()
         circleListeners.forEach { it.remove() }

@@ -30,6 +30,7 @@ features. Every change is checked against this page.
 | Known-vulnerable libraries | `npm audit` fails the build on high-severity issues in shipped code; Dependabot proposes updates monthly | `.github/` |
 | Fake update replacing Mom's app | Updates come only from our own site over HTTPS; the app checks the file is a newer My Tech Kid, and Android refuses any update not signed with the same key | `Updater.kt` |
 | Lost, replaced or given-away phone | A helper taps **Remove this phone**; it loses access at once and can only rejoin through a new invite and picture check | `removeMember` |
+| Voice messages ("Tell Josh what's wrong") | Recorded only after Mom taps the microphone, with a red "Josh will hear this" bar; only her phone can add one, to her own open request, once, up to about a minute; only her family can play it; never shown in alerts; words made on her phone; deleted after 30 days | `firestore.rules`, `VoiceNote.kt`, `deleteOldVoice` |
 | Parent's data in phone backups | `allowBackup="false"` | Android manifest |
 
 Every change to rules or pairing is covered by tests that run on every build:
