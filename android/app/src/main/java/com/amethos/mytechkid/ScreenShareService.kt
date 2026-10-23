@@ -327,7 +327,7 @@ class ScreenShareService : Service() {
     }
 
     /**
-     * Up to 30 pictures a second. On a slow connection, trade a little
+     * Up to 60 pictures a second (Gray's goal: as smooth as a computer). On a slow connection, trade a little
      * sharpness and a few pictures a second evenly; while the helper taps,
      * keep the pictures a second up and let words soften for a moment, so
      * scrolling and opening apps keep up with their finger (sharp but at
@@ -485,7 +485,10 @@ class ScreenShareService : Service() {
      */
     private fun captureSize(): Pair<Int, Int> {
         val (w, h) = realScreenSize(this)
-        return (w / 2 and 1.inv()) to (h / 2 and 1.inv())
+        // Half size, in steps of 16: video chips work in 16-pixel blocks, and
+        // some Samsung chips take a slow path for anything else. The few
+        // pixels lost are a thin letterbox that toScreen already allows for.
+        return (w / 2 and 15.inv()) to (h / 2 and 15.inv())
     }
 
     /**
@@ -892,8 +895,8 @@ class ScreenShareService : Service() {
             PeerConnection.IceServer.builder(listOf("stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"))
                 .createIceServer(),
         )
-        private const val FPS = 30
-        private const val MAX_BITRATE = 2_500_000
+        private const val FPS = 60
+        private const val MAX_BITRATE = 4_000_000
         private const val START_BITRATE = 1_000_000
         private const val MIN_BITRATE = 150_000
 

@@ -69,9 +69,13 @@ Built so far:
   after a newer one or after the finger lifted. Taps, downs, ups and
   everything else stay on "control". Mom's phone ignores anything else on
   "fast".
-- **Plain H.264 on Mom's phone.** The high-profile H.264 encoder is off
-  (some Samsung chips hold pictures back with it), so both phones use
-  constrained-baseline H.264, or VP8 if H.264 isn't there.
+- **VP8, 60 pictures a second.** Gray's first numbers (Oct 23): about 110 ms
+  delay on a direct path, but only 2 pictures a second while scrolling with
+  H.264 on the Samsung. The helper's page now asks for VP8 first
+  (`preferFormat` in `web/src/quality.js`); Mom's phone captures at half size
+  in steps of 16 pixels and aims for 60 pictures a second (up to 4 Mbps).
+  The menu's numbers line says the format and the worst moment while the
+  helper's finger was on the screen.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
