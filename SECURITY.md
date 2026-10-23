@@ -50,10 +50,12 @@ These are requirements, not nice-to-haves:
   server (TURN) can't see the screen.
 - **Short-lived session credentials** issued by the backend only to members of
   the circle; nothing reusable is stored on the helper's phone.
-- **Mom says yes each time.** Tapping for her (stage 3) starts only when the
-  helper asks during a share she started and she taps Yes on her own phone.
-  While the question shows, and on her Stop bar, the helper's taps are refused,
-  so only her finger can answer or stop. Taps travel in the same end-to-end
+- **Mom says yes each time.** Tapping for her (stage 3) works only during a
+  share she started herself by tapping Start on her own phone; the screen
+  behind Android's prompt says her helper will see her screen and tap on it,
+  so that one tap is her yes to both (Gray's choice, Oct 2026: no second
+  question). Linking says the same up front. Taps on her Stop bar are refused,
+  so only her finger can stop. Taps travel in the same end-to-end
   encrypted connection as the video (a WebRTC data channel) and are rate-limited.
   The accessibility service reads nothing on the screen (`RemoteControlService.kt`).
 - **A dropped signal pauses, never guesses.** If the network path drops,

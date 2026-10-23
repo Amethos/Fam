@@ -362,16 +362,17 @@ private fun InviteAskScreen(vm: TechKidViewModel, s: Screen.InviteAsk) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(s.helperName, 120)
         }
-        Title("${s.helperName} wants to help you with your phone")
+        Title("Link with ${s.helperName}?")
         Panel(ClaySoft) {
             Text(
-                "Only continue if ${s.helperName} is family you know.",
-                fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ClayInk,
+                "Only continue if you know ${s.helperName} personally and trust them with your phone.",
+                fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = ClayInk,
             )
+            Body("Once linked, each time you tap Start, ${s.helperName} can see your screen and tap on it for you. You can stop at any time.", ClayInk)
             Body("Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.", ClayInk)
         }
         ErrorText(vm)
-        BigButton("Yes, ${s.helperName} is my family", enabled = !vm.busy) { vm.acceptInvite() }
+        BigButton("I know ${s.helperName}, continue", enabled = !vm.busy) { vm.acceptInvite() }
         QuietButton("I don't know this person", enabled = !vm.busy) { vm.rejectInvite() }
     }
 }
@@ -521,9 +522,13 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
                         if (onScreen && ShareState.watcher == null && vm.firstShareAsk(help.id)) onShowScreen()
                     }
                 }
-                Text("$helper is coming to help", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Avatar(helper, 56)
+                    Text("$helper is coming to help", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+                }
+                // Start is Mom's one yes: to seeing and to tapping.
                 Body(
-                    if (watcher == null) "They'll call you in a moment. To let $helper see your phone, tap Start on the next screen."
+                    if (watcher == null) "Tap Start on the next screen so $helper can see your screen and tap on it for you. You can stop any time."
                     else "They'll call you in a moment.",
                     Ink,
                 )
@@ -571,19 +576,29 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
 @Composable
 private fun SharingPanel(watcher: String, onStop: () -> Unit) {
     Panel(ClaySoft) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LiveDot(Clay)
-            Text(
-                when {
-                    watcher.isBlank() -> "Getting your screen ready…"
-                    ShareState.controlling -> "$watcher can see and tap your screen"
-                    else -> "$watcher can see your screen"
-                },
-                fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink,
-            )
+        if (watcher.isBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LiveDot(Clay)
+                Text("Getting your screen ready…", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Avatar(watcher, 56)
+                Text("$watcher is helping you", fontFamily = Rounded, fontSize = 26.sp, lineHeight = 32.sp, color = Ink)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LiveDot(Green)
+                    Body("$watcher can see your screen", Ink)
+                }
+                if (ShareState.controlling) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LiveDot(Green)
+                    Body("$watcher can tap for you", Ink)
+                }
+            }
         }
         Body("Banking and password screens stay hidden. Nothing is recorded.", ClayInk)
-        BigButton("Stop showing my screen", color = Red) { onStop() }
+        BigButton("Stop", color = Red) { onStop() }
     }
 }
 
@@ -621,7 +636,7 @@ private fun TapSetupPanel(watcher: String) {
                 }
                 Text(
                     "Turning on \"My Tech Kid: let family tap for me\" lets $watcher tap for you. " +
-                        "$watcher's taps only work while you show your screen, and only after you say yes each time. " +
+                        "$watcher's taps only work while you show your screen, which you start each time with Start. " +
                         "My Tech Kid doesn't read or save what's on your screen.",
                     fontSize = 17.sp, lineHeight = 24.sp, color = Muted,
                 )

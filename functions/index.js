@@ -271,10 +271,11 @@ exports.onHelpRequest = onDocumentCreated("circles/{circleId}/helpRequests/{id}"
     return;
   }
   // Her voice message and words stay in the app: alerts can show on a locked screen.
+  // Tapping the alert is the helper's "I'm on it" (web/src/main.js acceptFromAlert).
   const [title, body] = req.hasVoice
-    ? [`${req.parentName} needs help · voice message`, "Tap to listen."]
+    ? [`${req.parentName} needs help · voice message`, "Tap to help and listen."]
     : [`${req.parentName} needs help`, "Tap to help now."];
-  await notify(await helpersOf(event.params.circleId), title, body, "/#/");
+  await notify(await helpersOf(event.params.circleId), title, body, `/#/help/${event.params.id}`);
 });
 
 // Voice messages are deleted after 30 days, once a day.

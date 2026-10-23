@@ -27,25 +27,24 @@ import androidx.core.content.res.ResourcesCompat
 
 /**
  * Lets the helper tap and swipe on Mom's phone (stage 3), only while she is
- * sharing her screen and only after she taps "Yes" on her own phone.
+ * sharing her screen, which she starts herself with Start on her own phone.
  *
  * This is Android's accessibility switch for My Tech Kid. On its own it does
  * nothing: it reads nothing on the screen and acts only on taps that arrive
  * from ScreenShareService over the end-to-end encrypted connection. While the
  * helper can tap, a banner with the helper's name and a Stop button stays on
- * top of every app, and taps on that banner or the "Yes" question from the
- * helper are refused, so only Mom can answer or stop.
+ * top of every app, and the helper's taps on that banner are refused, so only
+ * Mom can stop.
  */
 class RemoteControlService : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private val windows by lazy { getSystemService(WindowManager::class.java) }
-    private var ask: View? = null
     private var banner: View? = null
     private val dots = mutableListOf<View>()
 
     override fun onServiceConnected() {
         instance = this
-        // Mom just turned the switch on because her helper asked: ask her now.
+        // Mom just turned the switch on because her helper asked: tapping starts now.
         ScreenShareService.active?.onControlSwitchReady()
     }
 
@@ -68,36 +67,7 @@ class RemoteControlService : AccessibilityService() {
         ScreenShareService.active?.onControlSwitchOff()
     }
 
-    // ---------- Mom's question and banner ----------
-
-    /** Asks Mom on her own phone. Only her finger can answer: helper taps are refused while it shows. */
-    fun askMom(helper: String, onAnswer: (Boolean) -> Unit) {
-        hideAsk()
-        var answered = false
-        fun answer(yes: Boolean) {
-            if (answered) return
-            answered = true
-            hideAsk()
-            onAnswer(yes)
-        }
-        val box = column(CARD, 28f).apply {
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            addView(text("$helper wants to tap on your phone for you", 26f).apply { typeface = roundedFont() })
-            addView(text("Say yes only if you are on the phone with $helper right now. You can stop any time.", 19f, color = MUTED), gap())
-            addView(button("Yes, let $helper tap", GREEN) { answer(true) }, gap())
-            addView(button("No", Color.parseColor("#E8DCC4"), INK) { answer(false) }, gap(12))
-        }
-        val dim = LinearLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#993B2A20"))
-            gravity = Gravity.CENTER
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            addView(box, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        }
-        ask = dim
-        windows.addView(dim, overlayParams(WindowManager.LayoutParams.MATCH_PARENT, Gravity.CENTER))
-        // No answer in a minute counts as no.
-        main.postDelayed({ answer(false) }, ASK_TIMEOUT_MS)
-    }
+    // ---------- Mom's banner ----------
 
     fun showBanner(helper: String, onStop: () -> Unit) {
         hideBanner()
@@ -122,17 +92,10 @@ class RemoteControlService : AccessibilityService() {
     fun hideAll() {
         endDrag()
         main.removeCallbacksAndMessages(null)
-        hideAsk()
         hideBanner()
         dots.toList().forEach { removeView(it) }
         dots.clear()
         pointer = null
-    }
-
-    private fun hideAsk() {
-        main.removeCallbacksAndMessages(null)
-        ask?.let { removeView(it) }
-        ask = null
     }
 
     private fun hideBanner() {
@@ -146,9 +109,8 @@ class RemoteControlService : AccessibilityService() {
 
     // ---------- The helper's taps ----------
 
-    /** A point the helper may tap: never on Mom's question or her Stop banner. */
+    /** A point the helper may tap: never on Mom's Stop banner. */
     private fun allowed(x: Float, y: Float): Boolean {
-        if (ask != null) return false
         val b = banner ?: return true
         val at = IntArray(2)
         b.getLocationOnScreen(at)
@@ -176,14 +138,14 @@ class RemoteControlService : AccessibilityService() {
     private var dragX = 0f
     private var dragY = 0f
     private var dragAt = 0L
-    /** Its own timer, so clearing the question's timers never leaves a finger down. */
+    /** Its own timer, so clearing the other timers never leaves a finger down. */
     private val dragTimer = Handler(Looper.getMainLooper())
 
     /**
      * The helper's finger, live: "down" puts it on Mom's screen, "move" slides
      * it and "up" lifts it, each piece continuing the same touch, so a list
      * scrolls while the helper's finger moves. Points are 0..1 of the screen.
-     * It never moves onto Mom's Stop bar or question, and if the helper's
+     * It never moves onto Mom's Stop bar, and if the helper's
      * moves stop arriving (a bad connection) the finger lifts on its own.
      */
     fun drag(phase: String, x: Float, y: Float, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
@@ -253,7 +215,6 @@ class RemoteControlService : AccessibilityService() {
 
     /** Back, Home, recent apps and the notification shade. */
     fun button(name: String): Boolean {
-        if (ask != null) return false
         val action = when (name) {
             "back" -> GLOBAL_ACTION_BACK
             "home" -> GLOBAL_ACTION_HOME
@@ -286,7 +247,6 @@ class RemoteControlService : AccessibilityService() {
      * her where to tap, without tapping anything. Touches pass straight through.
      */
     fun point(x: Float, y: Float, screen: Pair<Int, Int> = realScreenSize(this)): Boolean {
-        if (ask != null) return false
         val (w, h) = screen
         pointer?.let { dots -= it; removeView(it) }
         val size = dp(72)
@@ -384,7 +344,6 @@ class RemoteControlService : AccessibilityService() {
     }
 
     companion object {
-        private const val ASK_TIMEOUT_MS = 60_000L
         private const val MAX_GESTURE_MS = 3_000L
         private const val MIN_SEGMENT_MS = 8L
         private const val MAX_SEGMENT_MS = 40L
