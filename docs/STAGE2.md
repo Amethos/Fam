@@ -131,6 +131,12 @@ Built so far:
   in bursts, and the picture still hit the 8 Mbps cap and shrank while
   scrolling. Mom's phone now passes the encoder an even 60 a second, and on
   a direct path (no relay) the cap is 16 Mbps; through the relay it stays 8.
+  (The first try used WebRTC's `adaptOutputFormat`, which crops the picture
+  to the size it's given: the helper saw a square. Mom's phone now just skips
+  pictures that come less than 14 ms after the last one.)
+- **Picks up her next share by itself.** If the helper is still on the
+  "share ended" screen and the same person taps Show my screen again, the
+  helper's page opens the new share without going back first.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
