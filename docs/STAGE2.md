@@ -113,6 +113,11 @@ Built so far:
   (one spike of 0.5 s), 3 ms to decode. The "network" limit was our own 4
   Mbps cap, now 8. A few 2-second stretches where the helper's phone showed
   far fewer pictures than arrived are still unexplained.
+- **Finger moves 60 times a second.** Scrolling in Chrome (Oct 23 test): Mom's
+  screen only changed about 20 times a second while the helper's finger moved,
+  matching the helper sending a move every 50 ms (a web page moves only when
+  the finger does; the home screen animates in between). Moves now go out
+  every 16 ms.
 - **Relay pass fetched early.** While Mom's request is waiting, the helper's
   page already asks for its relay pass (the backend lets any helper in her
   circle ask while it waits), and tapping "I'm on it" wakes the backend, so
