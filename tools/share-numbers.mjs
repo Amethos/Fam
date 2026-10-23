@@ -24,9 +24,9 @@ for (const s of shares.slice(0, count)) {
   if (!q) { console.log("no numbers saved (older helper app, or the page closed early)"); continue; }
   console.log(`${q.seconds}s · ${q.relay ? "relay" : "direct"} · ${q.codec} · ${q.enc ?? "encoder ?"} · avg ${q.fps} fps · ${q.kbps} kbps · ${q.lossPct}% lost · ${q.freezes} freezes · ${q.height}p`);
   if (!q.timeline) continue;
-  console.log("sec   ms  shown  sent  height  moving  allowed kbps  held back by");
+  console.log("sec   ms  shown  sent  captured  height  moving  allowed kbps  encode ms  buffer ms  decode ms  held back by");
   for (const p of q.timeline.split(";").filter(Boolean)) {
-    const [t, ms, shown, sent, h, w, m, est = ""] = p.split(",");
-    console.log(`${t.padStart(4)} ${ms.padStart(4)} ${shown.padStart(6)} ${sent.padStart(5)} ${h.padStart(7)}  ${m === "1" ? "  yes " : "      "}  ${est.padStart(12)}  ${why[w] ?? w}`);
+    const [t, ms, shown, sent, h, w, m, est = "", cap = "", enc = "", buf = "", dec = ""] = p.split(",");
+    console.log(`${t.padStart(4)} ${ms.padStart(4)} ${shown.padStart(6)} ${sent.padStart(5)} ${cap.padStart(9)} ${h.padStart(7)}  ${m === "1" ? "  yes " : "      "}  ${est.padStart(12)} ${enc.padStart(10)} ${buf.padStart(10)} ${dec.padStart(10)}  ${why[w] ?? w}`);
   }
 }

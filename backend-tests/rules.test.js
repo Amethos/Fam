@@ -218,11 +218,11 @@ test("the joined helper saves a share's smoothness numbers once, and nothing els
   // The optional encoder name and timeline hold numbers only.
   await assertFails(updateDoc(ref("josh", "q-live"), quality({ enc: "<script>" })));
   await assertFails(updateDoc(ref("josh", "q-live"), quality({ timeline: "4,22,3,3,1168,c,1;her bank balance" })));
-  await assertFails(updateDoc(ref("josh", "q-live"), quality({ timeline: "4,22,3,3,1168,c,1,2500;".repeat(600) })));
+  await assertFails(updateDoc(ref("josh", "q-live"), quality({ timeline: "4,22,3,3,1168,c,1,2500,60,7,32,2;".repeat(700) })));
   await assertFails(updateDoc(ref("josh", "q-live"), quality({ timeline: ["4,22,3,3,1168,c,1;"] })));
   await assertFails(updateDoc(ref("josh", "q-live"), { ...quality(), status: "waiting" }));
   await assertSucceeds(updateDoc(ref("josh", "q-live"), quality({ timeline: "2,22,3,3,1168,c,1;4,30,58,60,1168,n,0;" })));
-  await assertSucceeds(updateDoc(ref("josh", "q-ended"), quality({ enc: "c2.exynos.h264.encoder", timeline: "2,99999,999,999,9999,c,1,999999;".repeat(300) })));
+  await assertSucceeds(updateDoc(ref("josh", "q-ended"), quality({ enc: "c2.exynos.h264.encoder", timeline: "2,99999,999,999,9999,c,1,999999,999,99999,99999,99999;".repeat(300) })));
   // Once only.
   await assertFails(updateDoc(ref("josh", "q-ended"), quality({ fps: 30 })));
 });

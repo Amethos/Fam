@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
-import { preferFormat, summarize, liveLine, liveFps, worstLine, sentLine, worstSent, timelinePoint, timelineText } from "./quality.js";
+import { preferFormat, summarize, liveLine, liveFps, worstLine, sentLine, worstSent, timelinePoint, timelineText, receiveDelays } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -454,8 +454,13 @@ async function showStats(s) {
     const fps = liveFps(stats);
     // Her phone's report, unless it's gone quiet (an older app, a dropped link).
     const sent = s.sent && now - s.sent.at < 5000 ? s.sent : undefined;
-    s.timeline = [...(s.timeline ?? []).slice(-400), timelinePoint({ at: now, start: s.videoAt ?? now, rttMs, fps, sent, moving })];
-    if (moving) s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs, fps, sent }];
+    const video = stats.find((x) => x.type === "inbound-rtp" && x.kind === "video");
+    const delays = receiveDelays(video, s.lastVideo);
+    s.lastVideo = video;
+    s.timeline = [...(s.timeline ?? []).slice(-400), timelinePoint({ at: now, start: s.videoAt ?? now, rttMs, fps, sent, moving, delays })];
+    // A still screen sends nothing, so it isn't counted as a slow moment.
+    const still = sent && Number.isFinite(sent.cap) && sent.cap < 1;
+    if (moving && !still) s.worst = [...(s.worst ?? []).slice(-60), { at: now, rttMs, fps, sent }];
     if (!el) return;
     const low = worstSent(s.worst ?? [], now);
     el.textContent = [liveLine(stats), worstLine(s.worst ?? [], now), sentLine(low ?? s.sent, s.name, !!low)]
