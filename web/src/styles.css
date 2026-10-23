@@ -188,335 +188,6 @@ legend { font-weight: 600; font-size: 0.9375rem; padding: 0; margin-bottom: 6px;
 .link-box { overflow-wrap: anywhere; font-size: 0.875rem; background: var(--surface-2); border-radius: 12px; padding: 10px; }
 a { color: var(--fg); font-weight: 600; }
 
-.appearance { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--hair); }
-.appearance .choices { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 4px;
-  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
-.appearance .choices button { min-height: 36px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--fg); font-weight: 500; font-size: 0.9375rem; box-shadow: none; }
-.appearance .choices button[aria-pressed="true"] { background: var(--solid); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.18); }
-
-/* ---------- First-run story ---------- */
-.story { min-height: calc(100vh - 80px); display: flex; flex-direction: column; gap: 22px; }
-.story-dots { display: flex; gap: 6px; }
-.story-dots span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
-.story-dots span.on { background: var(--amber); }
-.story-scene { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding-block: 12px; }
-.story h1 { font-size: 2.25rem; }
-.story-body { font-size: 1.25rem; color: var(--muted); }
-.bubble {
-  align-self: flex-start; max-width: 88%;
-  background: var(--surface-2); color: var(--fg);
-  border-radius: 22px 22px 22px 6px; padding: 14px 18px;
-  font-size: 1.1875rem; line-height: 1.4;
-  display: flex; flex-direction: column; gap: 4px;
-}
-.bubble .from { font-size: 0.8125rem; font-weight: 700; color: var(--muted); }
-.bubble.warn { background: var(--red-soft); color: var(--red-ink); }
-.bubble.warn .from { color: var(--red-ink); }
-.story-mark {
-  width: 96px; height: 96px; border-radius: 26px; background: var(--ink); color: var(--on-ink);
-  display: flex; align-items: center; justify-content: center; font-size: 2.25rem; font-weight: 800;
-}
-.story-mark .dot { color: var(--amber); }
-.msg { display: grid; justify-items: start; align-items: start; }
-.msg > * { grid-area: 1 / 1; }
-.typing { display: none; }
-
-/* ---------- Setup steps ---------- */
-.progress { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
-.progress span { display: block; height: 100%; background: var(--amber); border-radius: 3px; }
-.howto { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; }
-.howto li { padding-left: 4px; }
-.howto svg { vertical-align: -3px; }
-
-/* ---------- Motion ----------
-   Entrances play once per screen (main.enter, set in render()). --since is a
-   negative delay so a live re-render picks up mid-animation. Everything sits
-   behind prefers-reduced-motion, so "Reduce Motion" on the phone turns it off. */
-button, .button { transition: transform 0.12s ease, filter 0.12s ease; }
-button:active:not(:disabled), .button:active { transform: scale(0.97); filter: brightness(0.96); }
-
-.celebrate { position: relative; z-index: 1; display: flex; justify-content: center; padding-top: 8px; }
-.celebrate svg circle { fill: var(--green); }
-.celebrate svg path { fill: none; stroke: #FFFFFF; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
-.confetti { position: absolute; left: 50%; top: 50%; }
-.confetti i { position: absolute; width: 8px; height: 14px; border-radius: 2px; background: var(--c); opacity: 0; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .enter > *, .enter .story > *, .enter .story-scene > * {
-    animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    animation-delay: calc(var(--since, 0ms) + var(--at, 0ms));
-  }
-  .enter .story, .enter .story > .story-scene { animation: none; }
-  .enter > :nth-child(2) { --at: 60ms; }
-  .enter > :nth-child(3) { --at: 120ms; }
-  .enter > :nth-child(4) { --at: 180ms; }
-  .enter > :nth-child(5) { --at: 240ms; }
-  .enter > :nth-child(6) { --at: 300ms; }
-  .enter > :nth-child(n+7) { --at: 360ms; }
-
-  /* Story: Mom is typing… then her text lands, like a real message. */
-  .enter .story > .row, .enter .story > .story-dots { --at: 0ms; animation-name: fade; }
-  .enter .story-scene > .msg { animation: none; }
-  .enter .typing {
-    display: inline-flex; gap: 5px; padding: 16px 18px; border-radius: 22px 22px 22px 6px; background: var(--surface-2);
-    animation: typing-out 0.2s ease-in both; animation-delay: calc(var(--since, 0ms) + 900ms);
-  }
-  .typing span { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: dot 0.9s ease-in-out infinite; }
-  .typing span:nth-child(2) { animation-delay: 0.15s; }
-  .typing span:nth-child(3) { animation-delay: 0.3s; }
-  .enter .bubble {
-    transform-origin: 0% 100%;
-    animation: land 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--since, 0ms) + 950ms);
-  }
-  .enter .bubble.warn {
-    animation: land 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, buzz 0.5s ease-in-out 2;
-    animation-delay: calc(var(--since, 0ms) + 950ms), calc(var(--since, 0ms) + 1500ms);
-  }
-  .enter .msg ~ h1 { --at: 1250ms; }
-  .enter .msg ~ .story-body { --at: 1400ms; }
-  .enter .story-scene:has(.msg) + button { --at: 1550ms; }
-
-  /* Final page: the logo pops, then its amber dot drops in and bounces. */
-  .enter .story-mark { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-  .enter .story-mark .dot { display: inline-block; animation: drop 0.9s both; animation-delay: calc(var(--since, 0ms) + 450ms); }
-  .enter .story-mark ~ h1 { --at: 650ms; }
-  .enter .story-mark ~ .story-body { --at: 800ms; }
-  .enter .story > .bounce { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--since, 0ms) + 1050ms); }
-
-  .story-dots span.now {
-    background: linear-gradient(var(--amber), var(--amber)) no-repeat var(--line);
-    animation: fill 0.6s ease-out both; animation-delay: calc(var(--since, 0ms) + 150ms);
-  }
-  .progress span { animation: grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--since, 0ms) + 200ms); }
-
-  /* Help and scam cards bounce in the first time they arrive. */
-  .pop { animation: pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--since, 0ms); }
-  .alert.urgent { animation: ring 2s ease-out infinite; }
-  .alert.urgent.pop { animation: pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both, ring 2s ease-out 0.65s infinite; animation-delay: var(--since, 0ms), calc(var(--since, 0ms) + 650ms); }
-
-  /* Linked! */
-  .enter .celebrate svg { animation: pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--since, 0ms); }
-  .enter .celebrate path { stroke-dasharray: 40; animation: draw 0.45s ease-out both; animation-delay: calc(var(--since, 0ms) + 350ms); }
-  .enter .confetti i { animation: burst 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) both; animation-delay: calc(var(--since, 0ms) + 300ms + var(--d)); }
-
-  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes pop {
-    0% { opacity: 0; transform: scale(0.82); }
-    60% { opacity: 1; }
-    100% { opacity: 1; transform: none; }
-  }
-  @keyframes land { from { opacity: 0; transform: scale(0.6) translateY(10px); } to { opacity: 1; transform: none; } }
-  @keyframes typing-out { to { opacity: 0; transform: scale(0.8); visibility: hidden; } }
-  @keyframes dot { 0%, 60%, 100% { transform: none; opacity: 0.45; } 30% { transform: translateY(-4px); opacity: 1; } }
-  @keyframes buzz {
-    0%, 100% { transform: none; }
-    20% { transform: translateX(-4px) rotate(-1deg); }
-    40% { transform: translateX(4px) rotate(1deg); }
-    60% { transform: translateX(-3px); }
-    80% { transform: translateX(3px); }
-  }
-  @keyframes drop {
-    0% { opacity: 0; transform: translateY(-60px); animation-timing-function: ease-in; }
-    45% { opacity: 1; transform: none; animation-timing-function: ease-out; }
-    65% { transform: translateY(-14px); animation-timing-function: ease-in; }
-    80% { transform: none; animation-timing-function: ease-out; }
-    90% { transform: translateY(-4px); animation-timing-function: ease-in; }
-    100% { transform: none; }
-  }
-  @keyframes fill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
-  @keyframes grow { from { width: var(--from, 0%); } }
-  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.45); } 70%, 100% { box-shadow: 0 0 0 14px rgba(234, 88, 12, 0); } }
-  @keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
-  @keyframes burst {
-    0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(0.4); }
-    70% { opacity: 1; }
-    100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 60px)) rotate(var(--r)) scale(1); }
-  }
-}
-
-/* Watching Mom's screen (watch.js): her screen fills the helper's, edge to
-   edge, with a floating back button, a banner saying whose screen this is,
-   and a pop-out menu for everything else. Always dark Liquid Glass. */
-#watch {
-  --bg: #070B14; --surface: rgba(255, 255, 255, 0.07); --surface-2: rgba(255, 255, 255, 0.12); --line: rgba(255, 255, 255, 0.14);
-  --fg: #F1F4FA; --muted: #A9B4C7; --red: #E5484D; --green: #3FB27F;
-  --ink: #F1F4FA; --on-ink: #0B1220; --amber: #FF8A3D;
-  --glass: rgba(18, 22, 34, 0.42);
-  position: fixed; inset: 0; z-index: 50; background: #000; color: var(--fg); overflow: hidden; }
-#watch[hidden], #watch [hidden] { display: none !important; }
-body.watching { overflow: hidden; }
-#watch .watch-stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
-  background:
-    radial-gradient(closest-side, #1E3A8A, transparent) -30vw -20vh / 110vw 70vh no-repeat,
-    radial-gradient(closest-side, #7C2D12, transparent) 45vw 30vh / 90vw 60vh no-repeat,
-    radial-gradient(closest-side, #134E4A, transparent) -20vw 70vh / 100vw 60vh no-repeat,
-    var(--bg); }
-/* Fills the screen with her top bar and phone buttons cut off: watch.js
-   (layoutVideo) sizes it; gesture.js maps taps through any thin bars left. */
-#watch video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-#watch .watch-note { margin: 0; padding: 0 24px; text-align: center; font-size: 1.125rem; font-weight: 600; color: var(--muted); }
-#watch .watch-note:empty { display: none; }
-
-/* Floating glass controls */
-#watch .watch-float, #watch .watch-banner, #watch .watch-menu, #watch .watch-toast {
-  background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.22); color: #FFFFFF;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.35); }
-#watch .watch-top { position: absolute; z-index: 3; left: 0; right: 0; top: max(12px, env(safe-area-inset-top));
-  display: grid; grid-template-columns: auto minmax(0, 1fr) 48px; align-items: center; gap: 8px; padding: 0 14px; pointer-events: none; }
-#watch .watch-top > * { pointer-events: auto; }
-#watch .watch-float { position: relative; flex: none; width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-#watch .watch-top .watch-banner { justify-self: center; max-width: 100%; }
-#watch .watch-menu-btn { grid-column: 3; }
-#watch .watch-menu-btn .watch-dot { position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border: 2px solid var(--bg); }
-#watch.menu-open .watch-menu-btn { background: var(--fg); color: var(--bg); }
-#watch .watch-banner { min-width: 0; height: 36px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 14px;
-  border-radius: 999px; font-size: 0.8125rem; font-weight: 800; white-space: nowrap; overflow: hidden; }
-#watch .watch-banner > span:not(.watch-dot) { overflow: hidden; text-overflow: ellipsis; }
-#watch .watch-banner { cursor: pointer; transition: height 0.25s ease, padding 0.25s ease, font-size 0.25s ease; }
-#watch .watch-short { display: none; }
-/* After a few seconds the banner shrinks to a small pill with just the name. */
-#watch .watch-banner.compact { height: 26px; padding: 0 10px; gap: 6px; font-size: 0.75rem; }
-#watch .watch-banner.compact > span:not(.watch-dot):not(.watch-short) { display: none; }
-#watch .watch-banner.compact .watch-short { display: inline; }
-#watch .watch-menu-btn { touch-action: none; }
-#watch .watch-menu-btn.dragging { transform: scale(1.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
-
-/* Status: Connecting / Live / You're tapping, in the banner and the menu */
-#watch .watch-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-#watch .watch-live, #watch .watch-tapping { display: none; }
-#watch.live .watch-connecting { display: none; }
-#watch.live .watch-live { display: inline; }
-#watch.live .watch-dot { background: var(--green); }
-#watch.live .watch-banner .watch-dot { animation: watch-pulse 1.8s ease-out infinite; color: var(--green); }
-#watch.controlling .watch-live, #watch.controlling .watch-connecting { display: none; }
-#watch.controlling .watch-tapping { display: inline; }
-#watch .watch-pointing { display: none; }
-#watch.controlling.pointing .watch-tapping { display: none; }
-#watch.controlling.pointing .watch-pointing { display: inline; }
-#watch.controlling .watch-dot { background: var(--amber); }
-#watch.controlling .watch-banner { background: var(--amber); color: var(--navy); border-color: var(--amber); }
-#watch.controlling .watch-banner .watch-dot { background: var(--navy); animation: none; }
-@keyframes watch-pulse { from { box-shadow: 0 0 0 0 currentColor; } to { box-shadow: 0 0 0 7px transparent; } }
-
-/* The pop-out menu */
-#watch .watch-scrim { position: absolute; z-index: 2; inset: 0; background: rgba(0, 0, 0, 0.35); }
-/* End: a dark pill with a red X, so it never reads as Mom's Back button. */
-#watch .watch-exit { width: auto; border-radius: 999px; gap: 8px; padding: 0 16px 0 10px; background: rgba(11, 18, 32, 0.86);
-  font-size: 0.9375rem; font-weight: 700; color: #FFFFFF; }
-#watch .watch-exit-x { width: 26px; height: 26px; border-radius: 50%; background: #E5484D; display: inline-flex; align-items: center; justify-content: center; }
-#watch .watch-end { position: absolute; z-index: 5; left: 16px; right: 16px; top: calc(max(12px, env(safe-area-inset-top)) + 64px);
-  max-width: 380px; margin: 0 auto; padding: 18px; border-radius: 22px; background: var(--solid); color: var(--fg);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); display: grid; gap: 8px; }
-#watch .watch-end[hidden] { display: none; }
-#watch .watch-end strong { font-size: 1.125rem; }
-#watch .watch-end p { margin: 0; color: var(--muted); }
-#watch .watch-end-row { display: flex; gap: 8px; margin-top: 6px; }
-#watch .watch-end-row button { flex: 1; }
-#watch .watch-menu { position: absolute; z-index: 3; right: 14px; top: calc(max(12px, env(safe-area-inset-top)) + 58px);
-  width: min(300px, calc(100% - 28px)); box-sizing: border-box; padding: 16px; border-radius: 28px;
-  background: rgba(18, 22, 34, 0.62); display: flex; flex-direction: column; gap: 12px; transform-origin: top right;
-  animation: watch-menu-in 180ms ease-out; }
-@keyframes watch-menu-in { from { opacity: 0; transform: scale(0.92); } }
-#watch .watch-status { display: flex; flex-direction: column; gap: 2px; }
-#watch .watch-state { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-#watch.live .watch-state { color: var(--green); }
-#watch.controlling .watch-state { color: var(--amber); }
-#watch .watch-title { font-size: 1.125rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
-#watch .watch-control { display: flex; flex-direction: column; gap: 10px; }
-#watch .watch-control-note { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
-#watch .watch-control-note:empty { display: none; }
-#watch .watch-menu button { gap: 8px; border-radius: 16px; font-size: 1rem; font-weight: 600; }
-#watch [data-watch-ask].locked { background: rgba(255, 255, 255, 0.1); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
-/* Her phone's own buttons, along the bottom like Android's: Recent apps,
-   Home, Back (Samsung's order). Only while tapping is on; her screen sits
-   above the bar so it never covers anything. */
-#watch { --keys-h: calc(40px + max(0px, env(safe-area-inset-bottom) - 12px)); }
-#watch .watch-keys { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
-  height: var(--keys-h); padding: 0 32px max(0px, calc(env(safe-area-inset-bottom) - 12px));
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center;
-  background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-  border-top: 1px solid rgba(255, 255, 255, 0.14); }
-#watch .watch-keys button { justify-self: center; width: 64px; min-height: 40px; padding: 0; border-radius: 999px;
-  background: transparent; color: #FFFFFF; }
-#watch .watch-keys svg { width: 20px; height: 20px; }
-/* Her screen ends where the bar starts. */
-#watch.controlling .watch-stage { bottom: var(--keys-h); }
-#watch.controlling .watch-toast { bottom: calc(var(--keys-h) + 12px); }
-#watch .watch-menu .watch-alerts { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
-/* "Show Mom where": only while tapping is on. */
-#watch:not(.controlling) [data-watch-point] { display: none; }
-#watch .watch-menu [data-watch-point] { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
-#watch .watch-menu [data-watch-point][aria-pressed="true"] { background: var(--amber); color: var(--navy); box-shadow: none; }
-/* Each press flashes amber, so it's clear it was sent. */
-#watch .watch-keys button.pressed { animation: watch-pressed 500ms ease-out; }
-@keyframes watch-pressed { from { background: var(--amber); color: var(--navy); transform: scale(0.94); } }
-
-/* Short notes (e.g. a tap that didn't go through) while the menu is closed */
-#watch .watch-toast { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%);
-  bottom: max(20px, env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 28px); box-sizing: border-box;
-  margin: 0; padding: 10px 16px; border-radius: 18px; text-align: center; font-size: 0.875rem; font-weight: 600; }
-#watch.menu-open .watch-toast { display: none; }
-
-/* Turning on tapping the first time: steps to read out on the call */
-#watch .watch-guide { position: absolute; z-index: 3; left: 12px; right: 12px; bottom: max(16px, env(safe-area-inset-bottom));
-  max-width: 480px; margin: 0 auto; box-sizing: border-box; padding: 16px 18px 18px; border-radius: 28px;
-  display: flex; flex-direction: column; gap: 10px; color: #FFFFFF;
-  background: rgba(18, 22, 34, 0.66); -webkit-backdrop-filter: blur(28px) saturate(170%); backdrop-filter: blur(28px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: background 0.3s ease, border-color 0.3s ease; }
-#watch .watch-guide[hidden] { display: none; }
-#watch.menu-open .watch-guide { display: none; }
-#watch .watch-guide-head { display: flex; align-items: center; justify-content: space-between; margin: -4px -6px -4px 0; }
-#watch .watch-guide-kicker { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #FFB27A; }
-#watch .watch-guide-hide { width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12); color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; }
-#watch .watch-guide-title { margin: 0; font-size: 1.1875rem; font-weight: 700; line-height: 1.25; }
-#watch .watch-guide-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 1rem; line-height: 1.3; }
-#watch .watch-guide-steps:empty { display: none; }
-#watch .watch-guide-steps li { display: flex; gap: 10px; align-items: center; }
-#watch .watch-guide-num { flex: none; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3); display: inline-flex; align-items: center; justify-content: center; font-size: 0.875rem; font-weight: 700; }
-#watch .watch-guide-steps li.now .watch-guide-num { background: var(--amber); border-color: var(--amber); color: #0B1220; }
-#watch .watch-guide-steps li.done { color: #A9B4C7; }
-#watch .watch-guide-steps li.done .watch-guide-num { background: #3FB27F; border-color: #3FB27F; color: #0B1220; }
-#watch .watch-guide-note { margin: 0; font-size: 0.875rem; line-height: 1.4; color: #A9B4C7; }
-#watch .watch-guide-note:empty { display: none; }
-#watch .watch-guide.done { background: rgba(31, 107, 69, 0.78); border-color: rgba(63, 178, 127, 0.7); }
-#watch .watch-guide.done .watch-guide-kicker { color: #BFF0D5; }
-#watch:has(.watch-guide:not([hidden]):not(.done)) .watch-toast { display: none; }
-
-#watch .watch-ripple { position: fixed; z-index: 1; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
-  background: var(--amber); opacity: 0.7; pointer-events: none; animation: watch-ripple 450ms ease-out forwards; }
-@keyframes watch-ripple { to { transform: scale(1.8); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  #watch .watch-ripple, #watch.live .watch-banner .watch-dot, #watch .watch-menu { animation: none; }
-  #watch .watch-banner { transition: none; }
-}
-/* While tapping, her screen takes every touch (no scrolling, zooming or
-   callouts). The orange banner at the top shows taps reach her phone. */
-#watch.controlling video { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-
-/* The connection is weak: the banner says so (glass, even while tapping),
-   taps and her phone's buttons wait, and while reconnecting her picture dims
-   behind a note. */
-#watch .watch-weak, #watch .watch-weak-note[hidden] { display: none; }
-#watch.weak .watch-banner > span:not(.watch-dot):not(.watch-short) { display: none; }
-#watch.weak .watch-banner:not(.compact) > span.watch-weak:not(.watch-short) { display: inline; }
-#watch.weak .watch-banner { background: var(--glass); color: #FFFFFF; border-color: rgba(255, 255, 255, 0.22); }
-#watch.weak .watch-banner .watch-dot { background: var(--amber); animation: none; }
-#watch.reconnecting .watch-banner .watch-dot { background: transparent; border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #FFFFFF; width: 10px; height: 10px; animation: watch-spin 1s linear infinite; }
-@keyframes watch-spin { to { transform: rotate(360deg); } }
-#watch.reconnecting video { opacity: 0.45; filter: saturate(0.5); transition: opacity 0.3s ease; }
-#watch.weak .watch-keys { opacity: 0.5; pointer-events: none; }
-#watch .watch-weak-note { position: absolute; z-index: 3; left: 24px; right: 24px; bottom: calc(var(--keys-h) + 24px); margin: 0;
-  padding: 14px 18px; border-radius: 18px; text-align: center; font-size: 0.9375rem; font-weight: 600; line-height: 1.45;
-  background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.22); color: #FFFFFF; }
 #watch.reconnecting .watch-weak-note { top: 40%; bottom: auto; }
 @media (prefers-reduced-motion: reduce) {
   #watch.reconnecting .watch-banner .watch-dot { animation: none; }
@@ -524,17 +195,32 @@ body.watching { overflow: hidden; }
 #watch .watch-stats { white-space: pre-line; font-size: 0.75rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 #watch .watch-stats:empty { display: none; }
 
-/* Family name (tap to change) and the helper's photo for Mom's big button. */
-.family-name { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; color: inherit; text-decoration: none; }
-/* Long names wrap (even one long word) and get smaller instead of running off the screen. */
-.family-name h1 { min-width: 0; overflow-wrap: anywhere; }
-.family-name h1.long { font-size: 1.5rem; }
-.family-name .pencil, .photo-card svg {
-  width: 36px; height: 36px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
-  color: var(--amber-text); background: var(--card, rgba(255,255,255,0.7)); border: 1px solid var(--hair);
-}
-.photo-card svg { width: 20px; height: 20px; border: 0; background: none; }
+/* Settings: grouped glass lists, iOS-style rows. */
+h1 { overflow-wrap: anywhere; }
+h1.long { font-size: 1.5rem; }
+a.gear { width: 44px; height: 44px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--fg); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line), var(--shadow); }
 .photo-card { text-decoration: none; color: inherit; }
+.avatar.big { width: 60px; height: 60px; font-size: 1.625rem; }
+.avatar.small { width: 40px; height: 40px; font-size: 1.0625rem; }
+.chev { flex: none; color: var(--muted); }
+.section-label { margin: 10px 4px -4px; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.group { border-radius: 24px; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: var(--shadow); }
+.group .item { min-height: 56px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; text-align: left;
+  justify-content: flex-start; font: inherit; font-weight: 500; color: var(--fg); text-decoration: none; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.group .item + .item { border-top: 1px solid var(--hair); }
+.group .item .grow { flex: 1; min-width: 0; }
+.group .item .value { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.group .item .sub { font-size: 0.9375rem; }
+.group .item.stack { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 16px 14px; }
+.group .item.danger-text { color: var(--red); }
+.on-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 600; }
+.on-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--hair); }
+.choices button { min-height: 40px; padding: 0 8px; border-radius: 11px; background: transparent; color: var(--muted); font-size: 0.9375rem; box-shadow: none; }
+.choices button[aria-pressed="true"] { background: var(--solid); color: var(--fg); box-shadow: 0 2px 8px rgba(14, 23, 38, 0.14); }
+.center { text-align: center; }
 img.photo { object-fit: cover; padding: 0; background: var(--hair); }
 .ideas { gap: 8px; }
 .ideas .muted { width: 100%; }

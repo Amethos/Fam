@@ -6,7 +6,7 @@ import "./styles.css";
 import { initializeApp } from "firebase/app";
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  updateProfile, signOut, sendPasswordResetEmail,
+  updateProfile, signOut, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider,
 } from "firebase/auth";
 import {
   getFirestore, connectFirestoreEmulator, doc, collection, query, where, orderBy, limit, onSnapshot,
@@ -273,9 +273,9 @@ function myName() {
   return full.trim().split(/\s+/)[0] || "Helper";
 }
 
-function header() {
-  return `<div class="row"><div class="brand grow">${LOGO}</div>
-    ${state.user ? `<button class="secondary small" data-action="signout">Sign out</button>` : ""}</div>
+// Once the family exists, Sign out lives in Settings (the gear on Home).
+function header(right = state.user && !state.circle ? `<button class="secondary small" data-action="signout">Sign out</button>` : "") {
+  return `<div class="row"><div class="brand grow">${LOGO}</div>${right}</div>
     ${state.error ? `<p class="error" role="alert">${esc(state.error)}</p>` : ""}`;
 }
 
@@ -539,19 +539,16 @@ function memberCards() {
   const c = state.circle;
   if (!c) return "";
   const parents = (c.parentIds ?? []).map((id) => ({ id, ...c.members?.[id] }));
-  const helpers = (c.helperIds ?? []).map((id) => ({ id, ...c.members?.[id] }));
-  const parentHtml = parents.length
+  return parents.length
     ? parents.map((p) => `<div class="card"><div class="row"><span class="avatar">${initial(p.name)}</span>
-        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc([relationLabel(p.relationship), deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · "))}</span></div></div>
+        <div class="grow"><strong>${esc(p.name)}</strong><br><span class="muted">${esc(personLine(p))}</span></div></div>
         ${howToHelp(p)}
-        ${ringButton(p)}
-        <p class="muted">${isPast(p.controlAllowedAt)
-          ? `You can tap for ${esc(p.name)} while they show you their screen.`
-          : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p>
-        ${removeControls(p)}</div>`).join("")
+        ${ringButton(p)}</div>`).join("")
     : `<div class="card"><p>No one is linked yet. Add someone you help to get started.</p></div>`;
-  const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : esc(h.name))).join(", ");
-  return `${parentHtml}<p class="muted">Helpers: ${helperNames}</p>`;
+}
+
+function personLine(p) {
+  return [relationLabel(p.relationship), deviceLabel(p.device), `Linked ${timeAgo(p.linkedAt)}`].filter(Boolean).join(" · ");
 }
 
 // Removing a phone is rare (lost, replaced, given away), so it hides behind a
@@ -627,9 +624,6 @@ function familyName(circle) {
   return circle?.nameAsTyped ? circle.name : familyTitle(circle?.name);
 }
 
-const PENCIL = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
-  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>`;
-
 function myPhoto() {
   const photo = state.circle?.members?.[state.user.uid]?.photo;
   return isPhoto(photo) ? photo : null;
@@ -641,10 +635,11 @@ function faceHtml(name, photo, cls = "avatar") {
 
 function photoCard() {
   const photo = myPhoto();
+  const who = parentWord();
   return `<a class="card photo-card" href="#/photo">
-    <div class="row">${faceHtml(myName(), photo)}
-      <div class="grow"><strong>${photo ? "Your photo" : "Add your photo"}</strong><br>
-      <span class="muted">${esc(parentWord() ?? "They")} see${parentWord() ? "s" : ""} it on the big button</span></div>${PENCIL}</div></a>`;
+    <div class="row">${faceHtml(myName(), photo, "avatar big")}
+      <div class="grow"><strong>${esc(myName())}</strong><br>
+      <span class="muted">${photo ? "Change your photo." : "Add your photo."} ${esc(who ?? "They")} see${who ? "s" : ""} it on the big button.</span></div>${CHEVRON}</div></a>`;
 }
 
 function viewFamilyName() {
@@ -652,7 +647,7 @@ function viewFamilyName() {
   const ideas = [`${myName()}'s Family`, parentWord() && `${parentWord()}'s Helpers`]
     .filter((v, k, all) => v && v !== current && all.indexOf(v) === k);
   return `${header()}
-  <a href="#/">← Back</a>
+  <a href="#/settings">← Settings</a>
   <h1>Your family's name</h1>
   <form data-form="rename" class="card">
     <div class="field"><label for="familyName">Shown exactly as you type it</label>
@@ -673,7 +668,7 @@ function parentWord() {
 function viewPhoto() {
   const who = parentWord();
   return `${header()}
-  <a href="#/">← Back</a>
+  <a href="#/settings">← Settings</a>
   <h1>Your photo</h1>
   <p class="muted">${who ? esc(who) : "The person you help"} sees your face on the big button, so they know exactly who they're reaching.</p>
   ${photoPicker()}`;
@@ -699,27 +694,110 @@ function photoPicker() {
 
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
-  return `${header()}
-  <div><p class="muted">Your family</p><a class="family-name" href="#/family" aria-label="Change your family's name"><h1${familyName(state.circle).length > 18 ? ' class="long"' : ""}>${esc(familyName(state.circle))}</h1><span class="pencil">${PENCIL}</span></a></div>
+  return `${header(`<a class="gear" href="#/settings" aria-label="Settings">${GEAR}</a>`)}
+  <div><p class="muted">Your family</p><h1${familyName(state.circle).length > 18 ? ' class="long"' : ""}>${esc(familyName(state.circle))}</h1></div>
   ${alertsBanner()}
   ${helpCards()}
   ${shareCards()}
   ${scamCards()}
   ${memberCards()}
-  ${photoCard()}
   ${pendingInvites()}
   <a class="button" href="#/add">Add someone</a>
   ${answered.length ? `<h2>Recent scam checks</h2>${answered.map((s) => `
     <a class="card" style="text-decoration:none;color:inherit" href="#/scam/${esc(s.id)}">
       <strong>${esc(s.parentName)}: ${esc(VERDICTS[s.verdict])}</strong>
-      <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}
-  ${appearance()}`;
+      <span class="muted">${esc(s.text.slice(0, 80))}</span></a>`).join("")}` : ""}`;
 }
 
-function appearance() {
-  return `<div class="appearance"><span class="muted">Appearance</span>
-    <div class="choices" role="group" aria-label="Appearance">${Object.entries(THEMES).map(([key, label]) =>
-      `<button type="button" data-action="theme" data-choice="${key}" aria-pressed="${themeChoice === key}">${label}</button>`).join("")}</div></div>`;
+// ---------- Settings: everything the helper sets up once, off the Home screen ----------
+
+const GEAR = `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
+const CHEVRON = `<svg class="chev" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
+function people() {
+  const c = state.circle;
+  const list = (ids) => (ids ?? []).map((id) => ({ id, ...c?.members?.[id] }));
+  return { parents: list(c?.parentIds), helpers: list(c?.helperIds) };
+}
+
+function alertsRow() {
+  if (state.alertsOn) return `<span class="on-dot">On</span>`;
+  const ios = /iPhone|iPad/.test(navigator.userAgent);
+  const installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (ios && !installed) return `<span class="muted">Add to home screen first</span>`;
+  return `<button class="small" data-action="alerts" ${state.busy ? "disabled" : ""}>Turn on</button>`;
+}
+
+function viewSettings() {
+  const { parents, helpers } = people();
+  const helperNames = helpers.map((h) => (h.id === state.user.uid ? "You" : h.name)).join(", ");
+  return `${header()}
+  <a href="#/">← Home</a>
+  <h1>Settings</h1>
+  ${photoCard()}
+  <p class="section-label">Your family</p>
+  <div class="group">
+    <a class="item" href="#/family"><span class="grow">Family name</span><span class="muted value">${esc(familyName(state.circle))}</span>${CHEVRON}</a>
+    ${parents.map((p) => `<a class="item" href="#/person/${esc(p.id)}"><span class="avatar small">${initial(p.name)}</span>
+      <span class="grow">${esc(p.name)}<br><span class="muted sub">${esc(personLine(p))}</span></span>${CHEVRON}</a>`).join("")}
+    <a class="item" href="#/add"><span class="grow">Add someone</span>${CHEVRON}</a>
+    <div class="item"><span class="grow">Helpers</span><span class="muted value">${esc(helperNames)}</span></div>
+  </div>
+  <p class="section-label">This phone</p>
+  <div class="group">
+    <div class="item"><span class="grow">Alerts</span>${alertsRow()}</div>
+    <div class="item stack"><span>Look</span>
+      <div class="choices" role="group" aria-label="Look">${Object.entries(THEMES).map(([key, label]) =>
+        `<button type="button" data-action="theme" data-choice="${key}" aria-pressed="${themeChoice === key}">${label}</button>`).join("")}</div></div>
+  </div>
+  <p class="section-label">Account</p>
+  <div class="group">
+    <div class="item"><span class="grow">Email</span><span class="muted value">${esc(state.user.email ?? "")}</span></div>
+    <button class="item" data-action="signout">Sign out</button>
+    <a class="item danger-text" href="#/delete">Delete my account</a>
+  </div>
+  <p class="muted center">My Tech Kid beta</p>`;
+}
+
+function viewPerson(id) {
+  const p = people().parents.find((x) => x.id === id);
+  if (!p) return `${header()}<a href="#/settings">← Settings</a><p class="muted">They're no longer linked.</p>`;
+  return `${header()}
+  <a href="#/settings">← Settings</a>
+  <div class="row"><span class="avatar big">${initial(p.name)}</span>
+    <div class="grow"><h1>${esc(p.name)}</h1><span class="muted">${esc(personLine(p))}</span></div></div>
+  <div class="card"><strong>Seeing and tapping</strong>
+    ${howToHelp(p)}
+    <p class="muted">${isPast(p.controlAllowedAt)
+      ? `You can tap for ${esc(p.name)} while they show you their screen.`
+      : `For safety, tapping for ${esc(p.name)} unlocks ${esc(formatTime(p.controlAllowedAt))}.`}</p></div>
+  ${removeControls(p)}`;
+}
+
+// Apple and Google require deleting an account from inside the app. The
+// password is asked again so an unlocked phone on a table isn't enough.
+function viewDeleteAccount() {
+  const { parents, helpers } = people();
+  const others = helpers.filter((h) => h.id !== state.user.uid).map((h) => h.name);
+  const names = parents.map((p) => p.name).join(" and ");
+  const effect = others.length
+    ? `<div class="card"><p>Your name, photo and sign-in are erased for good.</p>
+        ${names ? `<p>${esc(others.join(" and "))} still help${others.length === 1 ? "s" : ""} ${esc(names)}, so nothing changes on their phone${parents.length > 1 ? "s" : ""}.</p>` : ""}</div>`
+    : `<div class="card"><p>Your name, photo and sign-in are erased for good.</p></div>
+      <div class="alert red"><strong>You're the only helper</strong>
+        <p>${names ? `${esc(names)}'s phone${parents.length > 1 ? "s are" : " is"} unlinked, and the` : "The"} family's help requests, scam checks and voice messages are erased too.</p></div>`;
+  return `${header()}
+  <a href="#/settings">← Settings</a>
+  <h1>Delete my account</h1>
+  ${effect}
+  <form data-form="delete-account" class="card">
+    <div class="field"><label for="deletePassword">Type your password to confirm</label>
+      <input id="deletePassword" name="password" type="password" autocomplete="current-password" required></div>
+    <button type="submit" class="danger" ${state.busy ? "disabled" : ""}>Delete my account</button>
+    <a class="button secondary" href="#/settings">Keep my account</a>
+  </form>`;
 }
 
 // Who the person being added is to the helper. Their phone sees the matching
@@ -896,6 +974,9 @@ function render() {
   else if (state.profile.circleId && !state.circle) html = viewLoading();
   else if (step && (!state.profile.circleId || (page !== "add" && page !== "invite"))) html = viewSetup(step);
   else if (page === "add") html = viewAdd();
+  else if (page === "settings") html = viewSettings();
+  else if (page === "person" && id) html = viewPerson(id);
+  else if (page === "delete") html = viewDeleteAccount();
   else if (page === "family") html = viewFamilyName();
   else if (page === "photo") html = viewPhoto();
   else if (page === "invite" && id) html = viewInvite(id);
@@ -1002,7 +1083,10 @@ const actions = {
     const name = el.dataset.name || "this person";
     if (!confirm(`Remove ${name}'s phone from your family?\n\nUse this if the phone was lost, replaced or given away. ${name} won't be able to reach you from it until you send a new invite.`)) return;
     state.removing = null;
-    run(() => call("removeMember", { circleId, memberId: el.dataset.id }));
+    run(async () => {
+      await call("removeMember", { circleId, memberId: el.dataset.id });
+      location.hash = "#/settings";
+    });
   },
   "done-help": (el) => run(() => updateDoc(doc(db, `circles/${circleId}/helpRequests/${el.dataset.id}`), {
     status: "done", updatedAt: serverTimestamp(),
@@ -1071,7 +1155,14 @@ const forms = {
   circle: (f) => run(() => call("createCircle", { circleName: val(f, "circleName").trim(), displayName: myName() })),
   rename: (f) => run(async () => {
     await call("renameCircle", { circleId, name: val(f, "familyName") });
+    location.hash = "#/settings";
+  }),
+  "delete-account": (f) => run(async () => {
+    const user = auth.currentUser;
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, val(f, "password")));
+    await call("deleteMyAccount", {});
     location.hash = "#/";
+    await signOut(auth).catch(() => {});
   }),
   invite: (f) => run(async () => {
     const relationship = f.querySelector("input[name=relationship]:checked")?.value ?? "other";
@@ -1107,7 +1198,7 @@ root.addEventListener("change", (event) => {
   if (!file) return;
   run(async () => {
     await call("setMyPhoto", { circleId, photo: await shrinkPhoto(file) });
-    location.hash = "#/";
+    if (location.hash.startsWith("#/photo")) location.hash = "#/settings";
   });
 });
 

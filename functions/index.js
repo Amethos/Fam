@@ -10,6 +10,7 @@ const { defineInt } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 const { RELATIONSHIPS, cleanRelationship, pickPictures, hashToken, newToken } = require("./pairing");
 const { deadTokens } = require("./alerts");
 const { cleanDevice, sameDevice } = require("./device");
@@ -276,6 +277,57 @@ exports.setMyPhoto = onCall(async (request) => {
   if (!photo) throw new HttpsError("invalid-argument", "That photo didn't work. Try a different one.");
   await circle.ref.update({ [`members.${uid}.photo`]: photo });
   return { status: "saved" };
+});
+
+// A helper deletes their own account (Apple and Google require this in the
+// app). They must have typed their password in the last few minutes, so an
+// unlocked phone left on a table isn't enough. If other helpers remain, the
+// family carries on without them; if they were the last helper, every phone
+// they help is unlinked and the family's history is erased.
+const RECENT_SIGN_IN_S = 5 * 60;
+exports.deleteMyAccount = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const signedInAt = Number(request.auth.token?.auth_time ?? 0);
+  if (Date.now() / 1000 - signedInAt > RECENT_SIGN_IN_S) {
+    throw new HttpsError("unauthenticated", "Please type your password again to delete your account.");
+  }
+  const userRef = db.doc(`users/${uid}`);
+  const user = (await userRef.get()).data() ?? {};
+  if (user.role === "parent") {
+    throw new HttpsError("failed-precondition", "A helper removes this phone from the family instead.");
+  }
+
+  if (user.circleId) {
+    const circleRef = db.doc(`circles/${user.circleId}`);
+    const circle = (await circleRef.get()).data();
+    if (circle && (circle.helperIds ?? []).includes(uid)) {
+      const others = circle.helperIds.filter((id) => id !== uid);
+      if (others.length) {
+        const mine = await circleRef.collection("helpRequests")
+          .where("helperId", "==", uid).where("status", "==", "accepted").get();
+        const shares = await circleRef.collection("screenShares")
+          .where("helperId", "==", uid).where("status", "==", "live").get();
+        const batch = db.batch();
+        batch.update(circleRef, { helperIds: FieldValue.arrayRemove(uid), [`members.${uid}`]: FieldValue.delete() });
+        // Hand anything they were in the middle of back to the other helpers.
+        mine.docs.forEach((d) => batch.update(d.ref, {
+          status: "waiting", helperId: FieldValue.delete(), helperName: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        }));
+        shares.docs.forEach((d) => batch.update(d.ref, { status: "ended", endedBy: uid, endedAt: FieldValue.serverTimestamp() }));
+        await batch.commit();
+      } else {
+        const batch = db.batch();
+        (circle.parentIds ?? []).forEach((id) => batch.set(db.doc(`users/${id}`),
+          { circleId: FieldValue.delete(), role: FieldValue.delete() }, { merge: true }));
+        await batch.commit();
+        await db.recursiveDelete(circleRef);
+      }
+    }
+  }
+  await db.recursiveDelete(userRef);
+  await getAuth().deleteUser(uid);
+  return { status: "deleted" };
 });
 
 // ---- Push notifications ----

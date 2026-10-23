@@ -1,7 +1,9 @@
 // End-to-end pairing against the local emulators: npm run e2e
 import assert from "node:assert";
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously } from "firebase/auth";
+import {
+  getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously, signInWithEmailAndPassword,
+} from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
@@ -22,7 +24,8 @@ async function rejects(promise, text) {
 }
 
 const josh = client("josh");
-await createUserWithEmailAndPassword(josh.auth, `josh${Date.now()}@example.com`, "password123");
+const joshEmail = `josh${Date.now()}@example.com`;
+await createUserWithEmailAndPassword(josh.auth, joshEmail, "password123");
 const { circleId } = await josh.call("createCircle", { circleName: "Smiths", displayName: "Josh" });
 const { inviteId, token } = await josh.call("createInvite", { circleId, forName: "Mom", relationship: "parent" });
 
@@ -179,6 +182,21 @@ assert.equal((await getDoc(doc(josh.db, pending.path))).data().status, "cancelle
 await assert.rejects(getDoc(doc(mom.db, `circles/${circleId}`)), "a removed phone can no longer read the family");
 const relink = await josh.call("createInvite", { circleId, forName: "Mom" });
 assert.equal((await mom.call("peekInvite", { circleId, inviteId: relink.inviteId, token: relink.token })).helperName, "Josh");
+
+// Deleting an account. Mom's phone can't delete the family; the last helper
+// deleting theirs unlinks Mom and erases the family.
+await mom.call("claimInvite", { circleId, inviteId: relink.inviteId, token: relink.token });
+await mom.call("confirmInvite", { circleId, inviteId: relink.inviteId, match: true });
+assert.equal((await josh.call("confirmInvite", { circleId, inviteId: relink.inviteId, match: true })).status, "linked");
+await rejects(mom.call("deleteMyAccount", {}), /removes this phone/);
+const scamCheck = await addDoc(collection(mom.db, `circles/${circleId}/scamChecks`),
+  { parentId: momUid, parentName: "Mom", text: "You won a prize", createdAt: serverTimestamp(), verdict: null });
+assert.equal((await scammer.call("deleteMyAccount", {})).status, "deleted");
+assert.ok((await getDoc(doc(josh.db, scamCheck.path))).exists(), "someone else deleting their account leaves this family alone");
+assert.equal((await josh.call("deleteMyAccount", {})).status, "deleted");
+assert.equal((await getDoc(doc(mom.db, `users/${momUid}`))).get("circleId"), undefined, "Mom's phone is unlinked");
+await assert.rejects(getDoc(doc(mom.db, `circles/${circleId}`)), "the family is gone");
+await rejects(signInWithEmailAndPassword(josh.auth, joshEmail, "password123"), /user-not-found|invalid-credential/);
 
 console.log("pairing e2e: all checks passed");
 process.exit(0);
