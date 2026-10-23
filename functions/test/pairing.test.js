@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { PICTURES, pickPictures, newToken, hashToken } = require("../pairing");
+const { PICTURES, RELATIONSHIPS, cleanRelationship, pickPictures, newToken, hashToken } = require("../pairing");
 
 test("pictures are distinct", () => {
   for (let i = 0; i < 200; i++) {
@@ -19,4 +19,14 @@ test("tokens are random and hashes are stable", () => {
   assert.ok(a.length >= 32);
   assert.strictEqual(hashToken(a), hashToken(a));
   assert.notStrictEqual(hashToken(a), a);
+});
+
+test("relationships: known keys pass, anything else becomes other", () => {
+  assert.strictEqual(cleanRelationship("grandparent"), "grandparent");
+  assert.strictEqual(cleanRelationship("neighbor"), "neighbor");
+  assert.strictEqual(cleanRelationship("boss"), "other");
+  assert.strictEqual(cleanRelationship(undefined), "other");
+  assert.strictEqual(cleanRelationship("toString"), "other");
+  assert.strictEqual(RELATIONSHIPS.parent, "your child");
+  assert.strictEqual(RELATIONSHIPS.other, null);
 });

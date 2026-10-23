@@ -58,6 +58,18 @@ These are requirements, not nice-to-haves:
   so only her finger can stop. Taps travel in the same end-to-end
   encrypted connection as the video (a WebRTC data channel) and are rate-limited.
   The accessibility service reads nothing on the screen (`RemoteControlService.kt`).
+  The tapping switch can be turned on right after linking, while the helper is
+  on the phone (the practice-run screen offers it); that changes nothing about
+  when taps work.
+- **Invite picked up after install.** The invite page copies the invite link
+  when the person taps Download, so the app can open it on first launch. The
+  app reads the clipboard only while it is unlinked and on its welcome screen,
+  accepts only our own site's `/join` links, ignores an invite it already
+  opened, and clears it once used. The invite still goes through "Link with
+  ...?" and the three-picture check.
+- **The trust screen shows who is asking.** `peekInvite` returns the helper's
+  photo and the relationship they picked ("your child"), only to someone
+  holding the invite's secret token, so a stranger's claim can look wrong.
 - **A dropped signal pauses, never guesses.** If the network path drops,
   Mom's phone looks for a new one on the same connection for up to 30
   seconds, with her Stop bar and notification up the whole time. Taps that

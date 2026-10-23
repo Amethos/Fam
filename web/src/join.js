@@ -1,5 +1,7 @@
-// The page an invite link opens. On Mom's Android phone it opens the invite
-// in the My Tech Kid app, or downloads the app first.
+// The page an invite link opens. On the invited Android phone it opens the
+// invite in the My Tech Kid app, or downloads the app first. Downloading also
+// copies the invite, so the app can pick it up the first time it opens and
+// nobody has to find the text message and tap the link again.
 
 import "./styles.css";
 import { androidPackage, apkPath } from "./config.js";
@@ -28,16 +30,24 @@ function render() {
   const fallback = encodeURIComponent(new URL(apkPath, location.origin).href);
   const intentUrl = `intent://join?${query}#Intent;scheme=mytechkid;package=${androidPackage};S.browser_fallback_url=${fallback};end`;
   root.innerHTML = `${brand}
-    <h1>Your family invited you to My Tech Kid</h1>
-    <p class="muted">My Tech Kid puts a big button on your phone that reaches your family when you need help.</p>
-    <a class="button full" style="min-height:64px;font-size:1.25rem" href="${esc(intentUrl)}">Open my invite</a>
+    <h1>You're invited to My Tech Kid</h1>
+    <p class="muted">My Tech Kid puts a big button on your phone that reaches someone you trust when you need help.</p>
+    <a class="button full" id="open" style="min-height:64px;font-size:1.25rem" href="${esc(intentUrl)}">Open my invite</a>
     <div class="card">
       <h2>First time? Install My Tech Kid</h2>
-      <a class="button secondary full" href="${esc(apkPath)}" download>Download My Tech Kid</a>
+      <a class="button secondary full" id="download" href="${esc(apkPath)}" download>Download My Tech Kid</a>
       <p>When it finishes, tap the download and choose <strong>Install</strong>. If your phone asks, allow your browser to <strong>install unknown apps</strong>.</p>
-      <p>Then come back to the text message and tap the link again.</p>
+      <p>Then tap <strong>Open</strong>. Your invite will be waiting.</p>
     </div>
-    <div class="alert blue"><p><strong>Only continue if this came from family you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to install this app.</p></div>`;
+    <div class="alert blue"><p><strong>Only continue if this came from someone you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to install this app.</p></div>`;
 }
 
 render();
+
+// Both buttons can end in a download (Open falls back to it when the app
+// isn't installed yet). The copy only holds this invite's link, which still
+// needs the "Link with ...?" question and the picture check on the phone call.
+for (const id of ["open", "download"]) document.getElementById(id)?.addEventListener("click", () => {
+  const link = `${location.origin}/join?${new URLSearchParams(invite)}`;
+  navigator.clipboard?.writeText(link).catch(() => { /* not allowed: they tap the link again instead */ });
+});

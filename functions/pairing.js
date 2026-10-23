@@ -31,6 +31,24 @@ const PICTURES = [
   { key: "rocket", label: "Rocket", emoji: "🚀" },
 ];
 
+// How the helper knows the person they're inviting. The helper picks one when
+// adding someone; the other phone is shown the matching word for the helper
+// ("Josh, your grandchild") so a stranger's claim can sound wrong.
+const RELATIONSHIPS = {
+  parent: "your child",
+  grandparent: "your grandchild",
+  partner: "your partner",
+  relative: "your relative",
+  friend: "your friend",
+  neighbor: "your neighbor",
+  other: null,
+};
+
+function cleanRelationship(value) {
+  const key = String(value ?? "");
+  return Object.hasOwn(RELATIONSHIPS, key) ? key : "other";
+}
+
 function pickPictures(count, randomInt = crypto.randomInt) {
   const pool = [...PICTURES];
   const picked = [];
@@ -46,4 +64,4 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-module.exports = { PICTURES, pickPictures, newToken, hashToken };
+module.exports = { PICTURES, RELATIONSHIPS, cleanRelationship, pickPictures, newToken, hashToken };

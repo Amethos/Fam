@@ -42,6 +42,13 @@ rules or pairing change needs a test in `backend-tests/`.
   → parent's phone shows "<helper> wants to help — only continue if this is
   family" → both phones show the same 3 pictures → on a phone call both tap
   "They match" → linked. For in-person setup the helper can show the link as a QR code (`web/src/qr.js`) that the parent scans with the camera; the picture check still applies.
+- **Onboarding** (Oct 23 2026): the website opens with "Who are you?" (helper /
+  "I want help with my phone", which points to the Android download). Helper
+  setup: home screen (iPhone), alerts, family name, photo, add someone ("Who are
+  they to you?" relationship, shown on the other phone's trust screen). The
+  Android app with no link offers "Text someone who can help". The invite page
+  copies the invite on Download so the first launch opens it; the practice run
+  offers to turn on tapping while the helper is still on the call.
 - **A linked phone can't be moved** to another circle by a new invite
   (`requireUnlinked` in `functions/index.js`). Adding more helpers later must
   require approval from an existing helper, never the parent alone.

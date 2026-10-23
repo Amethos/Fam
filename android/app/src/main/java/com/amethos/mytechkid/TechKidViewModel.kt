@@ -43,6 +43,23 @@ fun decodePhoto(value: Any?): ImageBitmap? {
 }
 
 data class InviteLink(val circleId: String, val inviteId: String, val token: String)
+
+/**
+ * An invite link copied by the invite page when the person tapped Download
+ * (web/src/join.js), so the first open after installing can pick it up.
+ * Only our own site's /join links count; anything else is ignored.
+ */
+fun inviteFromCopiedText(text: String?, sites: List<String>): InviteLink? {
+    val clean = text?.trim() ?: return null
+    if (clean.length > 500 || sites.none { clean.startsWith(it.trimEnd('/') + "/join?") }) return null
+    val params = clean.substringAfter('?').split('&').associate {
+        val (k, v) = it.split('=', limit = 2).let { kv -> kv[0] to kv.getOrElse(1) { "" } }
+        k to java.net.URLDecoder.decode(v, "UTF-8")
+    }
+    val c = params["c"]; val i = params["i"]; val t = params["t"]
+    if (c.isNullOrBlank() || i.isNullOrBlank() || t.isNullOrBlank()) return null
+    return InviteLink(c, i, t)
+}
 data class Picture(val emoji: String, val label: String)
 data class HelpRequest(
     val id: String,
@@ -71,7 +88,13 @@ sealed interface Screen {
     data object Loading : Screen
     data object NotConfigured : Screen
     data class Welcome(val message: String? = null) : Screen
-    data class InviteAsk(val invite: InviteLink, val helperName: String) : Screen
+    /** helperRelation is what the helper said they are ("your child"); null for "someone else". */
+    data class InviteAsk(
+        val invite: InviteLink,
+        val helperName: String,
+        val helperRelation: String? = null,
+        val helperPhoto: ImageBitmap? = null,
+    ) : Screen
     data class Pictures(
         val invite: InviteLink,
         val helperName: String,
@@ -306,17 +329,37 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         when {
             circleId != null -> screen = Screen.Scam(text)
             !userLoaded -> pendingScamText = text
-            else -> error = "My Tech Kid isn't set up yet. Ask your family to send you an invite link."
+            else -> error = "My Tech Kid isn't set up yet. Ask someone you trust to send you an invite link."
         }
+    }
+
+    /**
+     * True while this phone is waiting on the welcome screen to be linked:
+     * the only time the app looks at the clipboard, for an invite link the
+     * invite page copied when they tapped Download.
+     */
+    fun wantsCopiedInvite(): Boolean = userLoaded && circleId == null && screen is Screen.Welcome
+
+    /** An invite found on the clipboard. Ignored if this phone already opened that invite. */
+    fun handleCopiedInvite(invite: InviteLink): Boolean {
+        if (!wantsCopiedInvite() || prefs.getString("lastInvite", null) == invite.inviteId) return false
+        openInvite(invite)
+        return true
     }
 
     // ---------- Pairing ----------
 
     private fun openInvite(invite: InviteLink) = act {
         screen = Screen.Loading
+        prefs.edit().putString("lastInvite", invite.inviteId).apply()
         try {
             val result = call("peekInvite", invite.asMap())
-            screen = Screen.InviteAsk(invite, (result["helperName"] as? String)?.let(::firstName) ?: "Your family")
+            screen = Screen.InviteAsk(
+                invite,
+                (result["helperName"] as? String)?.let(::firstName) ?: "Your helper",
+                helperRelation = (result["helperRelation"] as? String)?.replaceFirstChar { it.uppercase() },
+                helperPhoto = decodePhoto(result["helperPhoto"]),
+            )
         } catch (e: Exception) {
             screen = Screen.Welcome(friendly(e))
         }
@@ -334,7 +377,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun rejectInvite() {
-        screen = Screen.Welcome("Good call. You can delete that message. Only use invites from family you know.")
+        screen = Screen.Welcome("Good call. You can delete that message. Only use invites from people you know.")
     }
 
     fun confirmPictures(match: Boolean) = act {
@@ -345,9 +388,9 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         )
         when (result["status"]) {
             "cancelled" -> screen = Screen.Welcome(
-                "Stopped. Nothing was linked. If this wasn't your family, delete the message.",
+                "Stopped. Nothing was linked. If this wasn't someone you know, delete the message.",
             )
-            "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
+            "expired" -> screen = Screen.Welcome("This invite expired. Ask the person who sent it for a new one.")
             "waiting" -> screen = current.copy(confirmed = true)
             // "linked": the user listener moves us to Home.
         }
@@ -359,8 +402,8 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             .addSnapshotListener { snap, _ ->
                 if (screen !is Screen.Pictures) return@addSnapshotListener
                 when (snap?.getString("status")) {
-                    "cancelled" -> screen = Screen.Welcome("Your family stopped this invite. Ask them to send a new one.")
-                    "expired" -> screen = Screen.Welcome("This invite expired. Ask your family to send a new one.")
+                    "cancelled" -> screen = Screen.Welcome("The person who sent this invite stopped it. Ask them for a new one.")
+                    "expired" -> screen = Screen.Welcome("This invite expired. Ask the person who sent it for a new one.")
                 }
             }
     }
