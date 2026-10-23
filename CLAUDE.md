@@ -78,7 +78,7 @@ rules or pairing change needs a test in `backend-tests/`.
 
 - `functions/` — Firebase Cloud Functions (Node 22): `createCircle`,
   `createInvite`, `peekInvite`, `claimInvite`, `confirmInvite`, `removeMember`,
-  `renameCircle`, `setMyPhoto` (helper's photo for Mom's big button), `shareIceServers` (relay passes for screen sharing), and push
+  `renameCircle`, `setMyPhoto` (helper's photo for Mom's big button), `deleteMyAccount` (helper deletes their account from Settings; needs a password typed in the last 5 minutes; the last helper's deletion unlinks the parents and erases the circle), `shareIceServers` (relay passes for screen sharing), and push
   notification triggers. Unit tests: `npm test` (pure helpers in `pairing.js`).
 - `backend-tests/` — `npm test` checks `firestore.rules`; `npm run e2e` runs the
   whole pairing flow against local emulators (in the Claude container, unset the
@@ -88,7 +88,7 @@ rules or pairing change needs a test in `backend-tests/`.
   `circles/{cid}` (name, shown as typed when `nameAsTyped`; helperIds, parentIds, members map; `members.<uid>.photo` is a helper's 256 px JPEG data URL, checked by `functions/profile.js`; `members.<uid>.device` is copied from the user doc by `onUserDevice` so helpers know whether to use in-app sharing or FaceTime),
   `circles/{cid}/invites`, `/helpRequests` (+ `/voice/clip`: Mom's voice message, kept 30 days), `/scamChecks`, `/rings` (helper rings a parent's phone), `/screenShares` (+ `/signals`;
   stage 2, see `docs/STAGE2.md`).
-- `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`.
+- `web/` — helper app, Vite + plain JS + Firebase JS SDK. `npm run build`. Home shows only what needs action; everything set up once (photo, family name, linked people and "Phone lost or replaced?", alerts, look, sign out, delete account) is in Settings (gear, `#/settings`).
   Config in `web/src/config.js`. All person-supplied text goes through `esc()`.
 - `android/` — parent app, Kotlin + Jetpack Compose, package `com.amethos.mytechkid`.
   `app/google-services.json` is a placeholder until Firebase is set up.
