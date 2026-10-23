@@ -12,7 +12,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -314,8 +314,8 @@ private fun HelpButtonLabel(helper: String, avatar: Int, photo: ImageBitmap? = n
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size((avatar * 1.3f).dp)
-                    .clip(CircleShape)
-                    .border(5.dp, OnClay, CircleShape),
+                    .shadow(10.dp, CircleShape)
+                    .clip(CircleShape),
             )
         } else {
             Avatar(helper, avatar, onClay = true)

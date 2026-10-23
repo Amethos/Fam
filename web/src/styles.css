@@ -536,5 +536,7 @@ label.button:has(+ .hidden-file:focus-visible) { outline: 3px solid var(--focus)
   width: 96px; height: 96px; border-radius: 50%; border: 4px solid #FFF8EE; background: #F5F0E1; color: #A3532F;
   display: inline-flex; align-items: center; justify-content: center; font-size: 2.6rem; box-sizing: border-box;
 }
+/* A photo sits on the button with a soft shadow, no ring. */
+.mini-face.photo { border: 0; box-shadow: 0 6px 18px rgba(60,25,10,0.35); }
 .mini-title { font-size: 1.5rem; font-weight: 600; }
 .mini-from { font-size: 0.875rem; font-weight: 700; margin-top: -4px; }
