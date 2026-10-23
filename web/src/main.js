@@ -638,7 +638,7 @@ function viewPhoto() {
 function viewDashboard() {
   const answered = state.scams.filter((s) => s.verdict).slice(0, 5);
   return `${header()}
-  <div><p class="muted">Your family</p><a class="family-name" href="#/family" aria-label="Change your family's name"><h1>${esc(familyName(state.circle))}</h1><span class="pencil">${PENCIL}</span></a></div>
+  <div><p class="muted">Your family</p><a class="family-name" href="#/family" aria-label="Change your family's name"><h1${familyName(state.circle).length > 18 ? ' class="long"' : ""}>${esc(familyName(state.circle))}</h1><span class="pencil">${PENCIL}</span></a></div>
   ${alertsBanner()}
   ${helpCards()}
   ${shareCards()}
