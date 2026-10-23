@@ -55,6 +55,8 @@ test("users can only set their name, alert tokens and platform", async () => {
   const tooMany = Array.from({ length: 11 }, (_, i) => `t${i}`);
   await assertFails(setDoc(doc(db("mom"), "users/mom"), { fcmTokens: tooMany }, { merge: true }));
   await assertFails(setDoc(doc(db("mom"), "users/mom"), { displayName: "x".repeat(61) }, { merge: true }));
+  await assertSucceeds(setDoc(doc(db("josh"), "users/josh"), { platform: "web" }, { merge: true }));
+  await assertFails(setDoc(doc(db("mom"), "users/mom"), { platform: "x".repeat(5000) }, { merge: true }));
 });
 
 test("a phone can say what kind of phone it is, and nothing else rides along", async () => {
@@ -134,6 +136,18 @@ test("only a helper answers a scam check, once", async () => {
   await assertFails(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh", { verdict: "maybe" })));
   await assertSucceeds(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh")));
   await assertFails(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh", { verdict: "safe" })));
+});
+
+// These names go into alerts and onto the helper's screen.
+test("names on help requests and scam checks must be short names", async () => {
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), parentName: "x".repeat(61) }));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), { ...helpRequest("mom"), parentName: 42 }));
+  const { parentName, ...noName } = helpRequest("mom");
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/helpRequests"), noName));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/scamChecks"), scam({ parentName: "x".repeat(61) })));
+  await assertFails(addDoc(collection(db("mom"), "circles/c1/scamChecks"), scam({ parentName: "" })));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh", { answeredByName: "x".repeat(61) })));
+  await assertFails(updateDoc(doc(db("josh"), "circles/c1/scamChecks/s1"), answer("josh", { answeredByName: null })));
 });
 
 // ---- Screen sharing (stage 2) ----
