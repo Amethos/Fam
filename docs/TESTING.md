@@ -35,10 +35,10 @@ phone, before Mom tries it on her own.
 
 ## Try the features
 
-- **Help button:** Mom taps **Get help from *you***. Her phone asks "What do you need help with?" with a big
+- **Help button:** Mom taps **Tap for help from *you***. Her phone asks "What do you need help with?" with a big
   microphone. Tap **Just ask *you* to call me**. You should get an alert. Tap **I'm on it**:
   Mom's screen says you're coming and she gets a notification. When done, tap **All fixed**.
-- **Voice message:** Mom taps Get help, then the microphone. The first time, her phone asks about the
+- **Voice message:** Mom taps Tap for help, then the microphone. The first time, her phone asks about the
   microphone: tap **While using the app**. She sees a red "*you* will hear this" bar; she says something
   and stops talking (it sends after 4 seconds of quiet) or taps **Send**. Your alert says
   **Mom needs help · voice message** and never shows her words. In the app, tap **▶ Play Mom's message**.

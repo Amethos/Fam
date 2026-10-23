@@ -40,7 +40,7 @@ Every change to rules or pairing is covered by tests that run on every build:
 
 These are requirements, not nice-to-haves:
 
-- **Never unattended.** A session starts only when the parent taps Get help
+- **Never unattended.** A session starts only when the parent taps Tap for help
   (or approves the helper's request on their own screen). No background access.
 - **Always visible.** While shared, the parent's phone shows a banner with the
   helper's name and a big Stop button. Stopping ends it instantly.

@@ -2,7 +2,7 @@
 
 My Tech Kid lets a family member (the **helper**, e.g. a grown-up kid) help a parent or
 grandparent (the **parent**) with their phone from anywhere. The parent's phone
-has one big "Get help" button that reaches the helper, plus an "Is this a scam?"
+has one big "Tap for help" button that reaches the helper, plus an "Is this a scam?"
 button. Only linked family can ever connect: that closed circle is the main
 anti-scam selling point.
 
