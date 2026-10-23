@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { esc } from "./util.js";
 import { fitVideo, gestureFor, pointOnVideo } from "./gesture.js";
-import { preferH264, summarize, liveLine, liveFps, worstLine } from "./quality.js";
+import { preferFormat, summarize, liveLine, liveFps, worstLine } from "./quality.js";
 import { linkState, isDrag, PING_EVERY_MS, RECONNECT_GIVE_UP_MS } from "./link.js";
 
 // Public STUN servers find a direct path between the phones. The backend adds
@@ -379,7 +379,7 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
         if (!ours(payload)) return; // for an earlier connection
         if (m.type === "offer") {
           await pc.setRemoteDescription({ type: "offer", sdp: payload.sdp });
-          askForH264(pc);
+          askForFormat(pc);
           s.remoteSet = true;
           for (const c of s.pending.splice(0)) await pc.addIceCandidate(c);
           const answer = await pc.createAnswer();
@@ -401,14 +401,14 @@ export async function watchShare({ db, uid, myName, circleId, shareId, parentNam
   s.end = () => updateDoc(shareRef, { status: "ended", endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});
 }
 
-// The helper's answer decides the video format; ask for H.264 when both
-// phones have it. Browsers without this keep the default.
-function askForH264(pc) {
+// The helper's answer decides the video format (VP8, see quality.js).
+// Browsers without this keep the default.
+function askForFormat(pc) {
   try {
     const codecs = RTCRtpReceiver.getCapabilities?.("video")?.codecs;
     if (!codecs?.length) return;
     for (const t of pc.getTransceivers()) {
-      if (t.receiver.track?.kind === "video" && t.setCodecPreferences) t.setCodecPreferences(preferH264(codecs));
+      if (t.receiver.track?.kind === "video" && t.setCodecPreferences) t.setCodecPreferences(preferFormat(codecs));
     }
   } catch (err) {
     console.warn("video format", err);

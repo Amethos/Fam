@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preferH264, summarize, liveLine, worstLine } from "./quality.js";
+import { preferFormat, summarize, liveLine, worstLine } from "./quality.js";
 
-test("H.264 goes first, everything else keeps its order", () => {
-  const codecs = [{ mimeType: "video/VP8" }, { mimeType: "video/rtx" }, { mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
-  assert.deepEqual(preferH264(codecs).map((c) => c.mimeType + (c.sdpFmtpLine ?? "")), ["video/H264a", "video/H264b", "video/VP8", "video/rtx"]);
-  assert.deepEqual(preferH264([{ mimeType: "video/VP8" }]), [{ mimeType: "video/VP8" }]);
+test("VP8 goes first, everything else keeps its order", () => {
+  const codecs = [{ mimeType: "video/H264", sdpFmtpLine: "a" }, { mimeType: "video/rtx" }, { mimeType: "video/VP8" }, { mimeType: "video/H264", sdpFmtpLine: "b" }];
+  assert.deepEqual(preferFormat(codecs).map((c) => c.mimeType + (c.sdpFmtpLine ?? "")), ["video/VP8", "video/H264a", "video/rtx", "video/H264b"]);
+  assert.deepEqual(preferFormat(codecs, "H264").map((c) => c.mimeType + (c.sdpFmtpLine ?? "")), ["video/H264a", "video/H264b", "video/rtx", "video/VP8"]);
 });
 
 test("a share's numbers come from the video and the path it took", () => {

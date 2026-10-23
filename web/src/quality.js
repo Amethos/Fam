@@ -1,13 +1,14 @@
 // How smooth a screen share was, and which video format to ask for.
 // Pure helpers, so they can be tested without a real connection.
 
-// Both phones have a chip for H.264 video: faster and easier on the battery
-// than the default (VP8, which an iPhone decodes in software). Formats the
-// browser can't match keep their order after it, so nothing is lost if
-// Mom's phone can't do H.264.
-export function preferH264(codecs) {
-  const h264 = codecs.filter((c) => /\/h264$/i.test(c.mimeType));
-  return [...h264, ...codecs.filter((c) => !/\/h264$/i.test(c.mimeType))];
+// The video format to ask Mom's phone for. H.264 looked best on paper
+// (hardware chips on both phones), but Gray's Samsung sent only about 2
+// pictures a second with it while scrolling, so VP8 goes first. Formats the
+// browser can't match keep their order after it, so nothing is lost.
+export const VIDEO_FORMAT = "VP8";
+export function preferFormat(codecs, name = VIDEO_FORMAT) {
+  const match = (c) => c.mimeType?.toLowerCase() === `video/${name.toLowerCase()}`;
+  return [...codecs.filter(match), ...codecs.filter((c) => !match(c))];
 }
 
 // A few numbers about one share, saved on its record when it ends so we can
