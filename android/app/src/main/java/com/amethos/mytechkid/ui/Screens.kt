@@ -297,12 +297,12 @@ private fun Avatar(name: String, size: Int, onClay: Boolean = false) {
     }
 }
 
-// Inside the big help button: their helper's initial, "Get help", "from Josh".
+// Inside the big help button: their helper's initial, "Tap for help", "from Josh".
 @Composable
 private fun HelpButtonLabel(helper: String, avatar: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Avatar(helper, avatar, onClay = true)
-        Text("Get help", fontFamily = Rounded, fontSize = 40.sp, lineHeight = 44.sp, textAlign = TextAlign.Center)
+        Text("Tap for help", fontFamily = Rounded, fontSize = 40.sp, lineHeight = 44.sp, textAlign = TextAlign.Center)
         Text("from $helper", fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
     }
 }
@@ -783,7 +783,7 @@ private fun ScamScreen(vm: TechKidViewModel, draft: String) {
     }
 }
 
-// After Get help: say what's wrong first, then it all goes to the helper in
+// After Tap for help: say what's wrong first, then it all goes to the helper in
 // one alert. The microphone is on only while the red bar shows.
 @Composable
 private fun TalkScreen(vm: TechKidViewModel) {

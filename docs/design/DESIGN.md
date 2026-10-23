@@ -48,7 +48,7 @@ from the "First looks" page of the mockup canvas
   (Latin subset; licenses in `android/third_party/fonts`), sizes in sp so
   they follow the phone's font size.
 - Home: day name (olive), big date, "Good morning, Pat", then the terracotta
-  "Get help / from Josh" button and the sand "Is this a scam?" button with an
+  "Tap for help / from Josh" button and the sand "Is this a scam?" button with an
   olive shield and check mark.
 - Earlier look: design 9 "Today's Date" (navy and amber), in `mom-picks.html`.
 - Code: `android/app/src/main/java/com/amethos/mytechkid/ui/Screens.kt`, plus the

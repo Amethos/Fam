@@ -35,7 +35,7 @@ data class HelpRequest(
     val hasVoice: Boolean = false,
 )
 
-/** The "Tell Josh what's wrong" screen, after Mom taps Get help. */
+/** The "Tell Josh what's wrong" screen, after Mom taps Tap for help. */
 sealed interface Talk {
     data object Ready : Talk
     data class Recording(val seconds: Int) : Talk
@@ -342,7 +342,7 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
     private fun myCircleName(): String = myName.ifBlank { "Your family member" }
 
     /**
-     * Get help, talk first: Mom can say what's wrong before anything is sent,
+     * Tap for help, talk first: Mom can say what's wrong before anything is sent,
      * so her helper's one alert already says there's a voice message. If she
      * taps nothing for 30 seconds, the request goes anyway: she's never stuck.
      */

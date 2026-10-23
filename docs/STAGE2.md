@@ -6,7 +6,7 @@ helper's watch page (`web/src/watch.js`), on top of the tested rules in
 
 ## How a session works
 
-1. **Mom starts it.** She taps "Get help"; once her helper answers, she taps
+1. **Mom starts it.** She taps "Tap for help"; once her helper answers, she taps
    "Show <name> my screen" and says yes to Android's own prompt. Her phone
    creates `circles/{cid}/screenShares/{id}` with `status: "waiting"`.
    Only her own phone can do this, so nobody can start watching on their own.
