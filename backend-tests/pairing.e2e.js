@@ -127,6 +127,26 @@ assert.ok(!(await getDoc(doc(josh.db, `circles/${circleId}`))).data().parentIds.
 // Only helpers can invite.
 await rejects(mom.call("createInvite", { circleId, forName: "Stranger" }), /Only helpers/);
 
+// Only a helper can rename the family or set their photo, and only in their own family.
+await rejects(mom.call("renameCircle", { circleId, name: "Mom's Club" }), /Only helpers/);
+await rejects(scammer.call("renameCircle", { circleId, name: "Send gift cards" }), /Only helpers/);
+await rejects(josh.call("renameCircle", { circleId, name: "   " }), /type a name/);
+assert.equal((await josh.call("renameCircle", { circleId, name: " Team  Blue " })).name, "Team Blue");
+const jpegBytes = Buffer.alloc(300, 9);
+jpegBytes.set([0xff, 0xd8, 0xff, 0xe0]);
+const photo = `data:image/jpeg;base64,${jpegBytes.toString("base64")}`;
+await rejects(mom.call("setMyPhoto", { circleId, photo }), /Only helpers/);
+await rejects(scammer.call("setMyPhoto", { circleId, photo }), /Only helpers/);
+await rejects(josh.call("setMyPhoto", { circleId, photo: "data:image/svg+xml;base64,PHN2Zz4=" }), /didn't work/);
+assert.equal((await josh.call("setMyPhoto", { circleId, photo })).status, "saved");
+{
+  const c = (await getDoc(doc(mom.db, `circles/${circleId}`))).data();
+  assert.equal(c.name, "Team Blue");
+  assert.equal(c.members[josh.auth.currentUser.uid].photo, photo, "Mom's phone can see Josh's photo");
+}
+assert.equal((await josh.call("setMyPhoto", { circleId, photo: null })).status, "removed");
+assert.equal((await getDoc(doc(josh.db, `circles/${circleId}`))).data().members[josh.auth.currentUser.uid].photo, undefined);
+
 // A helper can remove Mom's phone; she then needs a new invite to come back.
 const momUid = mom.auth.currentUser.uid;
 await rejects(mom.call("removeMember", { circleId, memberId: momUid }), /Only helpers/);

@@ -11,6 +11,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +51,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -297,11 +302,24 @@ private fun Avatar(name: String, size: Int, onClay: Boolean = false) {
     }
 }
 
-// Inside the big help button: their helper's initial, "Tap for help", "from Josh".
+// Inside the big help button: their helper's photo (or initial), "Tap for help", "from Josh".
 @Composable
-private fun HelpButtonLabel(helper: String, avatar: Int) {
+private fun HelpButtonLabel(helper: String, avatar: Int, photo: ImageBitmap? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Avatar(helper, avatar, onClay = true)
+        if (photo != null) {
+            // A face is easier to spot than a letter, so the photo is a bit bigger.
+            Image(
+                photo,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size((avatar * 1.3f).dp)
+                    .clip(CircleShape)
+                    .border(5.dp, OnClay, CircleShape),
+            )
+        } else {
+            Avatar(helper, avatar, onClay = true)
+        }
         Text("Tap for help", fontFamily = Rounded, fontSize = 40.sp, lineHeight = 44.sp, textAlign = TextAlign.Center)
         Text("from $helper", fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
     }
@@ -429,7 +447,7 @@ private fun IntroScreen(vm: TechKidViewModel, onDone: () -> Unit) {
                     colors = ButtonDefaults.buttonColors(containerColor = Clay, contentColor = OnClay),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
                 ) {
-                    HelpButtonLabel(first, avatar = 104)
+                    HelpButtonLabel(first, avatar = 104, photo = vm.helperPhoto)
                 }
                 ErrorText(vm)
                 QuietButton("Not now") { onDone() }
@@ -546,7 +564,7 @@ private fun HomeScreen(vm: TechKidViewModel, onShowScreen: () -> Unit, onStopScr
                 colors = ButtonDefaults.buttonColors(containerColor = Clay, contentColor = OnClay),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
             ) {
-                HelpButtonLabel(first, avatar = 116)
+                HelpButtonLabel(first, avatar = 116, photo = vm.helperPhoto)
             }
         }
         Button(

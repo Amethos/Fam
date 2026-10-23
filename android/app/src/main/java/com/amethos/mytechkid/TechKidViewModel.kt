@@ -1,7 +1,11 @@
 package com.amethos.mytechkid
 
 import android.app.Application
+import android.graphics.BitmapFactory
 import android.os.Build
+import android.util.Base64
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,6 +28,19 @@ private const val MAX_VOICE_BYTES = 400_000
 
 /** "Josh Smith" -> "Josh": Mom's screens use first names only. */
 fun firstName(name: String): String = name.trim().split(Regex("\\s+")).first().ifBlank { name }
+
+private val PHOTO = Regex("^data:image/jpeg;base64,([A-Za-z0-9+/]+={0,2})$")
+
+/** The helper's photo for the big button: only a small JPEG, or null. */
+fun decodePhoto(value: Any?): ImageBitmap? {
+    val text = value as? String ?: return null
+    if (text.length > 100_000) return null
+    val bytes = PHOTO.find(text)?.groupValues?.get(1)?.let { Base64.decode(it, Base64.DEFAULT) } ?: return null
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    if (bounds.outWidth !in 1..1024 || bounds.outHeight !in 1..1024) return null
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+}
 
 data class InviteLink(val circleId: String, val inviteId: String, val token: String)
 data class Picture(val emoji: String, val label: String)
@@ -83,6 +100,10 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var helperNames by mutableStateOf(listOf<String>())
         private set
+    /** The first helper's photo, shown on the big button instead of their initial. */
+    var helperPhoto by mutableStateOf<ImageBitmap?>(null)
+        private set
+    private var helperPhotoText: String? = null
     var activeHelp by mutableStateOf<HelpRequest?>(null)
         private set
     /** The one-time practice run on the intro screen. */
@@ -205,6 +226,8 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
                     practiceHelp = null
                     scamChecks = emptyList()
                     helperNames = emptyList()
+                    helperPhoto = null
+                    helperPhotoText = null
                     screen = Screen.Welcome("This phone isn't connected to your family any more.")
                 }
                 newCircle == null && screen is Screen.Loading -> {
@@ -227,6 +250,11 @@ class TechKidViewModel(app: Application) : AndroidViewModel(app) {
             @Suppress("UNCHECKED_CAST")
             val helperIds = snap?.get("helperIds") as? List<String> ?: emptyList()
             helperNames = helperIds.mapNotNull { (members[it]?.get("name") as? String)?.let(::firstName) }
+            val photo = helperIds.firstOrNull()?.let { members[it]?.get("photo") as? String }
+            if (photo != helperPhotoText) {
+                helperPhotoText = photo
+                helperPhoto = decodePhoto(photo)
+            }
         }
         circleListeners += db.collection("circles/$id/helpRequests")
             .whereEqualTo("parentId", me)
