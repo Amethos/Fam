@@ -85,6 +85,7 @@ function clear(list) { list.forEach((u) => u()); list.length = 0; }
 onAuthStateChanged(auth, (user) => {
   clear(userUnsubs);
   clear(circleUnsubs);
+  Object.keys(voices).forEach(forgetVoice);
   circleId = null;
   Object.assign(state, { user, profile: null, circle: null, help: [], scams: [], invites: [], shares: [] });
   if (user) {
@@ -107,9 +108,73 @@ function reportDevice(uid, saved) {
     .catch((err) => console.warn("Could not save this phone's type", err));
 }
 
+// "Tell Josh what's wrong": Mom's voice message on an open help request.
+// Loaded only inside the app (alerts never carry it), and played with one
+// Audio object outside the page, so live updates don't cut it off.
+const voices = {}; // help request id -> { unsub, url, seconds, said }
+const player = { audio: null, id: null };
+
+function watchVoices() {
+  const open = new Set(state.help.filter((h) => h.hasVoice).map((h) => h.id));
+  for (const id of Object.keys(voices)) if (!open.has(id)) forgetVoice(id);
+  for (const id of open) {
+    if (voices[id]) continue;
+    voices[id] = { url: null, seconds: 0, said: "" };
+    voices[id].unsub = onSnapshot(doc(db, `circles/${circleId}/helpRequests/${id}/voice/clip`), (snap) => {
+      const v = snap.data();
+      const entry = voices[id];
+      if (!v || !entry) return;
+      if (!entry.url && v.audio) entry.url = URL.createObjectURL(new Blob([v.audio.toUint8Array()], { type: "audio/mp4" }));
+      entry.seconds = Math.round(Number(v.seconds) || 0);
+      entry.said = typeof v.said === "string" ? v.said : "";
+      render();
+    }, () => {});
+  }
+}
+
+function forgetVoice(id) {
+  const entry = voices[id];
+  if (!entry) return;
+  entry.unsub?.();
+  if (player.id === id) stopVoice();
+  if (entry.url) URL.revokeObjectURL(entry.url);
+  delete voices[id];
+}
+
+function stopVoice() {
+  player.audio?.pause();
+  player.audio = null;
+  player.id = null;
+}
+
+function playVoice(id) {
+  const entry = voices[id];
+  if (!entry?.url) return;
+  if (player.id === id) { stopVoice(); render(); return; }
+  stopVoice();
+  player.audio = new Audio(entry.url);
+  player.id = id;
+  player.audio.addEventListener("ended", () => { if (player.id === id) { stopVoice(); render(); } });
+  player.audio.play().catch(() => { stopVoice(); render(); });
+  render();
+}
+
+function voiceBlock(h) {
+  if (!h.hasVoice) return "";
+  const v = voices[h.id];
+  if (!v?.url) return `<p class="muted">Loading ${esc(h.parentName)}'s voice message…</p>`;
+  const length = `${Math.floor(v.seconds / 60)}:${String(v.seconds % 60).padStart(2, "0")}`;
+  const playing = player.id === h.id;
+  return `<div class="voice">
+      <button class="secondary small" data-action="play-voice" data-id="${esc(h.id)}">${playing ? "Stop" : "▶ Play"} ${esc(h.parentName)}'s message</button>
+      <span class="muted">${esc(length)}</span></div>
+    ${v.said ? `<div class="quote"><small class="muted">${esc(h.parentName)} said</small><br>“${esc(v.said)}”</div>` : ""}`;
+}
+
 function watchCircle(id) {
   if (id === circleId) return;
   clear(circleUnsubs);
+  Object.keys(voices).forEach(forgetVoice);
   circleId = id;
   if (!id) {
     // Unlinked (or removed from the family): forget what we were showing.
@@ -121,7 +186,7 @@ function watchCircle(id) {
   circleUnsubs.push(
     onSnapshot(doc(db, base), (s) => { state.circle = s.data() ?? null; render(); }, fail),
     onSnapshot(query(collection(db, base, "helpRequests"), where("status", "in", ["waiting", "accepted"])),
-      (s) => { state.help = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
+      (s) => { state.help = s.docs.map((d) => ({ id: d.id, ...d.data() })); watchVoices(); render(); }, fail),
     onSnapshot(query(collection(db, base, "scamChecks"), orderBy("createdAt", "desc"), limit(20)),
       (s) => { state.scams = s.docs.map((d) => ({ id: d.id, ...d.data() })); render(); }, fail),
     onSnapshot(query(collection(db, base, "invites"), orderBy("createdAt", "desc"), limit(10)),
@@ -351,10 +416,12 @@ function helpCards() {
     if (h.status === "waiting") {
       return `<div ${popAttrs(h.id, "alert urgent")}><div class="row"><h2 class="grow">${esc(h.parentName)} needs help</h2>
         <span class="muted">${esc(timeAgo(h.createdAt))}</span></div>
+        ${voiceBlock(h)}
         <button data-action="accept-help" data-id="${esc(h.id)}">I'm on it</button></div>`;
     }
     if (h.helperId === uid) {
       return `<div class="alert blue"><h2>You're helping ${esc(h.parentName)}</h2>
+        ${voiceBlock(h)}
         <p>${helpingNote(h)}</p>
         <button class="good" data-action="done-help" data-id="${esc(h.id)}">All fixed</button></div>`;
     }
@@ -715,6 +782,7 @@ async function enableAlerts({ quiet = false } = {}) {
 }
 
 const actions = {
+  "play-voice": (el) => playVoice(el.dataset.id),
   mode: (el) => { state.authMode = el.dataset.mode; state.error = ""; render(); },
   signout: () => run(() => signOut(auth)),
   reset: () => run(async () => {

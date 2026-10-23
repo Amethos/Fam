@@ -11,6 +11,8 @@
     <!-- "Ring Mom's phone" (RingService.kt): plays for 30 seconds so she can find it. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- "Tell Josh what's wrong" (VoiceNote.kt): only while Mom's red "Josh will hear this" bar shows. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".TechKidApp"

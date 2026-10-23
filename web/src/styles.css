@@ -164,6 +164,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .picture { display: flex; align-items: center; gap: 16px; border-radius: 20px; padding: 12px 16px; font-size: 1.5rem; font-weight: 700; }
 .picture span:first-child { font-size: 2.5rem; }
 
+.voice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .quote { background: var(--surface-2); border-radius: 16px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .qr-card { display: flex; justify-content: center; background: #FFFFFF; }
