@@ -6,7 +6,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Same project as the helper's web app (web/src/config.js). None of these
 // values are secret: access is controlled by firestore.rules.
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyC5erd38-FD8DpJG3eHPyPQv9OWLuvAAbo',
   authDomain: 'my-tech-kid.firebaseapp.com',
   projectId: 'my-tech-kid',

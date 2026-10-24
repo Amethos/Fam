@@ -1,14 +1,15 @@
 name: Build iPhone app
 
 # Run by hand from GitHub: Actions > Build iPhone app > Run workflow.
-# Expo builds and signs the app on its own Macs, then sends it to TestFlight.
+# Expo builds and signs the app on its own Macs. production goes to TestFlight;
+# preview and development give an install link (in the job summary).
 # Needs the EXPO_TOKEN secret and a one-time Apple setup (iphone/README.md).
 on:
   workflow_dispatch:
     inputs:
       profile:
         description: "production = TestFlight, preview = install link, development = for live coding"
-        default: production
+        default: preview
         type: choice
         options: [production, preview, development]
 
@@ -38,9 +39,31 @@ jobs:
           node-version: 22
       - run: npm ci
       - name: Build in Expo's cloud
+        env:
+          PROFILE: ${{ inputs.profile }}
         run: |
-          if [ "${{ inputs.profile }}" = production ]; then
-            npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --no-wait --auto-submit
-          else
-            npx --yes eas-cli@latest build --platform ios --profile "${{ inputs.profile }}" --non-interactive --no-wait
+          extra=""
+          if [ "$PROFILE" = production ]; then extra="--auto-submit"; fi
+          set +e
+          npx --yes eas-cli@latest build --platform ios --profile "$PROFILE" --non-interactive --wait $extra 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          # The page with the install button (or the error), for the job summary.
+          page=$(grep -o 'https://expo.dev/accounts/[^ ]*/builds/[0-9a-f-]*' build.log | tail -1)
+          echo "Build page: $page" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ] && [ -n "$page" ]; then
+            # Show Xcode's errors here, so they can be read without signing in to Expo.
+            npx --yes eas-cli@latest build:view "${page##*/}" --json > view.json || true
+            node -e '
+              const v = JSON.parse(require("fs").readFileSync("view.json", "utf8"));
+              console.log("Error:", JSON.stringify(v.error ?? null));
+              for (const url of v.logFiles ?? []) console.log(url);
+            ' | tee summary.txt || true
+            grep -o 'https://[^ ]*' summary.txt | while read -r url; do
+              curl -sSL "$url" -o log.txt || continue
+              echo "----- build log: errors, then the end -----"
+              grep -a -E 'error:|❌|fatal|Error ' log.txt | head -80 || true
+              tail -60 log.txt
+            done
           fi
+          exit "$status"

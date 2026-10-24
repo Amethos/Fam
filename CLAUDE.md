@@ -105,7 +105,9 @@ rules or pairing change needs a test in `backend-tests/`.
   Screen sharing trial: plain test screens link to the family by invite
   (`mytechkid://join`) and share the screen with the helper's watch page;
   Apple's broadcast add-on is Swift in `iphone/targets/broadcast/` (made by
-  `@bacons/apple-targets`) and hands pictures to `react-native-webrtc`.
+  `@bacons/apple-targets`) and sends the screen over WebRTC itself (the app
+  is paused in the background), using Firestore's REST API with the app's
+  sign-in. JS changes ship with the "Update iPhone app" workflow (EAS Update).
 - `.github/workflows/build.yml` — tests backend, builds web + APK, and deploys
   everything to Firebase on pushes to `main` once the
   `FIREBASE_SERVICE_ACCOUNT` secret exists. The APK is served at
