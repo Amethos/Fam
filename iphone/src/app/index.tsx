@@ -30,7 +30,8 @@ export default function Home() {
 
   async function onShare() {
     if (!family.uid || !family.circleId) return;
-    await startShare({ uid: family.uid, circleId: family.circleId, myName: family.myName });
+    const ready = await startShare({ uid: family.uid, circleId: family.circleId, myName: family.myName });
+    if (!ready) return;
     // Apple's own sheet: Mom taps Start Broadcast there.
     const tag = findNodeHandle(picker.current);
     if (tag) NativeModules.ScreenCapturePickerViewManager?.show(tag);

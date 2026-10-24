@@ -56,11 +56,22 @@ only in FaceTime). The screens are plain test screens for now.
 4. On the computer, tap the share card to watch. Then leave the app on the
    iPhone and open others: does the picture keep coming?
 
-How it works: Apple runs a small add-on (`targets/broadcast/`, Swift) with
-the screen while the red bar shows. It passes the pictures to the app over a
-local socket in the shared app group, and the app sends them to the helper
-over WebRTC (`src/lib/share.ts`), speaking the same language as
-`ScreenShareService.kt`.
+How it works: Apple runs a small add-on (`targets/broadcast/`, Swift) for as
+long as the red bar shows. The app makes the share (`src/lib/share.ts`) and
+hands it to the add-on through the shared app group, and the add-on sends
+the screen to the helper over WebRTC itself (`ShareSession.swift`), speaking
+the same language as `ScreenShareService.kt`. It has to: iOS pauses the app
+a few seconds after Mom leaves it.
+
+## Builds and updates
+
+- **Build iPhone app** (GitHub Actions, run by hand): `preview` gives an
+  install link that works on its own (the link is in the job summary);
+  `development` needs `npx expo start` on a computer; `production` goes to
+  TestFlight. A new build is only needed when native parts change.
+- **Update iPhone app**: sends JavaScript changes to installed `preview` or
+  `production` apps, which pick them up the next time they open. An update
+  only reaches builds with the same native parts (runtime "fingerprint").
 
 ## For developers
 

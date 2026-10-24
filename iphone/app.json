@@ -23,11 +23,7 @@
         ]
       },
       "infoPlist": {
-        "RTCAppGroupIdentifier": "group.com.amethos.mytechkid",
-        "RTCScreenSharingExtension": "com.amethos.mytechkid.broadcast",
-        "UIBackgroundModes": [
-          "voip"
-        ]
+        "RTCScreenSharingExtension": "com.amethos.mytechkid.broadcast"
       }
     },
     "plugins": [
@@ -65,6 +61,13 @@
       "eas": {
         "projectId": "fccf3a38-99c3-4c6d-a202-314161979331"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fccf3a38-99c3-4c6d-a202-314161979331",
+      "fallbackToCacheTimeout": 3000
     }
   }
 }

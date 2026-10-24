@@ -1,0 +1,42 @@
+name: Update iPhone app
+
+# Run by hand from GitHub: Actions > Update iPhone app > Run workflow.
+# Sends screen and wording changes to installed iPhone apps without a new
+# install: they pick it up the next time they open. Apps only take updates
+# made for their own build (runtimeVersion "fingerprint" in app.json), so a
+# change to native parts still needs a new build (Build iPhone app).
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Which installs get it"
+        default: preview
+        type: choice
+        options: [preview, production]
+      message:
+        description: "What changed (shown on expo.dev)"
+        default: "Update"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: iphone
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Publish the update
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          MESSAGE: ${{ inputs.message }}
+        run: npx --yes eas-cli@latest update --channel "$CHANNEL" --platform ios --message "$MESSAGE" --non-interactive
