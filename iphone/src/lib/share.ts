@@ -80,7 +80,7 @@ export async function startShare(opts: { uid: string; circleId: string; myName: 
       const status = snap.get('status');
       if (status === 'live') setShare({ status: 'live', watcher: firstName((snap.get('helperName') as string) || 'Your family') });
       else if (status === 'ended') reset();
-    });
+    }, () => reset());
     // Mom never tapped Start Broadcast, or nobody came: the add-on can't see it then.
     joinTimer = setTimeout(() => { if (shareState.status === 'waiting') stopShare(); }, JOIN_WINDOW_MS);
     return true;
