@@ -62,9 +62,12 @@ Hold "Test version" at the top for the share diary (test builds only).
 ## Alerts
 
 Alerts reach iPhones through Expo's push service (`src/lib/alerts.ts`,
-`notifyExpo` in `functions/index.js`). They're switched off in `app.json`
-(`expo-notifications` › `enableRemoteNotifications: false`) until Gray adds
-Apple's push key once: then set it to `true` and make a new build.
+`notifyExpo` in `functions/index.js`). Apple needs a push key and the Push
+Notifications switch on the app, which only an interactive build can set up
+(once): on the PC, `git pull`, `cd iphone`, `npm ci`, then
+`npx eas-cli@latest build --platform ios --profile preview`, sign in to Apple
+when asked, and answer **Yes** to setting up push notifications. GitHub builds
+work again after that.
 
 How it works: Apple runs a small add-on (`targets/broadcast/`, Swift) for as
 long as the red bar shows. The app makes the share (`src/lib/share.ts`) and

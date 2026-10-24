@@ -394,6 +394,7 @@ export async function finishTalking() {
   clearTalkTimer();
   set({ talk: { kind: 'sending' } });
   const recording = await voice.stopRecording();
+  log(recording ? `voice message ${Math.round(recording.bytes.length / 1000)} KB, ${Math.round(recording.seconds)} s` : 'no voice message');
   const ok = recording && recording.bytes.length > 0 && recording.bytes.length <= voice.MAX_VOICE_BYTES && recording.seconds >= 1;
   sendHelp(ok ? recording : null);
 }
