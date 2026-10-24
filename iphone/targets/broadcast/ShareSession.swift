@@ -63,10 +63,14 @@ final class ShareSession: NSObject {
   static let joinWindow: TimeInterval = 10 * 60
   private static let maxShare: TimeInterval = 60 * 60
   private static let maxReconnects = 20
-  private static let maxBitrate = 4_000_000
-  /// About 720 x 1560 on most iPhones: sharp enough to read, light enough
-  /// for Apple's memory limit on broadcast add-ons.
-  private static let maxPixels = 1_150_000.0
+  private static let maxBitrate = 2_500_000
+  /// About 580 x 1260 on most iPhones: sharp enough to read, light enough
+  /// for Apple's 50 MB memory limit on broadcast add-ons (iOS ends the
+  /// broadcast without a word when it goes over).
+  private static let maxPixels = 730_000.0
+  /// Pictures a second. ReplayKit can send 60; extra ones are dropped here,
+  /// before WebRTC makes a scaled copy of each.
+  private static let fps = 20.0
   private static let firstGen = "first"
 
   // H.264 only: iPhones encode it in hardware, which keeps the add-on small.
@@ -83,6 +87,7 @@ final class ShareSession: NSObject {
   private let capturer: RTCVideoCapturer
   private let track: RTCVideoTrack
   private var sized = false
+  private var lastFrame = 0.0
 
   private var pc: RTCPeerConnection?
   private var control: RTCDataChannel?
@@ -139,7 +144,9 @@ final class ShareSession: NSObject {
 
   /// One picture of the screen, from ReplayKit's thread.
   func push(_ sample: CMSampleBuffer) {
-    guard let pixels = CMSampleBufferGetImageBuffer(sample) else { return }
+    let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
+    guard time - lastFrame >= 0.9 / Self.fps, let pixels = CMSampleBufferGetImageBuffer(sample) else { return }
+    lastFrame = time
     if !sized {
       // Same shape as the screen (no cropping), smaller if it's big.
       sized = true
@@ -147,7 +154,7 @@ final class ShareSession: NSObject {
       let height = Double(CVPixelBufferGetHeight(pixels))
       let scale = min(1, (Self.maxPixels / max(1, width * height)).squareRoot())
       let even = { (v: Double) in Int32(v * scale / 2) * 2 }
-      source.adaptOutputFormat(toWidth: even(width), height: even(height), fps: 30)
+      source.adaptOutputFormat(toWidth: even(width), height: even(height), fps: Int32(Self.fps))
     }
     var rotation = RTCVideoRotation._0
     if let raw = CMGetAttachment(sample, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil) as? NSNumber,
@@ -159,7 +166,6 @@ final class ShareSession: NSObject {
       default: break
       }
     }
-    let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
     let frame = RTCVideoFrame(
       buffer: RTCCVPixelBuffer(pixelBuffer: pixels),
       rotation: rotation,
