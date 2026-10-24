@@ -74,12 +74,15 @@ final class ShareSession: NSObject {
   static let joinWindow: TimeInterval = 10 * 60
   private static let maxShare: TimeInterval = 60 * 60
   private static let maxReconnects = 20
-  private static let maxBitrate = 4_000_000
-  /// About 720 x 1560 on most iPhones: sharp enough to read, light enough
-  /// for Apple's memory limit on broadcast add-ons.
-  private static let maxPixels = 1_150_000.0
+  private static let maxBitrate = 2_500_000
+  /// About 580 x 1260 on most iPhones: sharp enough to read, light enough
+  /// for Apple's 50 MB memory limit on broadcast add-ons (iOS ends the
+  /// add-on without a word when it goes over). The bigger picture in the
+  /// diary build never got going on Gray's iPhone.
+  private static let maxPixels = 730_000.0
   private static let firstGen = "first"
-  private static let fps = 30.0
+  /// Pictures a second; ReplayKit can send 60.
+  private static let fps = 20.0
 
   // H.264 only: iPhones encode it in hardware, which keeps the add-on small.
   private static let factory: RTCPeerConnectionFactory = {
@@ -156,7 +159,6 @@ final class ShareSession: NSObject {
   /// One picture of the screen, from ReplayKit's thread.
   func push(_ sample: CMSampleBuffer) {
     let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
-    // ReplayKit can send 60 a second; 30 is plenty and half the work.
     guard time - lastFrame >= 0.9 / Self.fps, let screen = CMSampleBufferGetImageBuffer(sample) else { return }
     lastFrame = time
     // ReplayKit reuses its pictures' memory right away, so sending its own
@@ -206,7 +208,10 @@ final class ShareSession: NSObject {
     }
     guard let pool, let transfer else { return nil }
     var made: CVPixelBuffer?
-    guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &made) == kCVReturnSuccess, let out = made,
+    // At most 4 copies at once (memory): while the encoder is behind, the picture is skipped.
+    let limit = [kCVPixelBufferPoolAllocationThresholdKey as String: 4] as CFDictionary
+    guard CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(kCFAllocatorDefault, pool, limit, &made) == kCVReturnSuccess,
+          let out = made,
           VTPixelTransferSessionTransferImage(transfer, from: screen, to: out) == noErr else { return nil }
     return out
   }

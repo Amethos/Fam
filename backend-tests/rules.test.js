@@ -59,6 +59,14 @@ test("users can only set their name, alert tokens and platform", async () => {
   await assertFails(setDoc(doc(db("mom"), "users/mom"), { platform: "x".repeat(5000) }, { merge: true }));
 });
 
+test("an iPhone can save its alert tokens, but not too many", async () => {
+  await assertSucceeds(setDoc(doc(db("mom"), "users/mom"), { expoTokens: arrayUnion("ExponentPushToken[abc]"), platform: "ios" }, { merge: true }));
+  const tooMany = Array.from({ length: 11 }, (_, i) => `ExponentPushToken[t${i}]`);
+  await assertFails(setDoc(doc(db("mom"), "users/mom"), { expoTokens: tooMany }, { merge: true }));
+  await assertFails(setDoc(doc(db("mom"), "users/mom"), { expoTokens: "not a list" }, { merge: true }));
+  await assertFails(setDoc(doc(db("stranger"), "users/mom"), { expoTokens: ["ExponentPushToken[x]"] }, { merge: true }));
+});
+
 test("a phone can say what kind of phone it is, and nothing else rides along", async () => {
   const set = (device) => setDoc(doc(db("mom"), "users/mom"), { device }, { merge: true });
   await assertSucceeds(set({ platform: "android", model: "Samsung SM-S911U", osVersion: 14 }));

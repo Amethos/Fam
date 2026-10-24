@@ -102,8 +102,14 @@ rules or pairing change needs a test in `backend-tests/`.
   `EXPO_TOKEN` secret). In the Claude container `npx expo install` can't reach
   Expo's servers: install with npm at the version in
   `node_modules/expo/bundledNativeModules.json`. Native `ios/` is generated.
-  Screen sharing trial: plain test screens link to the family by invite
-  (`mytechkid://join`) and share the screen with the helper's watch page;
+  It's the parent app for iPhones: the same screens as Android in Warm Home
+  (help button with voice message, scam check, practice run, invite with
+  pictures via `mytechkid://join`); body text uses the iPhone's own font
+  (the bundled Nunito Sans files share one internal name, which iOS can't
+  load side by side). Alerts go through Expo's push service (`expoTokens` on
+  the user doc, `notifyExpo` in `functions/index.js`), off in `app.json`
+  until Apple's push key is added. The helper sees but can't tap an iPhone.
+  Screen sharing:
   Apple's broadcast add-on is Swift in `iphone/targets/broadcast/` (made by
   `@bacons/apple-targets`) and sends the screen over WebRTC itself (the app
   is paused in the background), using Firestore's REST API with the app's

@@ -3,8 +3,13 @@
 The iPhone app, built with [Expo](https://expo.dev). Expo builds it on its own
 Macs in the cloud, so no Mac is needed. The Android app stays in `android/`.
 
-Right now this is a placeholder screen. The plan and the order of work are in
-the "Expo for the iPhone app" doc (https://claude.ai/artifact/8Vc1iRpg6Bxb1H4uxuFxfE).
+It's the app for someone getting help on an iPhone: the same screens as Mom's
+Android app in the Warm Home look (approved mockups:
+https://claude.ai/artifact/KqMNhJSYhXtNo7pSZ4T7Qi): linking by invite with the
+picture check, a practice run, the big "Tap for help" button (with a voice
+message first), "Is this a scam?", and showing the screen with Apple's Start
+Broadcast. Code: screens in `src/app/index.tsx`, the look in
+`src/components/ui.tsx`, what the phone knows and does in `src/lib/family.ts`.
 
 ## One-time setup (Gray)
 
@@ -43,18 +48,23 @@ build instead.
 
 ## Screen sharing test
 
-The app can link to the family and show its screen to the helper's page,
-like Mom's Android app. The iPhone can't be tapped for (Apple allows that
-only in FaceTime). The screens are plain test screens for now.
-
 1. On a computer, open the helper web app and send an invite ("Add Mom or
    Dad"). Open the invite link on the test iPhone and tap **Testing the iPhone
    app? Open the invite there**.
 2. Tap Continue, check the three pictures with the helper page, and tap
    **They match** on both.
-3. Tap **Share my screen**, then **Start Broadcast** in Apple's sheet.
-4. On the computer, tap the share card to watch. Then leave the app on the
-   iPhone and open others: does the picture keep coming?
+3. Tap **Tap for help**. On the computer, tap **I'm on it**. On the iPhone,
+   tap **Show … my screen**, then **Start Broadcast** in Apple's sheet.
+4. Leave the app on the iPhone and open others: does the picture keep coming?
+
+Hold "Test version" at the top for the share diary (test builds only).
+
+## Alerts
+
+Alerts reach iPhones through Expo's push service (`src/lib/alerts.ts`,
+`notifyExpo` in `functions/index.js`). They're switched off in `app.json`
+(`expo-notifications` › `enableRemoteNotifications: false`) until Gray adds
+Apple's push key once: then set it to `true` and make a new build.
 
 How it works: Apple runs a small add-on (`targets/broadcast/`, Swift) for as
 long as the red bar shows. The app makes the share (`src/lib/share.ts`) and

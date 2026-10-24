@@ -18,10 +18,10 @@ test("knows which phone the helper is on", () => {
 test("picks the way to help from both phones", () => {
   const iphone18 = { platform: "ios", osVersion: 18 };
   assert.equal(helpMethod({ platform: "android" }, iphone18), "app");
-  assert.equal(helpMethod(iphone18, iphone18), "facetime-control");
-  assert.equal(helpMethod({ platform: "ios", osVersion: 17 }, iphone18), "facetime-view");
-  assert.equal(helpMethod(iphone18, { platform: "android", osVersion: 14 }), "facetime-view");
-  assert.equal(helpMethod(iphone18, { platform: "computer" }), "facetime-view");
+  assert.equal(helpMethod(iphone18, iphone18), "app-view-tap-on-facetime");
+  assert.equal(helpMethod({ platform: "ios", osVersion: 17 }, iphone18), "app-view");
+  assert.equal(helpMethod(iphone18, { platform: "android", osVersion: 14 }), "app-view");
+  assert.equal(helpMethod(iphone18, { platform: "computer" }), "app-view");
   assert.equal(helpMethod(undefined, iphone18), null);
 });
 
