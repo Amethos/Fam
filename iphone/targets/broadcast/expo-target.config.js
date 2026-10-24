@@ -10,7 +10,7 @@ module.exports = (config) => ({
   displayName: 'My Tech Kid',
   bundleIdentifier: '.broadcast',
   deploymentTarget: '16.4',
-  frameworks: ['ReplayKit'],
+  frameworks: ['ReplayKit', 'VideoToolbox'],
   entitlements: {
     'com.apple.security.application-groups': config.ios.entitlements['com.apple.security.application-groups'],
   },

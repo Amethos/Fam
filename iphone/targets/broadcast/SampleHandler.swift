@@ -8,6 +8,7 @@ class SampleHandler: RPBroadcastSampleHandler {
   private var session: ShareSession?
 
   override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
+    ShareLog.add("broadcast started")
     // Only a share Mom just started in the app, never one from Control Center alone.
     guard let request = ShareRequest.take() else {
       finishBroadcastWithError(Self.note("Open My Tech Kid and tap Share my screen to start."))
@@ -26,6 +27,7 @@ class SampleHandler: RPBroadcastSampleHandler {
   }
 
   override func broadcastFinished() {
+    ShareLog.add("broadcast finished")
     session?.finish()
   }
 

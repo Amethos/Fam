@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, findNodeHandle, NativeModules, Pressable, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, findNodeHandle, NativeModules, Pressable, ScrollView, Share, StyleSheet, Text, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenCapturePickerView } from 'react-native-webrtc';
@@ -8,6 +8,7 @@ import { ScreenCapturePickerView } from 'react-native-webrtc';
 import {
   acceptInvite, clearError, confirmPictures, rejectInvite, start, useFamily,
 } from '@/lib/family';
+import { clearLog, log, readLog } from '@/lib/log';
 import { startShare, stopShare, useShare } from '@/lib/share';
 
 // Plain test screens for the screen sharing trial. The real iPhone screens
@@ -22,6 +23,7 @@ export default function Home() {
   const family = useFamily();
   const share = useShare();
   const picker = useRef(null);
+  const [diary, setDiary] = useState<string | null>(null);
 
   useEffect(() => { start(); }, []);
 
@@ -34,13 +36,26 @@ export default function Home() {
     if (!ready) return;
     // Apple's own sheet: Mom taps Start Broadcast there.
     const tag = findNodeHandle(picker.current);
-    if (tag) NativeModules.ScreenCapturePickerViewManager?.show(tag);
+    const manager = NativeModules.ScreenCapturePickerViewManager;
+    log(tag && manager ? "showing Apple's broadcast sheet" : `can't show Apple's sheet (view ${tag ? 'ok' : 'missing'}, manager ${manager ? 'ok' : 'missing'})`);
+    if (tag) manager?.show(tag);
   }
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
-        <Text style={styles.tag}>Test version</Text>
+        {/* Hold to see the share diary (testing only). */}
+        <Pressable onLongPress={() => setDiary(diary === null ? readLog() || 'Nothing yet.' : null)}>
+          <Text style={styles.tag}>Test version</Text>
+        </Pressable>
+        {diary !== null ? (
+          <View style={styles.card}>
+            <Text style={styles.diary} selectable>{diary}</Text>
+            <Big label="Send the diary" onPress={() => Share.share({ message: diary })} />
+            <Big label="Clear" onPress={() => { clearLog(); setDiary('Nothing yet.'); }} quiet />
+            <Big label="Close" onPress={() => setDiary(null)} quiet />
+          </View>
+        ) : null}
         {family.error ? (
           <Pressable onPress={clearError} style={styles.error}>
             <Text style={styles.errorText}>{family.error}</Text>
@@ -141,6 +156,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.ground },
   page: { padding: 20, gap: 16 },
   tag: { alignSelf: 'center', color: C.muted, fontSize: 14 },
+  diary: { fontFamily: 'Menlo', fontSize: 11, lineHeight: 15, color: C.ink },
   card: { backgroundColor: C.card, borderRadius: 24, padding: 24, gap: 16 },
   title: { fontFamily: 'VarelaRound-Regular', fontSize: 28, color: C.ink },
   body: { fontSize: 20, lineHeight: 28, color: C.muted },
