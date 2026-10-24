@@ -12,7 +12,7 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 const { getMessaging } = require("firebase-admin/messaging");
 const { getAuth } = require("firebase-admin/auth");
 const { RELATIONSHIPS, cleanRelationship, pickPictures, hashToken, newToken } = require("./pairing");
-const { deadTokens } = require("./alerts");
+const { deadTokens, isExpoToken, expoMessages, deadExpoTokens } = require("./alerts");
 const { cleanDevice, sameDevice } = require("./device");
 const { relayPass } = require("./relay");
 const { cleanCircleName, cleanPhoto } = require("./profile");
@@ -332,15 +332,38 @@ exports.deleteMyAccount = onCall(async (request) => {
 
 // ---- Push notifications ----
 
+// Android phones and browsers have fcmTokens; iPhones have expoTokens.
 async function tokensFor(uids) {
   const snaps = await Promise.all(uids.map((u) => db.doc(`users/${u}`).get()));
   const pairs = [];
-  snaps.forEach((s) => (s.get("fcmTokens") ?? []).forEach((t) => pairs.push({ uid: s.id, token: t })));
-  return pairs;
+  const expo = [];
+  snaps.forEach((s) => {
+    (s.get("fcmTokens") ?? []).forEach((t) => pairs.push({ uid: s.id, token: t }));
+    (s.get("expoTokens") ?? []).filter(isExpoToken).forEach((t) => expo.push({ uid: s.id, token: t }));
+  });
+  return { pairs, expo };
+}
+
+// Sends to iPhones through Expo's push service, and forgets uninstalled apps.
+async function notifyExpo(expo, message) {
+  if (expo.length === 0) return;
+  try {
+    const res = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(expoMessages(expo.map((p) => p.token), message)),
+    });
+    const tickets = (await res.json())?.data;
+    const dead = deadExpoTokens(expo, Array.isArray(tickets) ? tickets : []);
+    await Promise.all(dead.map((p) => db.doc(`users/${p.uid}`).update({ expoTokens: FieldValue.arrayRemove(p.token) })));
+  } catch (err) {
+    console.warn("iPhone alert failed", err?.message);
+  }
 }
 
 async function notify(uids, title, body, link) {
-  const pairs = await tokensFor(uids);
+  const { pairs, expo } = await tokensFor(uids);
+  await notifyExpo(expo, { title, body, link });
   if (pairs.length === 0) return;
   const res = await getMessaging().sendEachForMulticast({
     tokens: pairs.map((p) => p.token),
@@ -449,7 +472,11 @@ exports.shareIceServers = onCall(async (request) => {
 exports.onRing = onDocumentCreated("circles/{circleId}/rings/{id}", async (event) => {
   const ring = event.data.data();
   if (ring.createdAt?.toMillis() < Date.now() - 2 * 60 * 1000) return;
-  const pairs = await tokensFor([ring.parentId]);
+  const { pairs, expo } = await tokensFor([ring.parentId]);
+  // An iPhone can't play a sound by itself from the background: it gets a
+  // loud, time-sensitive alert instead.
+  const helperName = String(ring.helperName ?? "") || "Your family";
+  await notifyExpo(expo, { title: `${helperName} is ringing your phone`, body: "They're trying to find it.", ring: true });
   if (pairs.length === 0) return;
   const res = await getMessaging().sendEachForMulticast({
     tokens: pairs.map((p) => p.token),

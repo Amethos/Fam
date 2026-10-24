@@ -583,6 +583,10 @@ function helpingNote(h) {
     return `Give ${name} a call now. Their phone is asking them to share their screen: once they tap
       <strong>Start</strong>, it opens here by itself, and from there you can ask to tap for them.`;
   }
+  if (parent?.device?.platform === "ios") {
+    return `Give ${name} a call now. To see their iPhone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>,
+      then <strong>Start Broadcast</strong>. It opens here by itself. iPhones don't let anyone tap for them, so talk them through it.`;
+  }
   return `Give them a call now. To see their phone, ask them to tap <strong>Show ${esc(myName())} my screen</strong>.
     It opens here by itself, and from there you can ask to tap for them.`;
 }
@@ -592,12 +596,13 @@ function howToHelp(p) {
   switch (helpMethod(p.device, myDevice)) {
     case "app":
       return `<p class="muted">${name} can show you their screen from the My Tech Kid app. You'll get an alert when they do.</p>`;
-    case "facetime-control":
-      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen.
-        Then tap the pointing-hand button to ask to tap for them, and they tap Allow.</p>`;
-    case "facetime-view":
-      return `<p class="muted">${name} has an iPhone, so help on FaceTime. On the call, ask them to tap Share My Screen so you can
-        see it and talk them through it. To tap for them too, you both need iPhones on iOS 18 or newer.</p>`;
+    case "app-view-tap-on-facetime":
+      return `<p class="muted">${name} can show you their screen from the My Tech Kid app. iPhones don't let apps tap for
+        someone, so talk them through it. To tap for them, use FaceTime: ask them to tap Share My Screen, then tap the
+        pointing-hand button, and they tap Allow.</p>`;
+    case "app-view":
+      return `<p class="muted">${name} can show you their screen from the My Tech Kid app, so you can see it and talk them
+        through it. iPhones don't let apps tap for someone.</p>`;
     default:
       return "";
   }

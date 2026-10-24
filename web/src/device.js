@@ -16,16 +16,18 @@ export function thisDevice(ua = navigator.userAgent, touchPoints = navigator.max
   return { platform: "computer" };
 }
 
-// "app": Mom shows her screen from the My Tech Kid app (Android).
-// "facetime-control": FaceTime screen sharing, and the helper can tap too
-//   (both on iOS 18 or newer).
-// "facetime-view": FaceTime screen sharing to watch and talk her through it.
+// "app": Mom shows her screen from the My Tech Kid app (Android), and the
+//   helper can ask to tap.
+// "app-view-tap-on-facetime": her iPhone app shows her screen (no tapping:
+//   iPhones only allow that in FaceTime), and FaceTime's remote control
+//   works for tapping (both on iOS 18 or newer).
+// "app-view": her iPhone app shows her screen to watch and talk her through it.
 // null: we don't know her phone yet.
 export function helpMethod(parent, helper) {
   if (parent?.platform === "android") return "app";
   if (parent?.platform === "ios") {
     const canTap = helper?.platform === "ios" && (helper.osVersion ?? 0) >= 18 && (parent.osVersion ?? 0) >= 18;
-    return canTap ? "facetime-control" : "facetime-view";
+    return canTap ? "app-view-tap-on-facetime" : "app-view";
   }
   return null;
 }

@@ -40,6 +40,8 @@ service cloud.firestore {
     function validUserFields() {
       let d = request.resource.data;
       return (!('fcmTokens' in d) || (d.fcmTokens is list && d.fcmTokens.size() <= 10))
+        // iPhones get alerts through Expo's push service (functions/alerts.js).
+        && (!('expoTokens' in d) || (d.expoTokens is list && d.expoTokens.size() <= 10))
         && (!('displayName' in d) || (d.displayName is string && d.displayName.size() <= 60))
         && (!('platform' in d) || d.platform in ['android', 'ios', 'web'])
         && (!('device' in d) || validDevice(d.device));
@@ -59,10 +61,10 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'platform', 'device'])
+        && request.resource.data.keys().hasOnly(['displayName', 'fcmTokens', 'expoTokens', 'platform', 'device'])
         && validUserFields();
       allow update: if signedIn() && request.auth.uid == uid
-        && changedOnly(['displayName', 'fcmTokens', 'platform', 'device'])
+        && changedOnly(['displayName', 'fcmTokens', 'expoTokens', 'platform', 'device'])
         && validUserFields();
     }
 

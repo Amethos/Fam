@@ -78,6 +78,12 @@ export async function startShare(opts: { uid: string; circleId: string; myName: 
       iceServers,
     }));
     log(`handed to the broadcast add-on (${iceServers.length} relay entries)`);
+    // The add-on takes the share as soon as Apple starts it; still here means it never started.
+    setTimeout(() => {
+      if (ref?.id === share.id && new ExtensionStorage(APP_GROUP).get('shareRequest')) {
+        log("Apple's broadcast hasn't started after 20 s (Start Broadcast not tapped, or an old one still running?)");
+      }
+    }, 20_000);
     setShare({ status: 'waiting' });
     unsub = onSnapshot(share, (snap) => {
       const status = snap.get('status');

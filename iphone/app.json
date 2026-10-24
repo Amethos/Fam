@@ -51,6 +51,21 @@
           "microphonePermission": "My Tech Kid uses the microphone only when you choose to talk to your family."
         }
       ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "My Tech Kid uses the microphone only when you choose to talk to your family.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#A3532F",
+          "mode": "production",
+          "enableRemoteNotifications": false
+        }
+      ],
       "@bacons/apple-targets"
     ],
     "experiments": {

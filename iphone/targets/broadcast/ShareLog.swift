@@ -22,6 +22,8 @@ enum ShareLog {
     var lines = (defaults.string(forKey: key) ?? "").split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
     lines.append("\(clock.string(from: Date())) add-on: \(line)")
     defaults.set(lines.suffix(maxLines).joined(separator: "\n"), forKey: key)
+    // Written out now: if iOS ends the add-on a moment later, the line survives.
+    defaults.synchronize()
   }
 
   /// How much memory the add-on uses, in MB (iOS stops it past about 50).
