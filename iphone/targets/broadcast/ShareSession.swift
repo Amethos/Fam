@@ -2,6 +2,7 @@ import CoreMedia
 import Foundation
 import ImageIO
 import ReplayKit
+import VideoToolbox
 import WebRTC
 
 // Sends Mom's screen to her helper's watch page (web/src/watch.js) for as
@@ -51,10 +52,20 @@ struct ShareRequest: Decodable {
     guard let defaults = UserDefaults(suiteName: appGroup) else { return nil }
     let text = defaults.string(forKey: key)
     defaults.removeObject(forKey: key)
-    guard let data = text?.data(using: .utf8),
-          let request = try? JSONDecoder().decode(ShareRequest.self, from: data) else { return nil }
+    guard let data = text?.data(using: .utf8) else {
+      ShareLog.add("no share from the app")
+      return nil
+    }
+    let request: ShareRequest
+    do {
+      request = try JSONDecoder().decode(ShareRequest.self, from: data)
+    } catch {
+      ShareLog.add("couldn't read the share from the app: \(error)")
+      return nil
+    }
     // Only one Mom just asked for: the helper's join window is 10 minutes.
     let age = Date().timeIntervalSince1970 - request.createdAt / 1000
+    ShareLog.add("share \(request.shareId.prefix(6)) from the app, \(Int(age)) s old, \(request.iceServers.count) relay entries")
     return age >= 0 && age < ShareSession.joinWindow ? request : nil
   }
 }
@@ -68,6 +79,7 @@ final class ShareSession: NSObject {
   /// for Apple's memory limit on broadcast add-ons.
   private static let maxPixels = 1_150_000.0
   private static let firstGen = "first"
+  private static let fps = 30.0
 
   // H.264 only: iPhones encode it in hardware, which keeps the add-on small.
   private static let factory: RTCPeerConnectionFactory = {
@@ -82,7 +94,11 @@ final class ShareSession: NSObject {
   private let source: RTCVideoSource
   private let capturer: RTCVideoCapturer
   private let track: RTCVideoTrack
-  private var sized = false
+  private var pool: CVPixelBufferPool?
+  private var transfer: VTPixelTransferSession?
+  private var lastFrame = 0.0
+  private var frames = 0
+  private var lastReport = Date()
 
   private var pc: RTCPeerConnection?
   private var control: RTCDataChannel?
@@ -139,16 +155,15 @@ final class ShareSession: NSObject {
 
   /// One picture of the screen, from ReplayKit's thread.
   func push(_ sample: CMSampleBuffer) {
-    guard let pixels = CMSampleBufferGetImageBuffer(sample) else { return }
-    if !sized {
-      // Same shape as the screen (no cropping), smaller if it's big.
-      sized = true
-      let width = Double(CVPixelBufferGetWidth(pixels))
-      let height = Double(CVPixelBufferGetHeight(pixels))
-      let scale = min(1, (Self.maxPixels / max(1, width * height)).squareRoot())
-      let even = { (v: Double) in Int32(v * scale / 2) * 2 }
-      source.adaptOutputFormat(toWidth: even(width), height: even(height), fps: 30)
-    }
+    let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
+    // ReplayKit can send 60 a second; 30 is plenty and half the work.
+    guard time - lastFrame >= 0.9 / Self.fps, let screen = CMSampleBufferGetImageBuffer(sample) else { return }
+    lastFrame = time
+    // ReplayKit reuses its pictures' memory right away, so sending its own
+    // picture showed half of the next one while scrolling. Copy (and shrink)
+    // each one into our own first.
+    guard let pixels = ownCopy(of: screen) else { return }
+    frames += 1
     var rotation = RTCVideoRotation._0
     if let raw = CMGetAttachment(sample, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil) as? NSNumber,
        let orientation = CGImagePropertyOrientation(rawValue: raw.uint32Value) {
@@ -159,13 +174,41 @@ final class ShareSession: NSObject {
       default: break
       }
     }
-    let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
     let frame = RTCVideoFrame(
       buffer: RTCCVPixelBuffer(pixelBuffer: pixels),
       rotation: rotation,
       timeStampNs: Int64(time * 1_000_000_000)
     )
     source.capturer(capturer, didCapture: frame)
+  }
+
+  private func ownCopy(of screen: CVPixelBuffer) -> CVPixelBuffer? {
+    if pool == nil {
+      // Same shape as the screen (no cropping), smaller if it's big.
+      let width = Double(CVPixelBufferGetWidth(screen))
+      let height = Double(CVPixelBufferGetHeight(screen))
+      let scale = min(1, (Self.maxPixels / max(1, width * height)).squareRoot())
+      let even = { (v: Double) in Int(v * scale / 2) * 2 }
+      let attributes: [String: Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: CVPixelBufferGetPixelFormatType(screen),
+        kCVPixelBufferWidthKey as String: even(width),
+        kCVPixelBufferHeightKey as String: even(height),
+        kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+      ]
+      var made: CVPixelBufferPool?
+      CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &made)
+      var session: VTPixelTransferSession?
+      VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &session)
+      pool = made
+      transfer = session
+      source.adaptOutputFormat(toWidth: Int32(even(width)), height: Int32(even(height)), fps: Int32(Self.fps))
+      ShareLog.add("first picture \(Int(width))x\(Int(height)), sending \(even(width))x\(even(height))\(made == nil || session == nil ? " (copier failed)" : "")")
+    }
+    guard let pool, let transfer else { return nil }
+    var made: CVPixelBuffer?
+    guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &made) == kCVReturnSuccess, let out = made,
+          VTPixelTransferSessionTransferImage(transfer, from: screen, to: out) == noErr else { return nil }
+    return out
   }
 
   /// Mom stopped the broadcast (red bar or Control Center): tell the helper's
@@ -182,6 +225,11 @@ final class ShareSession: NSObject {
 
   private func tick() {
     guard !stopped else { return }
+    if Date().timeIntervalSince(lastReport) >= 10 {
+      lastReport = Date()
+      let memory = String(format: "%.1f", ShareLog.memoryMB())
+      ShareLog.add("\(frames) pictures so far, memory \(memory) MB, \(live ? "helper joined" : "waiting for helper"), \(connected ? "connected" : "not connected")")
+    }
     if !live && Date().timeIntervalSince1970 - request.createdAt / 1000 > Self.joinWindow {
       return stop(endShare: true, note: "Nobody opened your screen, so sharing stopped.")
     }
@@ -206,9 +254,11 @@ final class ShareSession: NSObject {
       case "live":
         if !live {
           live = true
+          ShareLog.add("helper joined (\(outbox.count) setup messages waiting)")
           flushOutbox()
         }
       case "ended":
+        ShareLog.add("share ended by \(doc.string("endedBy") == request.uid ? "this phone" : "the helper")")
         stop(endShare: false, note: "Your screen share ended.")
       default:
         break
@@ -242,6 +292,7 @@ final class ShareSession: NSObject {
       let newGen = String((payload["gen"] as? String ?? "").prefix(40))
       if !newGen.isEmpty && newGen != gen && reconnects < Self.maxReconnects {
         reconnects += 1
+        ShareLog.add("helper's page reloaded: new connection \(reconnects)")
         connect(newGen)
       }
       return
@@ -251,6 +302,7 @@ final class ShareSession: NSObject {
     if type == "answer", let sdp = payload["sdp"] as? String {
       pc.setRemoteDescription(RTCSessionDescription(type: .answer, sdp: sdp)) { [self] error in
         queue.async { [self] in
+          ShareLog.add(error.map { "helper's answer failed: \($0.localizedDescription)" } ?? "helper's answer applied")
           guard error == nil, pc === self.pc else { return }
           remoteSet = true
           pending.forEach { pc.add($0) { _ in } }
@@ -299,7 +351,11 @@ final class ShareSession: NSObject {
     config.iceCandidatePoolSize = 2
     let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     let made: RTCPeerConnection? = Self.factory.peerConnection(with: config, constraints: constraints, delegate: self)
-    guard let pc = made else { return }
+    guard let pc = made else {
+      ShareLog.add("couldn't make a connection")
+      return
+    }
+    ShareLog.add("connection \(newGen.prefix(8)) made")
     self.pc = pc
 
     let added: RTCRtpSender? = pc.add(track, streamIds: ["screen"])
@@ -318,7 +374,8 @@ final class ShareSession: NSObject {
     fast = pc.dataChannel(forLabel: "fast", configuration: unreliable)
     fast?.delegate = self
 
-    pc.offer(for: constraints) { [weak self] offer, _ in
+    pc.offer(for: constraints) { [weak self] offer, error in
+      if let error { ShareLog.add("offer failed: \(error.localizedDescription)") }
       guard let self, let offer else { return }
       self.queue.async {
         guard pc === self.pc else { return }
@@ -347,6 +404,7 @@ final class ShareSession: NSObject {
   private func stop(endShare: Bool, note: String?, then: (() -> Void)? = nil) {
     guard !stopped else { then?(); return }
     stopped = true
+    ShareLog.add("stopping: \(note ?? "Mom stopped the broadcast") (\(frames) pictures, memory \(String(format: "%.1f", ShareLog.memoryMB())) MB)")
     timer?.cancel()
     timer = nil
     closeConnection()
@@ -358,6 +416,19 @@ final class ShareSession: NSObject {
       store.update(sharePath, ["status": "ended", "endedBy": request.uid], timeField: "endedAt") { _ in finish() }
     } else {
       finish()
+    }
+  }
+
+  private static func name(_ state: RTCIceConnectionState) -> String {
+    switch state {
+    case .new: return "new"
+    case .checking: return "checking"
+    case .connected: return "connected"
+    case .completed: return "completed"
+    case .failed: return "failed"
+    case .disconnected: return "disconnected"
+    case .closed: return "closed"
+    default: return "other"
     }
   }
 
@@ -381,6 +452,7 @@ extension ShareSession: RTCPeerConnectionDelegate {
   func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
     queue.async { [self] in
       guard peerConnection === pc else { return }
+      ShareLog.add("connection: \(Self.name(newState))")
       connected = newState == .connected || newState == .completed
     }
   }

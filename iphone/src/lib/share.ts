@@ -7,6 +7,7 @@ import { useSyncExternalStore } from 'react';
 
 import { auth, call, db, firebaseConfig } from './firebase';
 import { firstName } from './family';
+import { APP_GROUP, log } from './log';
 
 // Shows this iPhone's screen to the helper's watch page (web/src/watch.js).
 // The app makes the share and hands it to Apple's broadcast add-on
@@ -15,7 +16,6 @@ import { firstName } from './family';
 // other apps (iOS pauses this app then). The share starts only from Mom's
 // own tap and Apple's Start Broadcast.
 
-const APP_GROUP = 'group.com.amethos.mytechkid';
 const JOIN_WINDOW_MS = 10 * 60 * 1000;
 const ICE_WAIT_MS = 4000;
 const STUN_ONLY = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
@@ -46,6 +46,7 @@ let joinTimer: ReturnType<typeof setTimeout> | null = null;
  * it's ready: the caller then shows Apple's sheet, where Mom taps Start Broadcast.
  */
 export async function startShare(opts: { uid: string; circleId: string; myName: string }): Promise<boolean> {
+  log(`Share my screen tapped (state: ${shareState.status})`);
   if (shareState.status !== 'off') return shareState.status !== 'starting';
   setShare({ status: 'starting', watcher: null, error: null });
   try {
@@ -60,6 +61,7 @@ export async function startShare(opts: { uid: string; circleId: string; myName: 
       createdAt: serverTimestamp(),
     });
     ref = share;
+    log(`share ${share.id.slice(0, 6)} made`);
     // A fresh sign-in for the add-on, good for the whole share; it refreshes
     // it itself if the share runs long.
     const [token, iceServers] = await Promise.all([user.getIdTokenResult(true), relayPass(circleId, share.id)]);
@@ -75,17 +77,27 @@ export async function startShare(opts: { uid: string; circleId: string; myName: 
       createdAt: Date.now(),
       iceServers,
     }));
+    log(`handed to the broadcast add-on (${iceServers.length} relay entries)`);
     setShare({ status: 'waiting' });
     unsub = onSnapshot(share, (snap) => {
       const status = snap.get('status');
+      log(`share is ${status}`);
       if (status === 'live') setShare({ status: 'live', watcher: firstName((snap.get('helperName') as string) || 'Your family') });
       else if (status === 'ended') reset();
+    }, (err) => {
+      log(`share listener error: ${err.code}`);
+      reset();
     });
     // Mom never tapped Start Broadcast, or nobody came: the add-on can't see it then.
-    joinTimer = setTimeout(() => { if (shareState.status === 'waiting') stopShare(); }, JOIN_WINDOW_MS);
+    joinTimer = setTimeout(() => {
+      if (shareState.status !== 'waiting') return;
+      log('nobody joined in 10 minutes');
+      stopShare();
+    }, JOIN_WINDOW_MS);
     return true;
   } catch (err) {
     console.warn('screen share', err);
+    log(`couldn't start: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
     stopShare();
     setShare({ error: "Couldn't start sharing. Try again." });
     return false;
@@ -94,6 +106,7 @@ export async function startShare(opts: { uid: string; circleId: string; myName: 
 
 /** Ends the share. The add-on sees it and Apple's red bar goes away. */
 export function stopShare() {
+  log('stopping the share');
   if (ref) {
     const uid = auth.currentUser?.uid;
     updateDoc(ref, { status: 'ended', endedBy: uid, endedAt: serverTimestamp() }).catch(() => {});

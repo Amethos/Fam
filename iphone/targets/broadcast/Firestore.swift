@@ -112,9 +112,15 @@ final class Firestore {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
       }
-      http.dataTask(with: request) { data, response, _ in
-        let ok = ((response as? HTTPURLResponse)?.statusCode).map { (200..<300).contains($0) } ?? false
+      http.dataTask(with: request) { data, response, error in
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let ok = (200..<300).contains(code)
         let json = ok ? data.flatMap { try? JSONSerialization.jsonObject(with: $0) } : nil
+        if !ok {
+          // Firestore's own error text (no sign-in in it), for the share diary.
+          let detail = error?.localizedDescription ?? data.flatMap { String(data: $0.prefix(200), encoding: .utf8) } ?? ""
+          ShareLog.add("Firestore \(method) \(path.split(separator: "/").suffix(2).joined(separator: "/")) failed \(code): \(detail)")
+        }
         self.queue.async { done(json) }
       }.resume()
     }
@@ -138,6 +144,7 @@ final class Firestore {
     http.dataTask(with: request) { data, _, _ in
       let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
       self.queue.async {
+        ShareLog.add(json?["id_token"] is String ? "sign-in refreshed" : "sign-in refresh failed")
         if let token = json?["id_token"] as? String {
           self.idToken = token
           let seconds = Double(json?["expires_in"] as? String ?? "") ?? 3600

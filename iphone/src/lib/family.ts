@@ -117,6 +117,8 @@ function watchCircle(circleId: string | null) {
     const members = (snap.get('members') ?? {}) as Record<string, { name?: string }>;
     const helperIds = (snap.get('helperIds') ?? []) as string[];
     set({ helperNames: helperIds.map((id) => members[id]?.name).filter((n): n is string => !!n).map(firstName) });
+  }, () => {
+    // No longer in this family (a helper removed this phone): the user listener handles it.
   });
 }
 
@@ -168,6 +170,8 @@ function watchInvite(invite: Invite) {
     const status = snap.get('status');
     if (status === 'cancelled') set({ screen: { kind: 'welcome', note: 'Your family stopped this invite. Ask them to send a new one.' } });
     if (status === 'expired') set({ screen: { kind: 'welcome', note: 'This invite expired. Ask your family to send a new one.' } });
+  }, () => {
+    // Once linked, the invite is no longer readable; it isn't needed then.
   });
 }
 
