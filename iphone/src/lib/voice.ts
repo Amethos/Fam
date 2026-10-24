@@ -4,6 +4,8 @@ import {
 } from 'expo-audio';
 import { File } from 'expo-file-system';
 
+import { log } from './log';
+
 // "Tell Josh what's wrong": a short voice message for her helper, the same
 // as VoiceNote.kt on Android. Small AAC (audio/mp4) so a minute fits well
 // under the 400 KB firestore.rules allow. The microphone is on only while
@@ -25,25 +27,32 @@ export async function micAllowed(): Promise<boolean> {
   }
 }
 
+// Small AAC: about 4 KB a second, so a minute is about 240 KB.
+const OPTIONS = {
+  extension: '.m4a',
+  sampleRate: 22050,
+  numberOfChannels: 1,
+  bitRate: 32000,
+  isMeteringEnabled: true,
+  android: { outputFormat: 'mpeg4', audioEncoder: 'aac' },
+  ios: {
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MEDIUM,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {},
+} as const;
+
 export async function startRecording() {
   cancelRecording();
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-  const r = new AudioModule.AudioRecorder({
-    extension: '.m4a',
-    sampleRate: 22050,
-    numberOfChannels: 1,
-    bitRate: 32000,
-    isMeteringEnabled: true,
-    android: { outputFormat: 'mpeg4', audioEncoder: 'aac' },
-    ios: {
-      outputFormat: IOSOutputFormat.MPEG4AAC,
-      audioQuality: AudioQuality.MEDIUM,
-      linearPCMBitDepth: 16,
-      linearPCMIsBigEndian: false,
-      linearPCMIsFloat: false,
-    },
-  });
-  await r.prepareToRecordAsync();
+  // The recorder itself takes the iPhone's settings at the top level (what
+  // useAudioRecorder does); prepareToRecordAsync flattens them itself.
+  const { android: _android, ios, web: _web, ...common } = OPTIONS;
+  const r = new AudioModule.AudioRecorder({ ...common, ...ios });
+  await r.prepareToRecordAsync(OPTIONS);
   r.record();
   recorder = r;
 }
@@ -65,16 +74,17 @@ export async function stopRecording(): Promise<Recording | null> {
   const length = (r.getStatus().durationMillis ?? 0) / 1000;
   try {
     await r.stop();
-    await setAudioModeAsync({ allowsRecording: false });
-    if (!r.uri) return null;
-    const file = new File(r.uri);
+    const uri = r.uri;
+    if (!uri) return null;
+    const file = new File(uri);
     const bytes = await file.bytes();
-    file.delete();
+    forget(file);
     return { bytes, seconds: Math.min(Math.max(length, 1), MAX_TALK_SECONDS) };
-  } catch {
+  } catch (err) {
+    log(`voice message didn't save: ${String((err as Error)?.message ?? err).slice(0, 120)}`);
     return null;
   } finally {
-    r.release();
+    setAudioModeAsync({ allowsRecording: false }).catch(() => {});
   }
 }
 
@@ -84,8 +94,15 @@ export function cancelRecording() {
   recorder = null;
   if (!r) return;
   r.stop()
-    .then(() => { if (r.uri) new File(r.uri).delete(); })
+    .then(() => { if (r.uri) forget(new File(r.uri)); })
     .catch(() => {})
-    .finally(() => r.release());
-  setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    .finally(() => setAudioModeAsync({ allowsRecording: false }).catch(() => {}));
+}
+
+function forget(file: File) {
+  try {
+    if (file.exists) file.delete();
+  } catch {
+    // The phone clears its cache folder by itself too.
+  }
 }
