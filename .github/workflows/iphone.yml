@@ -25,6 +25,8 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - name: Check setup
+        # Runs before checkout, when the iphone folder doesn't exist yet.
+        working-directory: .
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
             echo "::error::Add the EXPO_TOKEN secret first (iphone/README.md)."
