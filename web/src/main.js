@@ -335,7 +335,7 @@ const STORY = [
   },
   {
     final: true,
-    title: "Now you're one tap away.",
+    title: "One tap on their phone. You're there to help.",
     body: "They get one big button. You get the alert, wherever you are. They can ask \"Is this a scam?\" before tapping anything. And only people you link can ever connect.",
   },
 ];
@@ -347,8 +347,9 @@ const canAlert = () => typeof Notification !== "undefined" && "serviceWorker" in
 
 function viewRole() {
   return `<div class="brand">${LOGO}</div>
-    <h1>Who are you?</h1>
-    <p class="muted">My Tech Kid connects someone who wants a hand with their phone to a person they trust.</p>
+    <h1>One tap on their phone. You're there to help.</h1>
+    <p class="muted">They press one big button. Your phone lights up wherever you are, and you help them right away. Only people you link can connect.</p>
+    <h2>Who are you?</h2>
     ${Object.entries(ROLES).map(([key, r]) => `
       <button class="choice" data-action="role" data-role="${key}"><strong>${r.title}</strong><span>${r.note}</span></button>`).join("")}
     <button class="secondary small" data-action="role-signin">I already have an account</button>`;
@@ -369,7 +370,7 @@ function viewGettingHelp() {
       <p class="muted">If you have an Android phone, open this page on it. Or send this page to the person who helps you with tech.</p>
       <button class="secondary" data-action="share-site">Send this page to someone</button></div>`;
   return `<div class="brand">${LOGO}</div>
-    <h1>Let's get you some help</h1>
+    <h1>Press one button. Your family helps with your phone.</h1>
     <p class="muted">You'll get one big button that reaches someone you trust, plus an "Is this a scam?" button.</p>
     ${steps}
     <div class="alert blue"><p><strong>Only connect with people you know.</strong> Banks, Samsung, Google, Microsoft and the police will never ask you to use this app.</p></div>
